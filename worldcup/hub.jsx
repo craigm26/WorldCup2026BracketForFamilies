@@ -399,6 +399,18 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
       </div>
 
       <div style={card}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 12 }}>📅 Calendar &amp; screen</div>
+        <button onClick={() => window.wcICS && window.wcICS("all")} style={{ border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>📅 Add the whole schedule to my calendar (.ics)</button>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 16 }}>
+          <Toggle on={settings.screensaver !== false} onClick={() => setSetting("screensaver", settings.screensaver === false)} />
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Screensaver when idle</div>
+            <div style={{ fontSize: 13.5, color: "#cdd9ff", lineHeight: 1.45 }}>After a couple of minutes untouched, the TV cycles the countdown, fun facts and upcoming games. Touch anything to wake it.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={card}>
         <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 8 }}>🧹 Start over</div>
         <div style={{ fontSize: 13.5, color: "#cdd9ff", marginBottom: 12 }}>Clears every score and bracket pick on this device. Your settings above stay.</div>
         <button onClick={onReset} style={{ border: "none", cursor: "pointer", background: "#e2473b", color: "#fff", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>↺ Reset scores &amp; bracket</button>
@@ -410,7 +422,7 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
 }
 
 function HubApp() {
-  const { store, brackets, setResult, setPick, reset, players, addPlayer, switchPlayer, removePlayer } = useHubStore();
+  const { store, brackets, setResult, setPick, reset, players, addPlayer, switchPlayer, removePlayer, importPlayer } = useHubStore();
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const demo = params.get("demo") === "1";
   const demoData = React.useMemo(() => (demo && window.buildDemo ? window.buildDemo() : null), [demo]);
@@ -463,6 +475,23 @@ function HubApp() {
     if (demo || !settings.autoBracket || scoreMode === "manual") return;
     autofillR32();
   }, [resultsKey, settings.autoBracket, scoreMode, demo]);
+
+  // shared-bracket import (?b=...)
+  const shareParam = params.get("b");
+  const sharedBracket = React.useMemo(() => (shareParam && window.wcShare ? window.wcShare.decode(shareParam) : null), [shareParam]);
+  const [importDismissed, setImportDismissed] = React.useState(false);
+
+  // idle "attract mode" screensaver
+  const forceSaver = params.get("screensaver") === "show";
+  const [idle, setIdle] = React.useState(false);
+  React.useEffect(() => {
+    if (settings.screensaver === false) { setIdle(false); return; }
+    let t; const wake = () => { setIdle(false); clearTimeout(t); t = setTimeout(() => setIdle(true), 90000); };
+    const evs = ["mousemove", "keydown", "touchstart", "click", "wheel"];
+    evs.forEach((e) => window.addEventListener(e, wake, { passive: true }));
+    wake();
+    return () => { clearTimeout(t); evs.forEach((e) => window.removeEventListener(e, wake)); };
+  }, [settings.screensaver]);
   React.useEffect(() => {
     const h = (e) => {
       if (e.target && /^(SELECT|INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
@@ -497,6 +526,13 @@ function HubApp() {
         )}
         <button onClick={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} style={{ border: "none", cursor: "pointer", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, background: "rgba(255,255,255,.08)", color: "#9fb0e0" }}>↺ Reset</button>
       </header>
+      {sharedBracket && !importDismissed && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 26px", background: "rgba(52,199,123,.18)", borderBottom: "2px solid #34c77b", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 14, color: "#bdf0d3", fontWeight: 600 }}>📥 Someone shared a bracket ({Object.keys(sharedBracket).length} picks).</span>
+          <button onClick={() => { importPlayer("Shared", "📥", sharedBracket); setTab("bracket"); setImportDismissed(true); }} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 10, padding: "8px 16px" }}>Save as a player</button>
+          <button onClick={() => setImportDismissed(true)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 10, padding: "8px 12px" }}>Dismiss</button>
+        </div>
+      )}
       <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
         {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} />}
         {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} />}
@@ -512,6 +548,7 @@ function HubApp() {
         <span style={{ color: "#8c9bd0" }}>Published by Craig Merry · Designed with Anthropic Claude Design</span>
         <span>pi-nas.local/worldcup</span>
       </footer>
+      {((idle && settings.screensaver !== false) || forceSaver) && <Screensaver tz={tz} onWake={() => setIdle(false)} />}
     </div>
   );
 }

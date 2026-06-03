@@ -92,7 +92,54 @@ window.useHubStore = function () {
   const addPlayer = (name, emoji) => { const id = "p" + Date.now(); setBrackets((b) => Object.assign({}, b, { [id]: {} })); setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "🙂" }]), active: id })); };
   const switchPlayer = (id) => setPlayers((p) => Object.assign({}, p, { active: id }));
   const removePlayer = (id) => setPlayers((p) => { if (p.list.length <= 1) return p; try { localStorage.removeItem(bkey(id)); } catch (e) {} const list = p.list.filter((x) => x.id !== id); return { list: list, active: p.active === id ? list[0].id : p.active }; });
-  return { store: { results: results, bracket: bracket }, brackets: brackets, setResult: setResult, setPick: setPick, reset: reset, players: players, addPlayer: addPlayer, switchPlayer: switchPlayer, removePlayer: removePlayer };
+  const importPlayer = (name, emoji, bracketObj) => { const id = "p" + Date.now(); setBrackets((b) => Object.assign({}, b, { [id]: bracketObj || {} })); setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "📥" }]), active: id })); };
+  return { store: { results: results, bracket: bracket }, brackets: brackets, setResult: setResult, setPick: setPick, reset: reset, players: players, addPlayer: addPlayer, switchPlayer: switchPlayer, removePlayer: removePlayer, importPlayer: importPlayer };
+};
+
+/* ---- Share a bracket as a compact URL (no backend): one char per slot ---- */
+window.wcShare = (function () {
+  const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
+  function slots() {
+    const out = [];
+    ["L", "R"].forEach((side) => { [["R32", 8], ["R16", 4], ["QF", 2], ["SF", 1]].forEach((rn) => { for (let i = 0; i < rn[1]; i++) { out.push(side + rn[0] + "-" + i + "-0"); out.push(side + rn[0] + "-" + i + "-1"); } }); });
+    out.push("CHAMP");
+    return out;
+  }
+  function encode(bracket) {
+    const codes = Object.keys(window.WC.T); const idx = {}; codes.forEach((c, i) => { idx[c] = i; });
+    return slots().map((s) => { const t = bracket && bracket[s]; return (t != null && idx[t] != null) ? ALPHA[idx[t]] : "_"; }).join("");
+  }
+  function decode(str) {
+    const SL = slots(); if (!str || str.length !== SL.length) return null;
+    const codes = Object.keys(window.WC.T); const out = {};
+    for (let i = 0; i < str.length; i++) { const ch = str[i]; if (ch !== "_") { const k = ALPHA.indexOf(ch); if (k >= 0 && codes[k]) out[SL[i]] = codes[k]; } }
+    return out;
+  }
+  return { encode: encode, decode: decode };
+})();
+
+/* ---- Download an .ics calendar (whole tournament, or one team's group games) ---- */
+window.wcICS = function (scope) {
+  const WC = window.WC, WCTZ = window.WCTZ;
+  const all = WCTZ.matches();
+  let evs = all, calname = "World Cup 2026";
+  if (scope && scope !== "all") { evs = all.filter((m) => m.type === "group" && (m.home === scope || m.away === scope)); calname = WC.T[scope].n + " · World Cup 2026"; }
+  const pad = (n) => (n < 10 ? "0" : "") + n;
+  const dt = (d) => d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + "T" + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + "00Z";
+  const esc = (s) => String(s).replace(/([,;\\])/g, "\\$1").replace(/\n/g, " ");
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//World Cup 2026 Family Hub//EN", "CALSCALE:GREGORIAN", "X-WR-CALNAME:" + esc(calname)];
+  evs.forEach((m) => {
+    const title = m.type === "group" ? WC.T[m.home].n + " v " + WC.T[m.away].n : "M" + m.no + " " + m.round + " — " + WC.feeder(m.top, true) + " v " + WC.feeder(m.bottom, true);
+    const end = new Date(m.dt.getTime() + 115 * 60000);
+    lines.push("BEGIN:VEVENT", "UID:wc2026-" + (m.type === "group" ? m.g + m.idx : "ko" + m.no) + "@familyhub", "DTSTAMP:" + dt(new Date()), "DTSTART:" + dt(m.dt), "DTEND:" + dt(end), "SUMMARY:" + esc("⚽ " + title), "LOCATION:" + esc(m.city), "DESCRIPTION:" + esc("World Cup 2026 · times shown are the typical Eastern kick-off windows — confirm locally."), "END:VEVENT");
+  });
+  lines.push("END:VCALENDAR");
+  try {
+    const blob = new Blob([lines.join("\r\n")], { type: "text/calendar" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = (scope && scope !== "all" ? WC.T[scope].n.replace(/\W+/g, "") + "-" : "") + "worldcup2026.ics";
+    document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 100);
+  } catch (e) {}
 };
 
 /* ---- Family Pick'em leaderboard: how many of the 32 actual qualifiers did each

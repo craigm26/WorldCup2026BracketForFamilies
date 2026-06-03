@@ -52,6 +52,8 @@ The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV
 
 > **Family Pick'em:** add a player for each family member (Mom, Dad, each kid), and everyone keeps their own bracket. The Home leaderboard scores how many of the 32 qualifiers each person predicted — a friendly, spoiler-safe family competition that updates as real results come in.
 
+> **Plus:** ⏰ an idle **screensaver / attract mode** (countdown, flags, facts & upcoming games — touch to wake); 📅 **add-to-calendar** (`.ics`) for the whole schedule or just your team's games; and 📤 **share your bracket by QR** — scan to open someone's exact picks on a phone. A kiosk can boot straight into auto-scores with `?scoremode=full`.
+
 | Home — countdown & Pick'em | Bracket — with feeders | Map & Facts |
 |---|---|---|
 | ![hub home](screenshots/hub-home.png) | ![hub bracket](screenshots/hub-bracket.png) | ![hub facts](screenshots/hub-facts.png) |

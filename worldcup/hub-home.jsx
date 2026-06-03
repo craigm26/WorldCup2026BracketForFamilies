@@ -134,6 +134,7 @@ function HomeTab({ tz, fav, results, players, brackets, switchPlayer, addPlayer,
                   <div style={{ fontSize: 13, color: "#9fb0e0" }}>Next: v {WC.T[m.home === code ? m.away : m.home].n} · {k.icon} {k.weekday} {k.time} · 📍 {m.city}</div>
                 </div>
                 <div style={{ fontSize: 13, color: "#dfe6ff", textAlign: "right", flex: "none" }}>Group {m.g}<br />{st ? st.pts + " pts" : ""}</div>
+                <button onClick={() => window.wcICS && window.wcICS(code)} title="Add this team's games to your calendar" style={{ border: "none", cursor: "pointer", background: "rgba(244,183,64,.2)", color: "#f4b740", borderRadius: 10, padding: "8px 11px", fontWeight: 700, fontSize: 14, flex: "none" }}>📅</button>
               </div>
             );
           })}

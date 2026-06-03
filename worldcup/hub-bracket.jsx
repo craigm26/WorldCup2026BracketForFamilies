@@ -69,6 +69,7 @@ function HubColumn({ side, round, n, header, store, onOpen, alignRight }) {
 
 function BracketTab({ store, setPick }) {
   const [picking, setPicking] = React.useState(null);
+  const [sharing, setSharing] = React.useState(false);
   const onOpen = (id) => setPicking(id);
   const Conn = window.Connector;
   const champ = store.bracket["CHAMP"];
@@ -77,7 +78,8 @@ function BracketTab({ store, setPick }) {
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 10 }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: "#f4b740" }}>Tap a slot to fill the bracket</div>
-        <button onClick={() => setPicking("CHAMP")} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, background: "#f4b740", color: "#16235a", border: "none", borderRadius: 12, padding: "8px 16px", fontWeight: 700, fontSize: 15, cursor: "pointer", whiteSpace: "nowrap" }}>
+        <button onClick={() => setSharing(true)} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 12, padding: "8px 14px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>📤 Share</button>
+        <button onClick={() => setPicking("CHAMP")} style={{ display: "flex", alignItems: "center", gap: 8, background: "#f4b740", color: "#16235a", border: "none", borderRadius: 12, padding: "8px 16px", fontWeight: 700, fontSize: 15, cursor: "pointer", whiteSpace: "nowrap" }}>
           🏆 Champion: {champ ? WC.T[champ].n : "pick"}
         </button>
       </div>
@@ -110,6 +112,7 @@ function BracketTab({ store, setPick }) {
         </div>
       </div>
       {picking && <TeamPicker onPick={(k) => { setPick(picking, k); setPicking(null); }} onClose={() => setPicking(null)} />}
+      {sharing && window.ShareModal && <ShareModal url={location.origin + location.pathname + "?b=" + window.wcShare.encode(store.bracket) + "&tab=bracket"} onClose={() => setSharing(false)} />}
     </div>
   );
 }
