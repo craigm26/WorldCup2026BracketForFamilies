@@ -85,17 +85,26 @@ function GroupCard({ letter }) {
 }
 
 /* ---------- KNOCKOUT BRACKET ---------- */
-function Slot() {
-  return <div style={{ height: 26, border: "2px dashed #6f86c9", borderRadius: 6, background: "rgba(255,255,255,.08)" }}></div>;
-}
-function Match() {
+function Slot({ label }) {
   return (
-    <div style={{ width: 132, display: "flex", flexDirection: "column", gap: 5, background: "rgba(255,255,255,.06)", padding: 5, borderRadius: 9, border: "1px solid rgba(255,255,255,.12)" }}>
-      <Slot /><Slot />
+    <div style={{ height: 26, border: "2px dashed #6f86c9", borderRadius: 6, background: "rgba(255,255,255,.08)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+      {label && <span style={{ fontSize: 10.5, color: window.BW ? "#555" : "#9fb3e6", fontWeight: 600, whiteSpace: "nowrap" }}>{label}</span>}
     </div>
   );
 }
-function RoundColumn({ n, header, headerColor, alignRight }) {
+function Match({ side, round, idx }) {
+  const WC = window.WC;
+  const lay = ((WC.KO_LAYOUT || {})[side] || {})[round] || [];
+  const m = (WC.KO_M || {})[lay[idx]];
+  return (
+    <div style={{ width: 132, display: "flex", flexDirection: "column", gap: 3, background: "rgba(255,255,255,.06)", padding: 5, borderRadius: 9, border: "1px solid rgba(255,255,255,.12)" }}>
+      {m && <div style={{ fontSize: 8.5, color: window.BW ? "#555" : "#8fa0d0", textAlign: "center", lineHeight: 1, whiteSpace: "nowrap", overflow: "hidden" }}>M{m.no} · {m.date} · {m.city}</div>}
+      <Slot label={m ? WC.feeder(m.top, true) : null} />
+      <Slot label={m ? WC.feeder(m.bottom, true) : null} />
+    </div>
+  );
+}
+function RoundColumn({ n, header, headerColor, alignRight, side, round }) {
   const acc = (window.TWEAKS || {}).accent || GOLD;
   const hc = headerColor || acc;
   return (
@@ -104,7 +113,7 @@ function RoundColumn({ n, header, headerColor, alignRight }) {
         <span style={{ background: hc, color: NAVY2, fontWeight: 700, fontSize: 13, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap", boxShadow: "0 2px 0 rgba(0,0,0,.2)" }}>{header}</span>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-around", alignItems: alignRight ? "flex-end" : "flex-start" }}>
-        {Array.from({ length: n }).map((_, i) => <Match key={i} />)}
+        {Array.from({ length: n }).map((_, i) => <Match key={i} side={side} round={round} idx={i} />)}
       </div>
     </div>
   );
@@ -162,21 +171,21 @@ function ChampionFinal() {
 function Bracket() {
   return (
     <div style={{ display: "flex", justifyContent: "center", alignItems: "stretch", gap: 2, height: "100%" }}>
-      <RoundColumn n={8} header="Round of 32" />
+      <RoundColumn n={8} header="Round of 32" side="L" round="R32" />
       <Connector leaves={8} dir="lr" />
-      <RoundColumn n={4} header="Round of 16" />
+      <RoundColumn n={4} header="Round of 16" side="L" round="R16" />
       <Connector leaves={4} dir="lr" />
-      <RoundColumn n={2} header="Quarters" />
+      <RoundColumn n={2} header="Quarters" side="L" round="QF" />
       <Connector leaves={2} dir="lr" />
-      <RoundColumn n={1} header="Semi" />
+      <RoundColumn n={1} header="Semi" side="L" round="SF" />
       <ChampionFinal />
-      <RoundColumn n={1} header="Semi" alignRight />
+      <RoundColumn n={1} header="Semi" alignRight side="R" round="SF" />
       <Connector leaves={2} dir="rl" />
-      <RoundColumn n={2} header="Quarters" alignRight />
+      <RoundColumn n={2} header="Quarters" alignRight side="R" round="QF" />
       <Connector leaves={4} dir="rl" />
-      <RoundColumn n={4} header="Round of 16" alignRight />
+      <RoundColumn n={4} header="Round of 16" alignRight side="R" round="R16" />
       <Connector leaves={8} dir="rl" />
-      <RoundColumn n={8} header="Round of 32" alignRight />
+      <RoundColumn n={8} header="Round of 32" alignRight side="R" round="R32" />
     </div>
   );
 }

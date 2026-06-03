@@ -124,23 +124,23 @@
     const right = side === "right";
     const cols = right ? (
       <>
-        <RoundColumn n={1} header="Semi-final" alignRight />
+        <RoundColumn n={1} header="Semi-final" alignRight side="R" round="SF" />
         <Connector leaves={2} dir="rl" />
-        <RoundColumn n={2} header="Quarters" alignRight />
+        <RoundColumn n={2} header="Quarters" alignRight side="R" round="QF" />
         <Connector leaves={4} dir="rl" />
-        <RoundColumn n={4} header="Round of 16" alignRight />
+        <RoundColumn n={4} header="Round of 16" alignRight side="R" round="R16" />
         <Connector leaves={8} dir="rl" />
-        <RoundColumn n={8} header="Round of 32" alignRight />
+        <RoundColumn n={8} header="Round of 32" alignRight side="R" round="R32" />
       </>
     ) : (
       <>
-        <RoundColumn n={8} header="Round of 32" />
+        <RoundColumn n={8} header="Round of 32" side="L" round="R32" />
         <Connector leaves={8} dir="lr" />
-        <RoundColumn n={4} header="Round of 16" />
+        <RoundColumn n={4} header="Round of 16" side="L" round="R16" />
         <Connector leaves={4} dir="lr" />
-        <RoundColumn n={2} header="Quarters" />
+        <RoundColumn n={2} header="Quarters" side="L" round="QF" />
         <Connector leaves={2} dir="lr" />
-        <RoundColumn n={1} header="Semi-final" />
+        <RoundColumn n={1} header="Semi-final" side="L" round="SF" />
       </>
     );
     return (
