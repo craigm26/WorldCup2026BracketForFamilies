@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>World Cup 2026 — Cut-out Flags</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #cfd6e4; font-family: 'Fredoka', sans-serif; }
+  #app { padding: 24px 0 60px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .sheet {
+    width: 8.5in; min-height: 11in; background: #fff; padding: 0.45in 0.4in 0.4in; position: relative;
+    box-shadow: 0 8px 26px rgba(0,0,0,.2); display: flex; flex-direction: column;
+  }
+  .sheet-head { display: flex; align-items: baseline; gap: 10px; border-bottom: 3px solid #16235a; padding-bottom: 7px; margin-bottom: 12px; }
+  .sheet-head h1 { font-size: 20px; color: #16235a; margin: 0; font-weight: 700; }
+  .sheet-head .sub { font-size: 12px; color: #6b7280; font-weight: 500; }
+  .sheet-head .pg { margin-left: auto; font-size: 12px; color: #9aa2b4; font-weight: 600; }
+  .grp { margin-bottom: 10px; }
+  .grp-label { display: flex; align-items: center; gap: 7px; margin: 6px 0 7px; }
+  .grp-label .badge { width: 24px; height: 24px; border-radius: 7px; color: #fff; font-weight: 700; font-size: 14px; display: grid; place-items: center; }
+  .grp-label span.t { font-weight: 700; font-size: 14px; color: #16235a; white-space: nowrap; }
+  .row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+  .card {
+    border: 2px dashed #9aa2b4; border-radius: 10px; padding: 9px 6px 11px; text-align: center; min-height: 1.78in;
+    background: #fff; position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; justify-content: flex-start;
+  }
+  .card .sc { position: absolute; top: -9px; left: 8px; font-size: 12px; background: #fff; padding: 0 3px; color: #b5bccb; }
+  .card img { width: 1.55in; height: 1.03in; object-fit: cover; border: 3px solid #fff; border-radius: 5px; box-shadow: 0 1px 0 #c9d0de, 0 2px 6px rgba(0,0,0,.2); }
+  .card .nm { font-weight: 700; font-size: 13px; color: #1d2433; line-height: 1.05; }
+  .card .rk { font-size: 10px; color: #fff; border-radius: 20px; padding: 0 7px; font-weight: 700; }
+  #toolbar {
+    position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 8px; align-items: center;
+    background: rgba(15,31,77,.92); border-radius: 14px; padding: 8px 10px; color: #cfe0ff; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.35);
+  }
+  #toolbar button { font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; border: none; border-radius: 9px; padding: 7px 12px; background: #f4b740; color: #16235a; }
+  @media print {
+    html, body { background: #fff; }
+    #app { padding: 0; gap: 0; }
+    .sheet { box-shadow: none; page-break-after: always; }
+    #toolbar { display: none; }
+    @page { size: letter portrait; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toolbar">
+  <span>Print in <b style="color:#fff">color</b> · make lots of copies!</span>
+  <button onclick="window.print()">🖨 Print / Save PDF</button>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="data.js"></script>
+<script type="text/babel">
+  const WC = window.WC;
+  const COLORS = { A:"#e2473b",B:"#2f6fe0",C:"#1f9d57",D:"#f08a24",E:"#8a5cd1",F:"#13a8a8",G:"#e64f9b",H:"#d9a316",I:"#3f51c4",J:"#d8463c",K:"#1d77c9",L:"#2f9e4f" };
+
+  function Card({ k }) {
+    const t = WC.T[k];
+    return (
+      <div className="card">
+        <span className="sc">✂</span>
+        <img src={WC.F(t.c, 320)} alt={t.n} crossOrigin="anonymous" />
+        <div className="nm">{t.n}</div>
+      </div>
+    );
+  }
+  function GroupBlock({ g }) {
+    return (
+      <div className="grp">
+        <div className="grp-label">
+          <span className="badge" style={{ background: COLORS[g] }}>{g}</span>
+          <span className="t">Group {g}</span>
+        </div>
+        <div className="row">{WC.GROUPS[g].map((k) => <Card key={k} k={k} />)}</div>
+      </div>
+    );
+  }
+  function Sheet({ groups, page }) {
+    return (
+      <div className="sheet">
+        <div className="sheet-head">
+          <h1>✂ Cut-out Flags · World Cup 2026</h1>
+          <span className="sub">Print in color · cut along the dashed lines · move them around the bracket!</span>
+          <span className="pg">Sheet {page} / 4</span>
+        </div>
+        {groups.map((g) => <GroupBlock key={g} g={g} />)}
+      </div>
+    );
+  }
+  function App() {
+    const pages = [["A","B","C"],["D","E","F"],["G","H","I"],["J","K","L"]];
+    return <>{pages.map((gs, i) => <Sheet key={i} groups={gs} page={i + 1} />)}</>;
+  }
+  ReactDOM.createRoot(document.getElementById("app")).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "_comment": "TEMPLATE. The updater (update_scores.py) overwrites a real live-scores.json next to the Hub's index.html. home/away use the kit's 3-letter codes (see data.js T{}). status is free text shown on the standings/schedule (e.g. FT, HT, LIVE 70'). To enable live mode by hand, copy this file to live-scores.json.",
+  "updated": "2026-06-11T22:30:00Z",
+  "matches": [
+    { "home": "MEX", "away": "RSA", "hg": 2, "ag": 1, "status": "FT" },
+    { "home": "KOR", "away": "CZE", "hg": 1, "ag": 1, "status": "FT" }
+  ]
+}

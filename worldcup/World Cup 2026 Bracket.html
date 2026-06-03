@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>World Cup 2026 — Family Bracket Poster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0c1638; font-family: 'Fredoka', sans-serif; }
+  #stage { position: fixed; inset: 0; overflow: hidden; background: #0c1638; }
+  #poster {
+    width: 3600px; height: 2400px; position: absolute; top: 50%; left: 50%; overflow: hidden;
+    background: radial-gradient(circle at 18% 0%, #3a7bef 0%, #244fb5 42%, #15327f 78%, #0f2566 100%);
+    transform-origin: center center; transform: translate(-50%, -50%) scale(0.3);
+  }
+  .confetti { position: absolute; border-radius: 50%; }
+  @media print {
+    @page { size: 36in 24in; margin: 0; }
+    html, body { background: #fff; }
+    #stage { position: static; overflow: hidden; width: 36in; height: 24in; }
+    #poster { position: static; transform: scale(0.96) !important; transform-origin: top left; top: auto; left: auto; }
+    #toolbar { display: none !important; }
+  }
+  #toolbar {
+    position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 8px; align-items: center;
+    background: rgba(15,31,77,.92); border: 1px solid #2f4ea0; border-radius: 14px; padding: 8px 10px;
+    font-family: 'Fredoka', sans-serif; color: #cfe0ff; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.35);
+  }
+  #toolbar button { font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; border: none; border-radius: 9px; padding: 7px 12px; background: #f4b740; color: #16235a; }
+  #toolbar button:hover { background: #ffc955; }
+  /* Black & white (ink-saver) print mode: white sheet + grayscale art. */
+  #poster.bw { background: #fff !important; filter: grayscale(1); }
+</style>
+</head>
+<body>
+<div id="stage"><div id="poster"></div></div>
+<div id="tweaks-root"></div>
+<div id="toolbar">
+  <span>Poster size: <b style="color:#fff">36 × 24 in</b></span>
+  <button onclick="toggleBW()">⬛ Black &amp; white</button>
+  <button onclick="window.print()">🖨 Print / Save PDF</button>
+</div>
+<script>
+  function toggleBW(){ const u=new URL(location.href); if(u.searchParams.get('bw')==='1') u.searchParams.delete('bw'); else u.searchParams.set('bw','1'); location.href=u.toString(); }
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+
+<script src="data.js"></script>
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="poster-map.jsx"></script>
+<script type="text/babel" src="poster-parts.jsx"></script>
+<script type="text/babel" src="poster-panels.jsx"></script>
+<script type="text/babel" src="poster-app.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+  window.BW = new URLSearchParams(location.search).get('bw') === '1';
+  const THEMES = {
+    "Stadium Blue": "radial-gradient(circle at 18% 0%, #3a7bef 0%, #244fb5 42%, #15327f 78%, #0f2566 100%)",
+    "Grass Green":  "radial-gradient(circle at 18% 0%, #3fae5e 0%, #1f8a4d 42%, #136b3a 78%, #0c4f2b 100%)",
+    "Sunset":       "radial-gradient(circle at 18% 0%, #ff9a3d 0%, #e2473b 45%, #a8326a 80%, #5e2b6b 100%)",
+    "Berry":        "radial-gradient(circle at 18% 0%, #9a6ce0 0%, #6a3fb0 45%, #4a2b80 80%, #2e1b55 100%)",
+  };
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "theme": "Stadium Blue",
+    "accent": "#f4b740",
+    "titleText": "Family Bracket",
+    "nasUrl": "http:\/\/pi-nas.local\/worldcup",
+    "showSchedule": true,
+    "showMap": true,
+    "showFacts": true,
+    "confetti": true
+  }/*EDITMODE-END*/;
+
+  // expose defaults immediately so the first Poster render is correct
+  window.TWEAKS = Object.assign({}, TWEAK_DEFAULTS);
+
+  const posterRoot = ReactDOM.createRoot(document.getElementById("poster"));
+  window.renderPoster = () => posterRoot.render(<Poster />);
+  window.renderPoster();
+  if (window.BW) { const pe = document.getElementById("poster"); if (pe) pe.classList.add("bw"); }
+
+  function applyTheme(t) {
+    const p = document.getElementById("poster");
+    if (p) p.style.background = THEMES[t.theme] || THEMES["Stadium Blue"];
+  }
+
+  function TweaksRoot() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    React.useEffect(() => { window.TWEAKS = t; applyTheme(t); window.renderPoster(); });
+    return (
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Look" />
+        <TweakSelect label="Background" value={t.theme} options={Object.keys(THEMES)} onChange={(v) => setTweak("theme", v)} />
+        <TweakColor label="Accent" value={t.accent} options={["#f4b740", "#e2473b", "#13a8a8", "#2f6fe0"]} onChange={(v) => setTweak("accent", v)} />
+        <TweakSection label="Heading" />
+        <TweakText label="Tagline" value={t.titleText} onChange={(v) => setTweak("titleText", v)} />
+        <TweakText label="QR / NAS link" value={t.nasUrl} onChange={(v) => setTweak("nasUrl", v)} />
+        <TweakSection label="Show / hide" />
+        <TweakToggle label="Match schedule" value={t.showSchedule} onChange={(v) => setTweak("showSchedule", v)} />
+        <TweakToggle label="Stadium map" value={t.showMap} onChange={(v) => setTweak("showMap", v)} />
+        <TweakToggle label="Fun facts" value={t.showFacts} onChange={(v) => setTweak("showFacts", v)} />
+        <TweakToggle label="Confetti" value={t.confetti} onChange={(v) => setTweak("confetti", v)} />
+      </TweaksPanel>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("tweaks-root")).render(<TweaksRoot />);
+
+  // scale poster to fit the viewport (letterboxed), like a slide
+  function fit() {
+    const p = document.getElementById("poster");
+    const pad = 24;
+    const s = Math.min((window.innerWidth - pad) / 3600, (window.innerHeight - pad) / 2400);
+    p.style.transform = `translate(-50%, -50%) scale(${s})`;
+  }
+  window.addEventListener("resize", fit);
+  setTimeout(fit, 60); setTimeout(fit, 400);
+</script>
+</body>
+</html>

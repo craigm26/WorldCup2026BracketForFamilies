@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>World Cup 2026 Bracket — Print at Home Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #cfd6e4; font-family: 'Fredoka', sans-serif; }
+  #app { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 22px 0 70px; }
+  .page {
+    width: 11in; height: 8.5in; background: radial-gradient(circle at 18% 0%, #3a7bef 0%, #244fb5 45%, #15327f 82%, #0f2566 100%);
+    box-shadow: 0 8px 26px rgba(0,0,0,.22); position: relative; overflow: hidden; padding: 0.32in 0.36in; color: #fff;
+    display: flex; flex-direction: column;
+  }
+  .pagenum { position: absolute; right: 0.28in; bottom: 0.2in; font-size: 11px; color: rgba(255,255,255,.5); font-weight: 600; }
+  .ph { font-weight: 700; font-size: 24px; color: #fff; }
+  .ph .y { color: #f4b740; }
+  .confetti { position: absolute; border-radius: 50%; }
+  #toolbar {
+    position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 8px; align-items: center;
+    background: rgba(15,31,77,.92); border-radius: 14px; padding: 8px 10px; color: #cfe0ff; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.35);
+  }
+  #toolbar button { font-family: inherit; font-weight: 600; font-size: 13px; cursor: pointer; border: none; border-radius: 9px; padding: 7px 12px; background: #f4b740; color: #16235a; }
+  /* Black & white (ink-saver): white pages + grayscale art + dark text. */
+  body.bw .page { background: #fff !important; filter: grayscale(1); color: #1a1a1a; }
+  body.bw .ph, body.bw .ph .y, body.bw .pagenum { color: #1a1a1a !important; }
+  @media print {
+    html, body { background: #fff; }
+    #app { padding: 0; gap: 0; }
+    .page { box-shadow: none; page-break-after: always; }
+    #toolbar { display: none; }
+    @page { size: letter landscape; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toolbar">
+  <span>Kit · 11 pages · landscape</span>
+  <button onclick="toggleBW()">⬛ Black &amp; white</button>
+  <button onclick="window.print()">🖨 Print / Save PDF</button>
+</div>
+<script>
+  function toggleBW(){ const u=new URL(location.href); if(u.searchParams.get('bw')==='1') u.searchParams.delete('bw'); else u.searchParams.set('bw','1'); location.href=u.toString(); }
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+<script src="data.js"></script>
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="poster-map.jsx"></script>
+<script type="text/babel" src="poster-parts.jsx"></script>
+<script type="text/babel" src="poster-panels.jsx"></script>
+<script type="text/babel">
+  window.BW = new URLSearchParams(location.search).get('bw') === '1';
+  if (window.BW) document.body.classList.add('bw');
+  const GOLD = "#f4b740", NAVY = "#16235a";
+
+  function Page({ title, n, children, scroll }) {
+    return (
+      <div className="page">
+        {[["#f4b740",10,"3%","8%"],["#e2473b",12,"95%","6%"],["#34c77b",9,"96%","90%"],["#7fd0ff",9,"4%","92%"]].map((d,i)=>(
+          <span key={i} className="confetti" style={{ width:d[1],height:d[1],background:d[0],left:d[2],top:d[3],opacity:.6 }}></span>
+        ))}
+        {title && <div className="ph" style={{ marginBottom: 10 }}>{title}</div>}
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>{children}</div>
+        {n && <div className="pagenum">{n} / 11</div>}
+      </div>
+    );
+  }
+
+  // page 1 — cover / how to play
+  function CoverPage() {
+    return (
+      <Page n="1">
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
+          <div style={{ fontWeight: 700, fontSize: 58, lineHeight: .9, textShadow: window.BW ? "none" : "0 4px 0 #0d1f57" }}>WORLD CUP <span className="y" style={{ color: window.BW ? "#1a1a1a" : GOLD }}>2026</span></div>
+          <div style={{ fontWeight: 600, fontSize: 20, color: window.BW ? "#333" : "#cfe0ff" }}>🇨🇦 Canada · 🇲🇽 Mexico · 🇺🇸 USA · Family Bracket · June 11 – July 19</div>
+        </div>
+        <div style={{ display: "flex", gap: 14, flex: 1, minHeight: 0 }}>
+          <div style={{ flex: "1.1 1 0", display: "flex" }}><HowToPlayPanel /></div>
+          <div style={{ flex: "1 1 0", display: "flex" }}><TiebreakPanel /></div>
+        </div>
+        <div style={{ marginTop: 10, background: window.BW ? "#f1f1f1" : "rgba(255,255,255,.1)", borderRadius: 12, padding: "8px 12px", fontSize: 13, color: window.BW ? "#222" : "#dfe6ff" }}>
+          <b style={{ color: window.BW ? "#000" : GOLD }}>How to tape it up:</b> Print all 11 pages (landscape — color or black &amp; white). Put the bracket pages (9–11) in the middle, the 12 group pages (3–8) around the edges, and this info up top. Cut out the flags from the “Flag Cutouts” sheet to fill the bracket as teams win!
+        </div>
+      </Page>
+    );
+  }
+
+  // page 2 — map + facts
+  function MapFactsPage() {
+    return (
+      <Page title={<span>📍 Where the games are played</span>} n="2">
+        <div style={{ display: "flex", gap: 14, flex: 1, minHeight: 0 }}>
+          <div style={{ flex: "1.5 1 0", display: "flex" }}><MapPanel /></div>
+          <div style={{ flex: "1 1 0", display: "flex" }}><FactsPanel /></div>
+        </div>
+      </Page>
+    );
+  }
+
+  // group pages (2 groups each)
+  function GroupsPage({ a, b, n }) {
+    return (
+      <Page title={<span>Groups <span className="y" style={{ color: GOLD }}>{a} & {b}</span></span>} n={n}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1, justifyContent: "center" }}>
+          <GroupCard letter={a} />
+          <GroupCard letter={b} />
+        </div>
+      </Page>
+    );
+  }
+
+  // half bracket
+  function HalfBracket({ side }) {
+    const right = side === "right";
+    const cols = right ? (
+      <>
+        <RoundColumn n={1} header="Semi-final" alignRight />
+        <Connector leaves={2} dir="rl" />
+        <RoundColumn n={2} header="Quarters" alignRight />
+        <Connector leaves={4} dir="rl" />
+        <RoundColumn n={4} header="Round of 16" alignRight />
+        <Connector leaves={8} dir="rl" />
+        <RoundColumn n={8} header="Round of 32" alignRight />
+      </>
+    ) : (
+      <>
+        <RoundColumn n={8} header="Round of 32" />
+        <Connector leaves={8} dir="lr" />
+        <RoundColumn n={4} header="Round of 16" />
+        <Connector leaves={4} dir="lr" />
+        <RoundColumn n={2} header="Quarters" />
+        <Connector leaves={2} dir="lr" />
+        <RoundColumn n={1} header="Semi-final" />
+      </>
+    );
+    return (
+      <Page title={<span>Knockout bracket — <span className="y" style={{ color: GOLD }}>{right ? "right" : "left"} side</span></span>} n={right ? "11" : "9"}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", justifyContent: right ? "flex-end" : "flex-start", gap: 2 }}>{cols}</div>
+        <div style={{ fontSize: 12, color: window.BW ? "#444" : "#aab6dd", marginTop: 4, textAlign: right ? "right" : "left" }}>Top 2 of each group + the 8 best 3rd-place teams reach the Round of 32. Stick the winners in!</div>
+      </Page>
+    );
+  }
+
+  // center page — champion + final + 3rd
+  function CenterPage() {
+    return (
+      <Page title={<span>🏆 The big finish</span>} n="10">
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 40 }}>
+          <div style={{ transform: "scale(1.5)" }}><ChampionFinal /></div>
+          <div style={{ maxWidth: 300 }}>
+            <div style={{ fontWeight: 700, fontSize: 22, color: window.BW ? "#111" : GOLD, marginBottom: 8 }}>Road to the trophy</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {WC.KO.map((k, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", gap: 10, background: window.BW ? "#f1f1f1" : "rgba(255,255,255,.1)", borderRadius: 10, padding: "6px 12px" }}>
+                  <span style={{ fontWeight: 700, fontSize: 15 }}>{k.r}</span>
+                  <span style={{ fontSize: 14, color: window.BW ? "#333" : "#cfe0ff" }}>{k.d}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </Page>
+    );
+  }
+
+  function Kit() {
+    return (
+      <>
+        <CoverPage />
+        <MapFactsPage />
+        <GroupsPage a="A" b="B" n="3" />
+        <GroupsPage a="C" b="D" n="4" />
+        <GroupsPage a="E" b="F" n="5" />
+        <GroupsPage a="G" b="H" n="6" />
+        <GroupsPage a="I" b="J" n="7" />
+        <GroupsPage a="K" b="L" n="8" />
+        <HalfBracket side="left" />
+        <CenterPage />
+        <HalfBracket side="right" />
+      </>
+    );
+  }
+  ReactDOM.createRoot(document.getElementById("app")).render(<Kit />);
+</script>
+</body>
+</html>
