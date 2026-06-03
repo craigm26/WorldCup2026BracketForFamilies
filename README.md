@@ -7,6 +7,8 @@ A two-part family kit for the **2026 FIFA World Cup** (June 11 – July 19, 2026
 
 The printed poster has a **QR code** that opens the Hub. Set it up once, and the bracket on your wall and the screen in your living room stay in sync with your family's picks.
 
+> ▶ **Try it live (no setup):** **https://craigm26.github.io/WorldCup2026BracketForFamilies/**
+
 ![World Cup 2026 family bracket poster](screenshots/poster-color.png)
 
 > Everything is plain static HTML/JS — **no build step, no database, no account, no tracking.** Print what you want, host what you want, all from one folder.
@@ -35,22 +37,28 @@ Open any of these in a browser and hit **Print / Save PDF**. Every one has a **�
 
 ## 📺 Option 2 — Host the interactive Hub
 
-The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV or any phone. It has six tabs:
+The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV or any phone. It has eight tabs:
 
 | Tab | What it does |
 |---|---|
-| 🗂️ **Bracket** | Tap any slot to drop in a team; crown a champion. Empty slots show their **feeders** ("Winner Group A", "Runner-up B", "3rd-place", "Winner of Match 74") and each match shows its **number, date & host city** — just like the wall chart. Saves to that device. |
+| 🏠 **Home** | A live **countdown to the next kick-off** (in your time zone), today's games with a LIVE-now flag, your favorite team's next match, and the **Family Pick'em** leaderboard + player switcher. |
+| 🗂️ **Bracket** | Tap any slot to drop in a team; crown a champion. Empty slots show their **feeders** ("Winner Group A", "Runner-up B", "3rd-place", "Winner of Match 74") and each match shows its **number, date & host city** — just like the wall chart. |
 | 📊 **Standings** | Type scores (or let them fill automatically) — points, goal difference & 2026 tiebreakers update live. |
 | 📅 **Schedule** | Every match with a **kick-off time in YOUR time zone**, a 🌞/🌙 **day-or-night** icon (so you know what's on past bedtime), and a kid-friendly time-zone lesson. |
 | 📺 **Watch** | Where & how to watch in the US, Canada, Mexico & the rest of the world — including the **free** options — plus kick-off windows converted to your zone. |
-| 🌍 **Map & Facts** | An accurate host-city map (tap a pin for the stadium) and a country explorer with **rotating, kid-friendly facts**. |
+| 🌍 **Map & Facts** | An accurate host-city map (tap a pin for the stadium) and a country explorer with **rotating, kid-friendly facts** — tap **☆ Follow** to track your team. |
+| 🎮 **Play** | A flag / country / food **quiz game** for the kids — score, streak and best, with a fun fact after every answer. |
 | ⚙️ **Settings** | Choose how scores update — **Manual** (type your own, no spoilers), **Semi-auto** (update when *you* press the button), or **Auto** — plus an auto-fill-the-bracket helper and the time-zone picker. |
 
-| Bracket | Schedule (your time zone) | Map & Facts |
+> **Family Pick'em:** add a player for each family member (Mom, Dad, each kid), and everyone keeps their own bracket. The Home leaderboard scores how many of the 32 qualifiers each person predicted — a friendly, spoiler-safe family competition that updates as real results come in.
+
+| Home — countdown & Pick'em | Bracket — with feeders | Map & Facts |
 |---|---|---|
-| ![hub bracket](screenshots/hub-bracket.png) | ![hub schedule](screenshots/hub-schedule.png) | ![hub facts](screenshots/hub-facts.png) |
-| **Watch** | **Standings** | **Settings** |
-| ![hub watch](screenshots/hub-watch.png) | ![hub standings](screenshots/hub-standings.png) | ![hub settings](screenshots/hub-settings.png) |
+| ![hub home](screenshots/hub-home.png) | ![hub bracket](screenshots/hub-bracket.png) | ![hub facts](screenshots/hub-facts.png) |
+| **Schedule — your time zone** | **Watch — incl. free** | **Play — quiz game** |
+| ![hub schedule](screenshots/hub-schedule.png) | ![hub watch](screenshots/hub-watch.png) | ![hub play](screenshots/hub-play.png) |
+| **Standings** | **Settings** | |
+| ![hub standings](screenshots/hub-standings.png) | ![hub settings](screenshots/hub-settings.png) | |
 
 > **Try the demo:** open the Hub with `?demo=1` (e.g. `index.html?demo=1`) to see a fully-filled example bracket and standings. Add `&tab=facts` to jump straight to a tab.
 

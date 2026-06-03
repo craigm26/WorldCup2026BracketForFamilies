@@ -32,6 +32,13 @@
   .card img { width: 1.55in; height: 1.03in; object-fit: cover; border: 3px solid #fff; border-radius: 5px; box-shadow: 0 1px 0 #c9d0de, 0 2px 6px rgba(0,0,0,.2); }
   .card .nm { font-weight: 700; font-size: 13px; color: #1d2433; line-height: 1.05; }
   .card .rk { font-size: 10px; color: #fff; border-radius: 20px; padding: 0 7px; font-weight: 700; }
+  /* knockout slot cards (cut out & tape into the wall bracket) */
+  .kocard { justify-content: space-between; padding: 12px 8px; min-height: 1.5in; gap: 3px; }
+  .kocard .ko-top { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #16235a; }
+  .kocard .ko-badge { background: #16235a; color: #fff; border-radius: 6px; padding: 1px 6px; font-size: 11px; }
+  .kocard .ko-feed { font-size: 12.5px; font-weight: 700; color: #1d2433; line-height: 1.12; }
+  .kocard .ko-vs { font-size: 10px; color: #9aa2b4; font-weight: 700; }
+  .kocard .ko-when { font-size: 10.5px; color: #6b7280; font-weight: 600; margin-top: 2px; }
   #toolbar {
     position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 8px; align-items: center;
     background: rgba(15,31,77,.92); border-radius: 14px; padding: 8px 10px; color: #cfe0ff; font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.35);
@@ -88,15 +95,49 @@
         <div className="sheet-head">
           <h1>✂ Cut-out Flags · World Cup 2026</h1>
           <span className="sub">Print in color · cut along the dashed lines · move them around the bracket!</span>
-          <span className="pg">Sheet {page} / 4</span>
+          <span className="pg">Sheet {page} / 6</span>
         </div>
         {groups.map((g) => <GroupBlock key={g} g={g} />)}
       </div>
     );
   }
+  const ROUND = { R32:"Round of 32", R16:"Round of 16", QF:"Quarter-final", SF:"Semi-final", "3RD":"3rd-place play-off", FINAL:"THE FINAL" };
+  function KOCard({ m }) {
+    if (!m) return null;
+    return (
+      <div className="card kocard">
+        <span className="sc">✂</span>
+        <div className="ko-top"><span className="ko-badge">M{m.no}</span> {ROUND[m.round]}</div>
+        <div className="ko-feed">{WC.feeder(m.top)}</div>
+        <div className="ko-vs">vs</div>
+        <div className="ko-feed">{WC.feeder(m.bottom)}</div>
+        <div className="ko-when">📅 {m.date} · 📍 {m.city}</div>
+      </div>
+    );
+  }
+  function KOSheet({ nums, page, title }) {
+    return (
+      <div className="sheet">
+        <div className="sheet-head">
+          <h1>✂ Knockout Slot Cards · World Cup 2026</h1>
+          <span className="sub">{title} · cut out &amp; tape into your wall bracket, then slot the flags in as teams qualify!</span>
+          <span className="pg">Sheet {page} / 6</span>
+        </div>
+        <div className="row" style={{ rowGap: 14 }}>{nums.map((n) => <KOCard key={n} m={WC.KO_M[n]} />)}</div>
+      </div>
+    );
+  }
   function App() {
     const pages = [["A","B","C"],["D","E","F"],["G","H","I"],["J","K","L"]];
-    return <>{pages.map((gs, i) => <Sheet key={i} groups={gs} page={i + 1} />)}</>;
+    const r32 = []; for (let n = 73; n <= 88; n++) r32.push(n);
+    const rest = []; for (let n = 89; n <= 104; n++) rest.push(n);
+    return (
+      <>
+        {pages.map((gs, i) => <Sheet key={i} groups={gs} page={i + 1} />)}
+        <KOSheet nums={r32} page={5} title="Round of 32 (16 matches)" />
+        <KOSheet nums={rest} page={6} title="Round of 16 → Final" />
+      </>
+    );
   }
   ReactDOM.createRoot(document.getElementById("app")).render(<App />);
 </script>

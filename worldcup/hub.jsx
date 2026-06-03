@@ -1,10 +1,12 @@
 /* World Cup 2026 Hub — interactive TV/phone app served from the family Pi-NAS. */
 const TABS = [
+  { id: "home",      label: "🏠 Home" },
   { id: "bracket",   label: "🗂️ Bracket" },
   { id: "standings", label: "📊 Standings" },
   { id: "schedule",  label: "📅 Schedule" },
   { id: "watch",     label: "📺 Watch" },
   { id: "facts",     label: "🌍 Map & Facts" },
+  { id: "play",      label: "🎮 Play" },
   { id: "settings",  label: "⚙️ Settings" },
 ];
 
@@ -214,7 +216,7 @@ function CityPortal({ city, onClose }) {
   );
 }
 
-function FactsTab() {
+function FactsTab({ fav, toggleFav }) {
   const WC = window.WC;
   const [sel, setSel] = React.useState("BRA");
   const [cityModal, setCityModal] = React.useState(null);
@@ -260,11 +262,15 @@ function FactsTab() {
           </div>
           <div style={{ flex: "1 1 280px", background: "rgba(255,255,255,.06)", borderRadius: 14, padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-              <Flag code={t.c} w={64} style={{ border: "3px solid #fff", borderRadius: 5 }} />
-              <div>
+              <Flag code={t.c} w={64} style={{ border: "3px solid #fff", borderRadius: 5, flex: "none" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 24, fontWeight: 700, color: "#fff" }}>{t.n}</div>
                 <div style={{ fontSize: 13, color: "#9fb0e0" }}>FIFA rank #{t.r} · ⭐ {t.star}</div>
               </div>
+              {toggleFav && (function () {
+                const on = (fav || []).indexOf(sel) >= 0;
+                return <button onClick={() => toggleFav(sel)} title={on ? "Following — tap to unfollow" : "Follow this team"} style={{ border: "none", cursor: "pointer", background: on ? "#f4b740" : "rgba(255,255,255,.1)", color: on ? "#16235a" : "#dfe6ff", borderRadius: 12, padding: "8px 12px", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flex: "none" }}>{on ? "★ Following" : "☆ Follow"}</button>;
+              })()}
             </div>
             <div onClick={nextFact} title="Tap for another fact" style={{ cursor: "pointer", background: "rgba(244,183,64,.10)", border: "1px solid rgba(244,183,64,.28)", borderRadius: 12, padding: "12px 14px", marginBottom: 10, minHeight: 84, display: "flex", flexDirection: "column", justifyContent: "center" }}>
               <div key={sel + "-" + factIdx} style={{ fontSize: 16, color: "#fff", lineHeight: 1.4, animation: "factfade .45s ease" }}>{facts[factIdx]}</div>
@@ -404,14 +410,17 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
 }
 
 function HubApp() {
-  const { store, setResult, setPick, reset } = useHubStore();
+  const { store, brackets, setResult, setPick, reset, players, addPlayer, switchPlayer, removePlayer } = useHubStore();
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const demo = params.get("demo") === "1";
   const demoData = React.useMemo(() => (demo && window.buildDemo ? window.buildDemo() : null), [demo]);
   const tabParam = params.get("tab");
-  const [tab, setTab] = React.useState(TABS.some((t) => t.id === tabParam) ? tabParam : "bracket");
+  const [tab, setTab] = React.useState(TABS.some((t) => t.id === tabParam) ? tabParam : "home");
   const [tz, setTz] = React.useState(() => { try { return localStorage.getItem("wc26tz") || "device"; } catch (e) { return "device"; } });
   React.useEffect(() => { try { localStorage.setItem("wc26tz", tz); } catch (e) {} }, [tz]);
+  const [fav, setFav] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26fav")) || []; } catch (e) { return []; } });
+  React.useEffect(() => { try { localStorage.setItem("wc26fav", JSON.stringify(fav)); } catch (e) {} }, [fav]);
+  const toggleFav = (code) => setFav((f) => (f.indexOf(code) >= 0 ? f.filter((x) => x !== code) : f.concat([code])));
 
   const [settings, setSettings] = React.useState(() => {
     try { return Object.assign({ scoreMode: "manual", autoBracket: false }, JSON.parse(localStorage.getItem("wc26settings")) || {}); }
@@ -419,7 +428,8 @@ function HubApp() {
   });
   React.useEffect(() => { try { localStorage.setItem("wc26settings", JSON.stringify(settings)); } catch (e) {} }, [settings]);
   const setSetting = (k, v) => setSettings((s) => Object.assign({}, s, { [k]: v }));
-  const scoreMode = demo ? "full" : settings.scoreMode;
+  const forceMode = params.get("scoremode");   // ?scoremode=full lets a kiosk boot into auto
+  const scoreMode = demo ? "full" : (["manual", "semi", "full"].indexOf(forceMode) >= 0 ? forceMode : settings.scoreMode);
 
   const [live, setLive] = React.useState(window.LIVE_SCORES && Array.isArray(window.LIVE_SCORES.matches) ? window.LIVE_SCORES : null);
   const [lastFetch, setLastFetch] = React.useState(null);
@@ -460,7 +470,7 @@ function HubApp() {
       const i = ids.indexOf(tab);
       if (e.key === "ArrowRight") setTab(ids[(i + 1) % ids.length]);
       else if (e.key === "ArrowLeft") setTab(ids[(i - 1 + ids.length) % ids.length]);
-      else if (/^[1-6]$/.test(e.key)) setTab(ids[+e.key - 1]);
+      else if (/^[1-8]$/.test(e.key)) setTab(ids[+e.key - 1]);
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
@@ -488,15 +498,17 @@ function HubApp() {
         <button onClick={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} style={{ border: "none", cursor: "pointer", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, background: "rgba(255,255,255,.08)", color: "#9fb0e0" }}>↺ Reset</button>
       </header>
       <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
+        {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} />}
         {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} />}
         {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} />}
         {tab === "schedule" && <ScheduleTab results={results} status={lr.status} tz={tz} setTz={setTz} />}
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
-        {tab === "facts" && <FactsTab />}
+        {tab === "facts" && <FactsTab fav={fav} toggleFav={toggleFav} />}
+        {tab === "play" && <PlayTab />}
         {tab === "settings" && <SettingsTab settings={settings} setSetting={setSetting} tz={tz} setTz={setTz} fetchNow={fetchLive} lastFetch={lastFetch} liveActive={liveActive} onAutofill={autofillR32} onReset={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} />}
       </main>
       <footer style={{ padding: "8px 26px", borderTop: "1px solid rgba(255,255,255,.1)", fontSize: 12.5, color: "#7e8cc0", display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <span>📺 Use ← → or keys 1–5 to switch tabs · scores &amp; picks save on this device</span>
+        <span>📺 Use ← → or keys 1–8 to switch tabs · saves on this device</span>
         <span style={{ color: "#8c9bd0" }}>Published by Craig Merry · Designed with Anthropic Claude Design</span>
         <span>pi-nas.local/worldcup</span>
       </footer>

@@ -57,23 +57,58 @@ window.computeStandings = function (letter, results) {
   return arr;
 };
 
-/* ---- localStorage-backed store hook ---- */
+/* ---- localStorage-backed store: SHARED results + PER-PLAYER brackets ----
+   Results (the objective scores) are shared by the whole family; each player keeps
+   their own bracket prediction. Migrates the old single `wc26hub` store once. */
+const bkey = (id) => "wc26bracket:" + id;
+function loadPlayers() {
+  try { const p = JSON.parse(localStorage.getItem("wc26players")); if (p && p.list && p.list.length) return p; } catch (e) {}
+  return { list: [{ id: "family", name: "Family", emoji: "👪" }], active: "family" };
+}
+if (!window.__wc26migrated) {
+  window.__wc26migrated = true;
+  try {
+    const old = JSON.parse(localStorage.getItem("wc26hub"));
+    if (old) {
+      if (old.results && localStorage.getItem("wc26results") === null) localStorage.setItem("wc26results", JSON.stringify(old.results));
+      if (old.bracket && localStorage.getItem(bkey("family")) === null) localStorage.setItem(bkey("family"), JSON.stringify(old.bracket));
+    }
+  } catch (e) {}
+}
 window.useHubStore = function () {
-  const KEY = "wc26hub";
-  const [s, setS] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(KEY)) || { results: {}, bracket: {} }; }
-    catch (e) { return { results: {}, bracket: {} }; }
+  const [players, setPlayers] = React.useState(loadPlayers);
+  const [results, setResults] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26results")) || {}; } catch (e) { return {}; } });
+  const [brackets, setBrackets] = React.useState(() => {
+    const out = {}; loadPlayers().list.forEach((pl) => { try { out[pl.id] = JSON.parse(localStorage.getItem(bkey(pl.id))) || {}; } catch (e) { out[pl.id] = {}; } }); return out;
   });
-  React.useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }, [s]);
-  const setResult = (gKey, side, val) =>
-    setS((p) => {
-      const cur = p.results[gKey] || ["", ""];
-      const nx = side === 0 ? [val, cur[1]] : [cur[0], val];
-      return { ...p, results: { ...p.results, [gKey]: nx } };
-    });
-  const setPick = (slot, team) => setS((p) => ({ ...p, bracket: { ...p.bracket, [slot]: team } }));
-  const reset = () => setS({ results: {}, bracket: {} });
-  return { store: s, setResult, setPick, reset };
+  React.useEffect(() => { try { localStorage.setItem("wc26players", JSON.stringify(players)); } catch (e) {} }, [players]);
+  React.useEffect(() => { try { localStorage.setItem("wc26results", JSON.stringify(results)); } catch (e) {} }, [results]);
+  React.useEffect(() => { try { Object.keys(brackets).forEach((id) => localStorage.setItem(bkey(id), JSON.stringify(brackets[id]))); } catch (e) {} }, [brackets]);
+
+  const bracket = brackets[players.active] || {};
+  const setResult = (gKey, side, val) => setResults((p) => { const cur = p[gKey] || ["", ""]; const nx = side === 0 ? [val, cur[1]] : [cur[0], val]; return Object.assign({}, p, { [gKey]: nx }); });
+  const setPick = (slot, team) => setBrackets((b) => { const cur = b[players.active] || {}; return Object.assign({}, b, { [players.active]: Object.assign({}, cur, { [slot]: team }) }); });
+  const reset = () => { setResults({}); setBrackets((b) => Object.assign({}, b, { [players.active]: {} })); };
+  const addPlayer = (name, emoji) => { const id = "p" + Date.now(); setBrackets((b) => Object.assign({}, b, { [id]: {} })); setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "🙂" }]), active: id })); };
+  const switchPlayer = (id) => setPlayers((p) => Object.assign({}, p, { active: id }));
+  const removePlayer = (id) => setPlayers((p) => { if (p.list.length <= 1) return p; try { localStorage.removeItem(bkey(id)); } catch (e) {} const list = p.list.filter((x) => x.id !== id); return { list: list, active: p.active === id ? list[0].id : p.active }; });
+  return { store: { results: results, bracket: bracket }, brackets: brackets, setResult: setResult, setPick: setPick, reset: reset, players: players, addPlayer: addPlayer, switchPlayer: switchPlayer, removePlayer: removePlayer };
+};
+
+/* ---- Family Pick'em leaderboard: how many of the 32 actual qualifiers did each
+   player predict in their Round of 32? (+5 if their Champion pick is still alive). */
+window.wcLeaderboard = function (results, list, brackets) {
+  const q = window.wcQualifiers(results || {}).r32;
+  const qset = {}; q.forEach((k) => { qset[k] = true; });
+  const anyResults = Object.keys(results || {}).some((k) => { const r = results[k]; return r && r[0] !== "" && r[1] !== ""; });
+  return (list || []).map((pl) => {
+    const b = (brackets && brackets[pl.id]) || {};
+    const picks = []; Object.keys(b).forEach((slot) => { if (/R32-\d+-[01]$/.test(slot) && b[slot]) picks.push(b[slot]); });
+    const uniq = Array.from(new Set(picks));
+    const correct = uniq.filter((k) => qset[k]).length;
+    const champ = b["CHAMP"]; const champAlive = !!(champ && qset[champ]);
+    return { id: pl.id, name: pl.name, emoji: pl.emoji, filled: uniq.length, correct: correct, champ: champ, champAlive: champAlive, pts: correct + (champAlive ? 5 : 0), hasResults: anyResults };
+  }).sort((a, b) => b.pts - a.pts || b.filled - a.filled);
 };
 
 /* ---- Round-of-32 qualifiers from current standings ----
@@ -154,5 +189,23 @@ window.WCTZ = (function () {
     const dn = dayNight(h24);
     return { time: time, weekday: weekday, h24: h24, icon: dn.icon, word: dn.word, tz: tz };
   }
-  return { ZONES: ZONES, zoneOf: zoneOf, labelOf: labelOf, local: local, kickoffET: kickoffET, dayNight: dayNight, etToDate: etToDate };
+  function parseET(s) {
+    const m = /(\d+):(\d+)\s*(AM|PM)/i.exec(s || "");
+    if (!m) return null;
+    let h = parseInt(m[1], 10) % 12; if (/pm/i.test(m[3])) h += 12;
+    return [h, parseInt(m[2], 10)];
+  }
+  // Every match (group + knockout) with a real Date, sorted by kick-off.
+  function matches() {
+    const WC = window.WC; const out = [];
+    Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f, idx) => {
+      const k = kickoffET(g, idx);
+      out.push({ type: "group", g: g, idx: idx, home: f[0], away: f[1], date: f[2], city: f[3], et: { h: k[0], m: k[1] }, dt: etToDate(f[2], k[0], k[1]) });
+    }));
+    const KM = WC.KO_M || {};
+    Object.keys(KM).forEach((no) => { const x = KM[no]; const p = parseET(x.et); if (p) out.push({ type: "ko", no: x.no, round: x.round, top: x.top, bottom: x.bottom, date: x.date, city: x.city, et: { h: p[0], m: p[1] }, dt: etToDate(x.date, p[0], p[1]) }); });
+    out.sort((a, b) => a.dt - b.dt);
+    return out;
+  }
+  return { ZONES: ZONES, zoneOf: zoneOf, labelOf: labelOf, local: local, kickoffET: kickoffET, dayNight: dayNight, etToDate: etToDate, parseET: parseET, matches: matches };
 })();
