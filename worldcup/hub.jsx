@@ -10,6 +10,12 @@ const TABS = [
   { id: "settings",  label: "⚙️ Settings" },
 ];
 
+function useIsPhone() {
+  const [p, setP] = React.useState(() => (typeof window !== "undefined" ? window.innerWidth < 680 : false));
+  React.useEffect(() => { const h = () => setP(window.innerWidth < 680); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
+  return p;
+}
+
 /* ---- shared time-zone picker (drives the schedule + watch tabs) ---- */
 function TimeZoneSelect({ tz, setTz, compact }) {
   const ZONES = window.WCTZ.ZONES;
@@ -428,6 +434,7 @@ function HubApp() {
   const demoData = React.useMemo(() => (demo && window.buildDemo ? window.buildDemo() : null), [demo]);
   const tabParam = params.get("tab");
   const [tab, setTab] = React.useState(TABS.some((t) => t.id === tabParam) ? tabParam : "home");
+  const isPhone = useIsPhone();
   const [tz, setTz] = React.useState(() => { try { return localStorage.getItem("wc26tz") || "device"; } catch (e) { return "device"; } });
   React.useEffect(() => { try { localStorage.setItem("wc26tz", tz); } catch (e) {} }, [tz]);
   const [fav, setFav] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26fav")) || []; } catch (e) { return []; } });
@@ -507,24 +514,24 @@ function HubApp() {
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", color: "#fff", fontFamily: "'Fredoka', sans-serif" }}>
-      <header style={{ display: "flex", alignItems: "center", gap: 18, padding: "16px 26px", borderBottom: "1px solid rgba(255,255,255,.12)", flexWrap: "wrap" }}>
-        <div style={{ fontWeight: 700, fontSize: 26, whiteSpace: "nowrap" }}>WORLD CUP <span style={{ color: "#f4b740" }}>2026</span></div>
-        <nav style={{ display: "flex", gap: 8, flexWrap: "wrap", flex: 1 }}>
+      <header style={{ display: "flex", alignItems: "center", gap: isPhone ? 8 : 18, padding: isPhone ? "10px 12px" : "16px 26px", borderBottom: "1px solid rgba(255,255,255,.12)", flexWrap: "wrap" }}>
+        <div style={{ fontWeight: 700, fontSize: isPhone ? 19 : 26, whiteSpace: "nowrap" }}>WORLD CUP <span style={{ color: "#f4b740" }}>2026</span></div>
+        <nav className="tabstrip" style={{ display: "flex", gap: 8, flexWrap: isPhone ? "nowrap" : "wrap", overflowX: isPhone ? "auto" : "visible", flex: isPhone ? "1 1 100%" : 1, order: isPhone ? 9 : 0, marginTop: isPhone ? 6 : 0, paddingBottom: isPhone ? 3 : 0, WebkitOverflowScrolling: "touch" }}>
           {TABS.map((tb) => (
-            <button key={tb.id} onClick={() => setTab(tb.id)} style={{ border: "none", cursor: "pointer", borderRadius: 12, padding: "10px 18px", fontSize: 17, fontWeight: 600, whiteSpace: "nowrap",
+            <button key={tb.id} onClick={() => setTab(tb.id)} style={{ border: "none", cursor: "pointer", borderRadius: 12, padding: isPhone ? "8px 13px" : "10px 18px", fontSize: isPhone ? 15 : 17, fontWeight: 600, whiteSpace: "nowrap", flex: "none",
               background: tab === tb.id ? "#f4b740" : "rgba(255,255,255,.1)", color: tab === tb.id ? "#16235a" : "#dfe6ff" }}>{tb.label}</button>
           ))}
         </nav>
         {demo && (
-          <span style={{ background: "rgba(52,199,123,.2)", border: "2px solid #34c77b", borderRadius: 20, padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "#bdf0d3", whiteSpace: "nowrap" }}>✨ DEMO — example picks</span>
+          <span style={{ background: "rgba(52,199,123,.2)", border: "2px solid #34c77b", borderRadius: 20, padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "#bdf0d3", whiteSpace: "nowrap" }}>✨ DEMO{isPhone ? "" : " — example picks"}</span>
         )}
         {liveActive && (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(226,71,59,.22)", border: "2px solid #e2473b", borderRadius: 20, padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "#ffb3ad", whiteSpace: "nowrap" }}>
             <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#e2473b" }}></span>
-            LIVE{live.updated ? " · " + new Date(live.updated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""}
+            LIVE{!isPhone && live.updated ? " · " + new Date(live.updated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""}
           </span>
         )}
-        <button onClick={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} style={{ border: "none", cursor: "pointer", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, background: "rgba(255,255,255,.08)", color: "#9fb0e0" }}>↺ Reset</button>
+        <button onClick={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} style={{ marginLeft: isPhone ? "auto" : 0, border: "none", cursor: "pointer", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, background: "rgba(255,255,255,.08)", color: "#9fb0e0", whiteSpace: "nowrap" }}>↺{isPhone ? "" : " Reset"}</button>
       </header>
       {sharedBracket && !importDismissed && (
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 26px", background: "rgba(52,199,123,.18)", borderBottom: "2px solid #34c77b", flexWrap: "wrap" }}>
@@ -535,7 +542,7 @@ function HubApp() {
       )}
       <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
         {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} />}
-        {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} />}
+        {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} />}
         {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} />}
         {tab === "schedule" && <ScheduleTab results={results} status={lr.status} tz={tz} setTz={setTz} />}
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
@@ -543,10 +550,10 @@ function HubApp() {
         {tab === "play" && <PlayTab />}
         {tab === "settings" && <SettingsTab settings={settings} setSetting={setSetting} tz={tz} setTz={setTz} fetchNow={fetchLive} lastFetch={lastFetch} liveActive={liveActive} onAutofill={autofillR32} onReset={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} />}
       </main>
-      <footer style={{ padding: "8px 26px", borderTop: "1px solid rgba(255,255,255,.1)", fontSize: 12.5, color: "#7e8cc0", display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <span>📺 Use ← → or keys 1–8 to switch tabs · saves on this device</span>
+      <footer style={{ padding: isPhone ? "8px 14px" : "8px 26px", borderTop: "1px solid rgba(255,255,255,.1)", fontSize: 12.5, color: "#7e8cc0", display: "flex", justifyContent: isPhone ? "center" : "space-between", gap: isPhone ? 6 : 12, flexWrap: "wrap", textAlign: "center" }}>
+        {!isPhone && <span>📺 Use ← → or keys 1–8 to switch tabs · saves on this device</span>}
         <span style={{ color: "#8c9bd0" }}>Published by Craig Merry · Designed with Anthropic Claude Design</span>
-        <span>pi-nas.local/worldcup</span>
+        {!isPhone && <span>pi-nas.local/worldcup</span>}
       </footer>
       {((idle && settings.screensaver !== false) || forceSaver) && <Screensaver tz={tz} onWake={() => setIdle(false)} />}
     </div>

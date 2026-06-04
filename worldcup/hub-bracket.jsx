@@ -1,29 +1,72 @@
 /* Hub · Bracket tab — tap any slot to drop in a team. Saves to the TV. */
 function TeamPicker({ onPick, onClose }) {
   const WC = window.WC;
+  const [q, setQ] = React.useState("");
   const groups = Object.keys(WC.GROUPS);
+  const GOF = {}; groups.forEach((g) => WC.GROUPS[g].forEach((k) => { GOF[k] = g; }));
+  const query = q.trim().toLowerCase();
+  const filtered = query ? Object.keys(WC.T).filter((k) => WC.T[k].n.toLowerCase().indexOf(query) >= 0).sort((a, b) => WC.T[a].n.localeCompare(WC.T[b].n)) : null;
+  const TeamBtn = ({ k }) => (
+    <button onClick={() => onPick(k)} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,.08)", border: "none", borderRadius: 10, padding: "7px 9px", cursor: "pointer", color: "#fff" }}>
+      <Flag code={WC.T[k].c} w={30} style={{ border: "2px solid #fff", borderRadius: 3, flex: "none" }} />
+      <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, textAlign: "left" }}>{WC.T[k].n}</span>
+      <span style={{ fontSize: 11, color: "#9fb0e0", fontWeight: 700, flex: "none" }}>{GOF[k]}</span>
+    </button>
+  );
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(8,16,40,.82)", zIndex: 100, display: "grid", placeItems: "center", padding: 30 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#16235a", borderRadius: 22, padding: 22, maxWidth: 900, width: "100%", maxHeight: "86vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.5)" }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(8,16,40,.82)", zIndex: 100, display: "grid", placeItems: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#16235a", borderRadius: 22, padding: 20, maxWidth: 900, width: "100%", maxHeight: "88vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.5)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>Pick a team</div>
-          <button onClick={() => { onPick(null); }} style={{ marginLeft: "auto", marginRight: 8, border: "none", background: "#e2473b", color: "#fff", fontWeight: 700, borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>Clear slot</button>
+          <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="🔎 Type a country…" style={{ flex: 1, minWidth: 140, fontFamily: "inherit", fontSize: 15, border: "none", borderRadius: 10, padding: "9px 12px", outline: "none" }} />
+          <button onClick={() => { onPick(null); }} style={{ border: "none", background: "#e2473b", color: "#fff", fontWeight: 700, borderRadius: 10, padding: "8px 14px", cursor: "pointer", whiteSpace: "nowrap" }}>Clear slot</button>
           <button onClick={onClose} style={{ border: "none", background: "rgba(255,255,255,.15)", color: "#fff", fontWeight: 700, borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>✕</button>
         </div>
-        {groups.map((g) => (
-          <div key={g} style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 13, color: "#9fb0e0", fontWeight: 700, marginBottom: 5 }}>Group {g}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-              {WC.GROUPS[g].map((k) => (
-                <button key={k} onClick={() => onPick(k)} style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,.08)", border: "none", borderRadius: 10, padding: "7px 9px", cursor: "pointer", color: "#fff" }}>
-                  <Flag code={WC.T[k].c} w={30} style={{ border: "2px solid #fff", borderRadius: 3, flex: "none" }} />
-                  <span style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[k].n}</span>
-                </button>
+        {filtered ? (
+          filtered.length ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 8 }}>{filtered.map((k) => <TeamBtn key={k} k={k} />)}</div>
+          ) : <div style={{ color: "#9fb0e0", padding: 12 }}>No team matches “{q}”.</div>
+        ) : (
+          groups.map((g) => (
+            <div key={g} style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 13, color: "#9fb0e0", fontWeight: 700, marginBottom: 5 }}>Group {g}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
+                {WC.GROUPS[g].map((k) => <TeamBtn key={k} k={k} />)}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* compact group-stage standings shown inline under the bracket (Pool-play toggle) */
+function PoolsPanel({ results }) {
+  const WC = window.WC;
+  return (
+    <div style={{ background: "rgba(0,0,0,.14)", borderRadius: 14, padding: 12 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "#f4b740", marginBottom: 8 }}>📊 Pool play — group standings</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+        {Object.keys(WC.GROUPS).map((g) => {
+          const st = window.computeStandings(g, results || {});
+          return (
+            <div key={g} style={{ background: "rgba(255,255,255,.05)", borderRadius: 10, padding: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#9fb0e0", marginBottom: 5 }}>Group {g}</div>
+              {st.map((s, i) => (
+                <div key={s.k} style={{ display: "flex", alignItems: "center", gap: 7, padding: "3px 0", fontSize: 13 }}>
+                  <span style={{ width: 12, color: i < 2 ? "#34c77b" : i === 2 ? "#f4b740" : "#6f86c9", fontWeight: 700, flex: "none" }}>{i + 1}</span>
+                  <Flag code={WC.T[s.k].c} w={20} style={{ border: "1px solid #fff", borderRadius: 2, flex: "none" }} />
+                  <span style={{ flex: 1, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[s.k].n}</span>
+                  <span style={{ color: "#9fb0e0", fontSize: 12, flex: "none" }}>{s.p ? s.w + "-" + s.d + "-" + s.l : "—"}</span>
+                  <span style={{ color: "#f4b740", fontWeight: 700, width: 22, textAlign: "right", flex: "none" }}>{s.pts}</span>
+                </div>
               ))}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+      <div style={{ fontSize: 11.5, color: "#7e8cc0", marginTop: 8 }}>🟢 top 2 advance · 🟡 best 8 third-place teams advance · enter scores on the 📊 Standings tab.</div>
     </div>
   );
 }
@@ -67,23 +110,40 @@ function HubColumn({ side, round, n, header, store, onOpen, alignRight }) {
   );
 }
 
-function BracketTab({ store, setPick }) {
+function BracketTab({ store, setPick, results }) {
   const [picking, setPicking] = React.useState(null);
   const [sharing, setSharing] = React.useState(false);
+  const [showPools, setShowPools] = React.useState(false);
+  const [printOpen, setPrintOpen] = React.useState(false);
   const onOpen = (id) => setPicking(id);
   const Conn = window.Connector;
   const champ = store.bracket["CHAMP"];
   const WC = window.WC;
+  const PRINTS = [
+    { href: "World%20Cup%202026%20Bracket.html", label: "🏟️ Big poster (36×24\")" },
+    { href: "Bracket%20-%20Print%20at%20Home.html", label: "🏠 Print-at-home (11 pages)" },
+    { href: "Flag%20Cutouts.html", label: "✂ Flag cut-outs" },
+  ];
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: "#f4b740" }}>Tap a slot to fill the bracket</div>
-        <button onClick={() => setSharing(true)} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 12, padding: "8px 14px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>📤 Share</button>
+        <button onClick={() => setShowPools((v) => !v)} style={{ marginLeft: "auto", cursor: "pointer", border: showPools ? "2px solid #34c77b" : "2px solid transparent", background: showPools ? "rgba(52,199,123,.18)" : "rgba(255,255,255,.1)", color: showPools ? "#bdf0d3" : "#dfe6ff", borderRadius: 12, padding: "7px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>📊 Pool play</button>
+        <button onClick={() => setPrintOpen((v) => !v)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 12, padding: "8px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>🖨 Print</button>
+        <button onClick={() => setSharing(true)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 12, padding: "8px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>📤 Share</button>
         <button onClick={() => setPicking("CHAMP")} style={{ display: "flex", alignItems: "center", gap: 8, background: "#f4b740", color: "#16235a", border: "none", borderRadius: 12, padding: "8px 16px", fontWeight: 700, fontSize: 15, cursor: "pointer", whiteSpace: "nowrap" }}>
           🏆 Champion: {champ ? WC.T[champ].n : "pick"}
         </button>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+      {printOpen && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          {PRINTS.map((p) => (
+            <a key={p.href} href={p.href} target="_blank" rel="noopener" style={{ textDecoration: "none", background: "rgba(244,183,64,.16)", color: "#ffe8a8", border: "1px solid rgba(244,183,64,.4)", borderRadius: 10, padding: "8px 13px", fontWeight: 700, fontSize: 13.5 }}>{p.label} ↗</a>
+          ))}
+          <span style={{ alignSelf: "center", fontSize: 12, color: "#7e8cc0" }}>opens a printable page (color or B&amp;W)</span>
+        </div>
+      )}
+      <div style={{ flex: showPools ? "1 1 58%" : 1, minHeight: 0, overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "center", alignItems: "stretch", gap: 2, minWidth: 1500, height: "100%", minHeight: 560 }}>
           <HubColumn side="L" round="R32" n={8} header="Round of 32" store={store} onOpen={onOpen} />
           <Conn leaves={8} dir="lr" />
@@ -111,6 +171,11 @@ function BracketTab({ store, setPick }) {
           <HubColumn side="R" round="R32" n={8} header="Round of 32" store={store} onOpen={onOpen} alignRight />
         </div>
       </div>
+      {showPools && (
+        <div style={{ flex: "1 1 42%", minHeight: 0, overflow: "auto", marginTop: 10 }}>
+          <PoolsPanel results={results} />
+        </div>
+      )}
       {picking && <TeamPicker onPick={(k) => { setPick(picking, k); setPicking(null); }} onClose={() => setPicking(null)} />}
       {sharing && window.ShareModal && <ShareModal url={location.origin + location.pathname + "?b=" + window.wcShare.encode(store.bracket) + "&tab=bracket"} onClose={() => setSharing(false)} />}
     </div>

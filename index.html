@@ -14,13 +14,14 @@
   :root { --gold:#f4b740; --navy:#16235a; --ink:#0f2566; }
   * { box-sizing: border-box; }
   html, body { margin: 0; font-family: 'Fredoka', system-ui, sans-serif; color: #eaf0ff;
-    background: radial-gradient(circle at 18% -5%, #3a7bef 0%, #244fb5 38%, #15327f 72%, #0f2566 100%) fixed; }
+    overflow-x: hidden; max-width: 100%;
+    background: radial-gradient(circle at 18% -5%, #3a7bef 0%, #244fb5 38%, #15327f 72%, #0f2566 100%) no-repeat; background-size: cover; background-attachment: scroll; }
   a { color: inherit; }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 0 22px; }
   header.hero { text-align: center; padding: 70px 0 30px; }
   .trophy { font-size: 64px; line-height: 1; }
-  h1 { font-size: clamp(34px, 6vw, 60px); font-weight: 700; margin: 10px 0 6px; letter-spacing: -1px;
-    text-shadow: 0 5px 0 #0d1f57, 0 8px 20px rgba(0,0,0,.35); }
+  h1 { font-size: clamp(27px, 7vw, 58px); font-weight: 700; margin: 10px 0 6px; letter-spacing: -.5px;
+    overflow-wrap: break-word; text-shadow: 0 5px 0 #0d1f57, 0 8px 20px rgba(0,0,0,.35); }
   h1 .y { color: var(--gold); }
   .tag { font-size: clamp(15px, 2.4vw, 20px); color: #cfe0ff; font-weight: 500; max-width: 640px; margin: 0 auto; line-height: 1.5; }
   .hosts { margin-top: 12px; font-size: 16px; color: #9fb3e6; font-weight: 600; }
@@ -52,6 +53,18 @@
   footer { text-align: center; padding: 30px 0 60px; color: #9fb3e6; font-size: 14px; line-height: 1.7; }
   footer a { color: #cfe0ff; font-weight: 600; }
   .note { font-size: 13px; color: #9fb3e6; text-align: center; margin-top: 10px; }
+  @media (max-width: 560px) {
+    .wrap { padding: 0 16px; }
+    header.hero { padding: 46px 0 20px; }
+    .trophy { font-size: 50px; }
+    .tag { font-size: 15px; }
+    .hosts { font-size: 13.5px; }
+    .cta { gap: 10px; margin-top: 22px; }
+    .btn { padding: 12px 18px; font-size: 15px; }
+    .panel { padding: 18px; border-radius: 16px; margin: 16px 0; }
+    .panel h2 { font-size: 21px; }
+    .feat .ic { font-size: 23px; }
+  }
 </style>
 </head>
 <body>

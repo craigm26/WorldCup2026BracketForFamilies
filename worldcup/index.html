@@ -9,13 +9,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; font-family: 'Fredoka', sans-serif;
+  html, body { margin: 0; height: 100%; font-family: 'Fredoka', sans-serif; overflow-x: hidden;
     background: radial-gradient(circle at 18% 0%, #3a7bef 0%, #244fb5 42%, #15327f 78%, #0f2566 100%); background-attachment: fixed; }
   button, select { font-family: inherit; }
   select option { color: #16235a; }
   @keyframes factfade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 10px; }
+  /* horizontal tab strip on phones — hide its scrollbar */
+  .tabstrip { scrollbar-width: none; -ms-overflow-style: none; }
+  .tabstrip::-webkit-scrollbar { display: none; }
 </style>
 </head>
 <body>
