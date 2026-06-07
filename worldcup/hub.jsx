@@ -8,6 +8,7 @@ const TABS = [
   { id: "facts",     label: "🌍 Map & Facts" },
   { id: "play",      label: "🎮 Play" },
   { id: "stickers",  label: "🎟️ Stickers" },
+  { id: "help",      label: "❓ Help" },
   { id: "settings",  label: "⚙️ Settings" },
 ];
 
@@ -438,13 +439,16 @@ function HubApp() {
   const demo = params.get("demo") === "1";
   const demoData = React.useMemo(() => (demo && window.buildDemo ? window.buildDemo() : null), [demo]);
   const tabParam = params.get("tab");
-  const [tab, setTab] = React.useState(TABS.some((t) => t.id === tabParam) ? tabParam : "home");
+  const helpParam = params.get("help");
+  const [helpTarget, setHelpTarget] = React.useState(helpParam || null);
+  const [tab, setTab] = React.useState(helpParam ? "help" : (TABS.some((t) => t.id === tabParam) ? tabParam : "home"));
   const isPhone = useIsPhone();
   const [tz, setTz] = React.useState(() => { try { return localStorage.getItem("wc26tz") || "device"; } catch (e) { return "device"; } });
   React.useEffect(() => { try { localStorage.setItem("wc26tz", tz); } catch (e) {} }, [tz]);
   const [fav, setFav] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26fav")) || []; } catch (e) { return []; } });
   React.useEffect(() => { try { localStorage.setItem("wc26fav", JSON.stringify(fav)); } catch (e) {} }, [fav]);
   const toggleFav = (code) => setFav((f) => (f.indexOf(code) >= 0 ? f.filter((x) => x !== code) : f.concat([code])));
+  const goHelp = (id) => { setHelpTarget(id); setTab("help"); };
 
   const [settings, setSettings] = React.useState(() => {
     try { return Object.assign({ scoreMode: "manual", autoBracket: false }, JSON.parse(localStorage.getItem("wc26settings")) || {}); }
@@ -547,8 +551,9 @@ function HubApp() {
       )}
       <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
         {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} />}
-        {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} addPlayer={addPlayer} sync={sync} setSync={setSync} />}
-        {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} />}
+        {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} addPlayer={addPlayer} sync={sync} setSync={setSync} goHelp={goHelp} />}
+        {tab === "help" && <HelpTab target={helpTarget} clearTarget={() => setHelpTarget(null)} />}
+        {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} goHelp={goHelp} />}
         {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} />}
         {tab === "schedule" && <ScheduleTab results={results} status={lr.status} tz={tz} setTz={setTz} />}
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}

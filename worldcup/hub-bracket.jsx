@@ -110,7 +110,7 @@ function HubColumn({ side, round, n, header, store, onOpen, alignRight }) {
   );
 }
 
-function BracketTab({ store, setPick, results }) {
+function BracketTab({ store, setPick, results, goHelp }) {
   const [picking, setPicking] = React.useState(null);
   const [sharing, setSharing] = React.useState(false);
   const [showPools, setShowPools] = React.useState(false);
@@ -128,6 +128,7 @@ function BracketTab({ store, setPick, results }) {
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: "#f4b740" }}>Tap a slot to fill the bracket</div>
+        {goHelp && <HelpLink goHelp={goHelp} id="bracket" label="How the bracket works" />}
         <button onClick={() => setShowPools((v) => !v)} style={{ marginLeft: "auto", cursor: "pointer", border: showPools ? "2px solid #34c77b" : "2px solid transparent", background: showPools ? "rgba(52,199,123,.18)" : "rgba(255,255,255,.1)", color: showPools ? "#bdf0d3" : "#dfe6ff", borderRadius: 12, padding: "7px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>📊 Pool play</button>
         <button onClick={() => setPrintOpen((v) => !v)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 12, padding: "8px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>🖨 Print</button>
         <button onClick={() => setSharing(true)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 12, padding: "8px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>📤 Share</button>
