@@ -60,6 +60,7 @@
     <label for="code">Pick a family code (a secret word everyone uses)</label>
     <input id="code" placeholder="e.g. merry-fam" />
     <div id="out">
+      <p class="note" id="localnote" style="display:none; color:#ffd7d2; background:rgba(226,71,59,.18); border:2px solid rgba(226,71,59,.5); border-radius:12px; padding:8px 12px;">⚠️ You're running this on your own computer, so this link starts with <code>localhost</code> and won't open on your family's phones. Make the link from the <b>hosted site</b> instead: <a href="https://craigm26.github.io/WorldCup2026BracketForFamilies/setup.html" style="color:#9fc0ff">github.io setup page</a>.</p>
       <label>Share this link with your family (text or email it):</label>
       <input id="link" readonly />
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
@@ -117,6 +118,8 @@
     var out = document.getElementById('out'), hint = document.getElementById('hint');
     if (!link) { out.style.display = 'none'; hint.style.display = 'block'; return; }
     out.style.display = 'block'; hint.style.display = 'none';
+    var isLocal = location.protocol === 'file:' || /^(localhost|127\.|0\.0\.0\.0|192\.168\.|10\.|\[)/.test(location.hostname);
+    document.getElementById('localnote').style.display = isLocal ? 'block' : 'none';
     document.getElementById('link').value = link;
     document.getElementById('mailLink').href =
       'mailto:?subject=' + encodeURIComponent('Join our World Cup sticker swap') +
