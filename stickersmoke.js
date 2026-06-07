@@ -73,8 +73,13 @@ const puppeteer = require('puppeteer-core');
   const backRestored = await page.evaluate(() => /1\/980/.test(document.body.innerText));
   console.log('switched back to My album, its 1/980 retained:', backRestored);
 
+  // book-to-book trading: a single person with two books can trade against themselves
+  await clickSeg('Trade Matcher'); await new Promise(r => setTimeout(r, 400));
+  const bookToBook = await page.evaluate(() => /perfect swap/i.test(document.body.innerText));
+  console.log('Trade Matcher matches book-to-book:', bookToBook);
+
   console.log('JS errors:', errs.length, errs.slice(0, 3).join(' | '));
   await browser.close();
-  const ok = onBook && hasDouble && overviewAdd && tradeAdd && matcherWorks && albumHas && hasSwaps && swapsIndependent && backRestored && errs.length === 0;
+  const ok = onBook && hasDouble && overviewAdd && tradeAdd && matcherWorks && albumHas && hasSwaps && swapsIndependent && backRestored && bookToBook && errs.length === 0;
   process.exit(ok ? 0 : 1);
 })();

@@ -7,6 +7,23 @@ function fmtWhen(v) {
   } catch (e) { return ""; }
 }
 
+// Flatten players × their books into trade/overview entries. The default book
+// (id == playerId, label "My album") shows as just the person's name.
+function bookEntries(players, books, collections) {
+  const B = window.WCSTKBOOKS;
+  const out = [];
+  (players.list || []).forEach((p) => {
+    const reg = (books && books[p.id]) || (B ? B.defaultRegistry(p.id) : { list: [{ id: p.id, label: "My album" }] });
+    (reg.list || []).forEach((bk) => {
+      const isDefault = bk.id === p.id && bk.label === ((B && B.DEFAULT_LABEL) || "My album");
+      out.push({ key: bk.id, playerId: p.id, bookId: bk.id, emoji: p.emoji,
+        name: isDefault ? p.name : (p.name + " · " + bk.label),
+        map: (collections && collections[bk.id]) || {} });
+    });
+  });
+  return out;
+}
+
 function FamilyMemberModal({ member, idx, onClose }) {
   if (!member) return null;
   const doubles = Object.keys(member.collection || {}).filter((c) => (member.collection[c] || 0) >= 2);
@@ -316,66 +333,67 @@ function TradeColumn({ title, nums, idx, accent }) {
   );
 }
 
-function TradeMatcherView({ collections, players, activeId, addPlayer }) {
-  const L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
+function TradeMatcherView({ collections, players, books, activeId, addPlayer }) {
+  const L = window.WCSTKLOGIC, WCSTK = window.WCSTK, B = window.WCSTKBOOKS;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
-  const others = players.list.filter((p) => p.id !== activeId);
-  const [otherId, setOtherId] = React.useState(others.length ? others[0].id : null);
+  const entries = bookEntries(players, books, collections);
+  const reg = (books && books[activeId]) || (B ? B.defaultRegistry(activeId) : { active: activeId });
+  const activeBook = reg.active;
+  const mineEntry = entries.find((e) => e.bookId === activeBook) || entries.find((e) => e.playerId === activeId);
+  const others = entries.filter((e) => e.bookId !== (mineEntry ? mineEntry.bookId : activeBook));
+  const [otherKey, setOtherKey] = React.useState(others.length ? others[0].key : null);
 
   if (!others.length) return (
     <AddPlayerCard addPlayer={addPlayer}
-      title="🔄 Trading needs at least two people"
-      blurb="Add each family member as a player — then the Trade Matcher shows exactly which of your doubles you can swap for the stickers they still need. (Players are shared with the 🏠 Home Pick'em.)" />
+      title="🔄 Trading needs at least two books"
+      blurb="Add another family member as a player — or add a second book (like a 'Swaps' book) in 📖 My Book — then the Trade Matcher shows exactly which of your doubles you can swap for the stickers they still need. (Players are shared with the 🏠 Home Pick'em.)" />
   );
 
-  // reconcile the selection if the player list changed (e.g. a future header switcher)
-  const validOtherId = others.some((p) => p.id === otherId) ? otherId : others[0].id;
-  const mine = collections[activeId] || {};
-  const theirs = collections[validOtherId] || {};
-  const r = L.tradeMatch(mine, theirs, idx);
-  const me = players.list.find((p) => p.id === activeId);
-  const them = players.list.find((p) => p.id === validOtherId);
+  const validKey = others.some((e) => e.key === otherKey) ? otherKey : others[0].key;
+  const them = others.find((e) => e.key === validKey);
+  const mine = mineEntry ? mineEntry.map : {};
+  const r = L.tradeMatch(mine, them.map, idx);
 
   return (
     <div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
-        <span style={{ color: "#dfe6ff", fontWeight: 600 }}>Trade {me ? me.emoji + " " + me.name : "you"} with</span>
-        <select value={validOtherId} onChange={(e) => setOtherId(e.target.value)} style={{ fontFamily: "inherit", fontSize: 15,
+        <span style={{ color: "#dfe6ff", fontWeight: 600 }}>Trade {mineEntry ? mineEntry.emoji + " " + mineEntry.name : "you"} with</span>
+        <select value={validKey} onChange={(e) => setOtherKey(e.target.value)} style={{ fontFamily: "inherit", fontSize: 15,
           fontWeight: 700, color: "#16235a", background: "#f4b740", border: "none", borderRadius: 8, padding: "6px 10px" }}>
-          {others.map((p) => <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>)}
+          {others.map((e) => <option key={e.key} value={e.key}>{e.emoji} {e.name}</option>)}
         </select>
         <span style={{ marginLeft: "auto", fontSize: 16, fontWeight: 800, color: "#34c77b" }}>🤝 {r.swaps} perfect swap{r.swaps === 1 ? "" : "s"}</span>
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <TradeColumn title={"You give → " + (them ? them.name : "")} nums={r.iGive} idx={idx} accent="#f4b740" />
-        <TradeColumn title={(them ? them.name : "") + " gives → you"} nums={r.iWant} idx={idx} accent="#9fc0ff" />
+        <TradeColumn title={"You give → " + them.name} nums={r.iGive} idx={idx} accent="#f4b740" />
+        <TradeColumn title={them.name + " gives → you"} nums={r.iWant} idx={idx} accent="#9fc0ff" />
       </div>
     </div>
   );
 }
 
-function OverviewView({ collections, players, addPlayer }) {
+function OverviewView({ collections, players, books, addPlayer }) {
   const L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
-  const maps = players.list.map((p) => collections[p.id] || {});
-  const rarest = L.rarestNeeded(maps, idx);
+  const entries = bookEntries(players, books, collections);
+  const rarest = L.rarestNeeded(entries.map((e) => e.map), idx);
   return (
     <div>
-      {players.list.length < 2 && (
+      {entries.length < 2 && (
         <div style={{ marginBottom: 16 }}>
           <AddPlayerCard addPlayer={addPlayer}
             title="👪 Add the whole family to compare"
-            blurb="Each person gets their own collection. Add a player for each family member to see everyone’s progress side by side — and who needs what for trading." />
+            blurb="Each person gets their own collection — and can keep more than one book. Add a player for each family member (or a second book) to see everyone’s progress side by side, and who needs what for trading." />
         </div>
       )}
       <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
-        {players.list.map((p) => {
-          const t = L.playerTotals(collections[p.id] || {}, idx);
+        {entries.map((e) => {
+          const t = L.playerTotals(e.map, idx);
           const pct = t.total ? Math.round((t.have / t.total) * 100) : 0;
           return (
-            <div key={p.id} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px" }}>
+            <div key={e.key} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#fff", marginBottom: 6 }}>
-                <span>{p.emoji} {p.name}</span>
+                <span>{e.emoji} {e.name}</span>
                 <span style={{ color: "#f4b740", fontWeight: 700 }}>{t.have}/{t.total} · {t.doubles} dbl</span>
               </div>
               <div style={{ height: 6, background: "rgba(255,255,255,.1)", borderRadius: 6, overflow: "hidden" }}>
