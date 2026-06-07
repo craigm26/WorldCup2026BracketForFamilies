@@ -41,6 +41,27 @@
     return { have: have, total: Object.keys(index).length, doubles: doubles };
   }
 
+  const has = (map, n) => (map[n] || 0) >= 1;
+  const needs = (map, n) => (map[n] || 0) === 0;
+  const isDouble = (map, n) => (map[n] || 0) >= 2;
+
+  // what mine can give theirs, what mine wants from theirs, perfect-swap count
+  function tradeMatch(mine, theirs, index) {
+    mine = mine || {}; theirs = theirs || {};
+    const iGive = [], iWant = [];
+    Object.keys(index).forEach((n) => {
+      if (isDouble(mine, n) && needs(theirs, n)) iGive.push(n);
+      if (isDouble(theirs, n) && needs(mine, n)) iWant.push(n);
+    });
+    return { iGive: iGive, iWant: iWant, swaps: Math.min(iGive.length, iWant.length) };
+  }
+
+  // numbers no player in `maps` owns at all
+  function rarestNeeded(maps, index) {
+    return Object.keys(index).filter((n) => !maps.some((m) => has(m, n)));
+  }
+
   return { buildIndex: buildIndex, cycleCount: cycleCount,
-           sectionProgress: sectionProgress, playerTotals: playerTotals };
+           sectionProgress: sectionProgress, playerTotals: playerTotals,
+           tradeMatch: tradeMatch, rarestNeeded: rarestNeeded };
 });

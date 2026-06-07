@@ -39,3 +39,29 @@ test('playerTotals sums have + doubles across the album', () => {
   const totals = L.playerTotals({ '1': 1, '3': 2 }, idx);
   assert.deepEqual(totals, { have: 2, total: 4, doubles: 1 });
 });
+
+test('tradeMatch pairs my doubles with their needs and vice versa', () => {
+  const idx = L.buildIndex(SAMPLE);
+  const mine =  { '1': 2, '3': 1 };        // double of 1; have 3; need 2,4
+  const theirs = { '1': 0, '4': 3 };       // need 1; double of 4; need 2,3
+  const r = L.tradeMatch(mine, theirs, idx);
+  assert.deepEqual(r.iGive.map(Number).sort(), [1]);   // my double 1, they need 1
+  assert.deepEqual(r.iWant.map(Number).sort(), [4]);   // their double 4, I need 4
+  assert.equal(r.swaps, 1);                            // min(1,1)
+});
+
+test('tradeMatch swaps headline is the min of the two lists', () => {
+  const idx = L.buildIndex(SAMPLE);
+  const mine =  { '1': 2, '2': 2 };   // doubles 1,2
+  const theirs = { '3': 2 };          // double 3; needs 1,2
+  const r = L.tradeMatch(mine, theirs, idx);
+  assert.deepEqual(r.iGive.map(Number).sort(), [1, 2]);
+  assert.deepEqual(r.iWant.map(Number).sort(), [3]);
+  assert.equal(r.swaps, 1);           // min(2,1)
+});
+
+test('rarestNeeded lists numbers nobody owns', () => {
+  const idx = L.buildIndex(SAMPLE);
+  const maps = [ { '1': 1, '3': 2 }, { '3': 1, '4': 1 } ]; // owned union: 1,3,4 ; missing: 2
+  assert.deepEqual(L.rarestNeeded(maps, idx).map(Number), [2]);
+});
