@@ -36,6 +36,7 @@ test('safePath blocks traversal outside root', () => {
   assert.equal(SRV.safePath(ROOT, '/../setup-link.js'), null);
   assert.equal(SRV.safePath(ROOT, '/../../etc/passwd'), null);
   assert.equal(SRV.safePath(ROOT, '/%2e%2e/secret'), null);
+  assert.equal(SRV.safePath(ROOT, '/foo\u0000bar.js'), null); // null byte rejected
 });
 
 test('server serves an existing file (200) and 404s a missing one', async () => {

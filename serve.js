@@ -17,6 +17,7 @@ const TYPES = {
 function safePath(root, urlPath) {
   let p;
   try { p = decodeURIComponent((urlPath || '/').split('?')[0]); } catch (e) { return null; }
+  if (p.indexOf("\u0000") !== -1) return null; // reject null bytes (safe as a standalone unit)
   if (p.endsWith('/')) p += 'index.html';
   const full = path.resolve(root, '.' + p);
   if (full !== root && !full.startsWith(root + path.sep)) return null;
