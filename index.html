@@ -79,14 +79,26 @@
         <a class="btn ghost" href="worldcup/?demo=1">✨ See a filled demo</a>
         <a class="btn ghost" href="https://github.com/craigm26/WorldCup2026BracketForFamilies">★ GitHub</a>
       </div>
-      <p class="note">Tip: open the Hub on the living-room TV; scan its QR or share the link to play along on phones.</p>
+      <p class="note">Tip: open the Hub on the living-room TV and share the link to play along on phones.</p>
     </div>
   </header>
 
   <div class="wrap">
     <section class="panel">
+      <h2>🚀 Get started in a tap</h2>
+      <div class="printrow">
+        <a class="printcard" href="worldcup/"><b>▶ Open the Hub</b><span>Bracket, stickers, schedule, games — jump right in. Add a player for each family member on the Home tab.</span></a>
+        <a class="printcard" href="#run-locally"><b>💻 Run it on your computer</b><span>No Raspberry Pi needed — download it and double-click one file on Mac, Windows or Linux.</span></a>
+        <a class="printcard" href="setup.html"><b>👨‍👩‍👧 Set up family trading</b><span>A 5-minute guided helper so relatives in other homes can trade stickers — it makes the link for you.</span></a>
+        <a class="printcard" href="worldcup/?tab=help"><b>🔗 Got a family link?</b><span>Just tap the link someone shared with you — you're in. New here? Open the ❓ Help tab anytime.</span></a>
+      </div>
+    </section>
+  </div>
+
+  <div class="wrap">
+    <section class="panel">
       <h2>📺 The interactive Hub</h2>
-      <p class="sub">Eight tabs, touch- &amp; remote-friendly, works offline once set up. Try it above.</p>
+      <p class="sub">Ten tabs, touch- &amp; remote-friendly, works offline once set up. Try it above.</p>
       <div class="grid cols-3">
         <div class="feat"><div class="ic">🏠</div><b>Home &amp; countdown</b><span>Live countdown to the next kick-off in your time zone, today's games, and your favorite team.</span></div>
         <div class="feat"><div class="ic">🗂️</div><b>Fillable bracket</b><span>Real 2026 knockout skeleton — every slot shows its feeders, match #, date &amp; host city.</span></div>
@@ -94,6 +106,8 @@
         <div class="feat"><div class="ic">📺</div><b>Where &amp; how to watch</b><span>US, Canada, Mexico &amp; the rest of the world — including the genuinely free options.</span></div>
         <div class="feat"><div class="ic">🌍</div><b>Map &amp; kid facts</b><span>Host-city map plus rotating, kid-friendly facts for all 48 countries.</span></div>
         <div class="feat"><div class="ic">🎮</div><b>Quiz &amp; Family Pick'em</b><span>A flag/country/food quiz, plus a per-player bracket leaderboard for a family competition.</span></div>
+        <div class="feat"><div class="ic">🎟️</div><b>Panini sticker tracker</b><span>Track all 980 stickers with real player names, mark Have/Need/doubles, and a Trade Matcher shows who can swap what.</span></div>
+        <div class="feat"><div class="ic">👨‍👩‍👧</div><b>Trade with family far away</b><span>Optional free Family Sync (a Google Sheet) lets relatives in other homes propose and accept trades.</span></div>
       </div>
     </section>
 
@@ -116,9 +130,15 @@
       </div>
     </section>
 
-    <section class="panel">
-      <h2>🚀 Host it yourself</h2>
-      <p class="sub">The Hub is plain static files — drop the <code>worldcup/</code> folder on any web server (a Raspberry Pi, an old laptop, anything), or run <code>make-offline.sh</code> for a zero-internet build. Full instructions are in the <a href="https://github.com/craigm26/WorldCup2026BracketForFamilies#readme">README</a>.</p>
+    <section class="panel" id="run-locally">
+      <h2>💻 Run it on your computer</h2>
+      <p class="sub">No server skills needed. Works on Mac, Windows &amp; Linux — uses Python or Node if you already have them.</p>
+      <ol style="line-height:1.7; color:#dfe6ff;">
+        <li><b>Download</b> the project: the green <b>Code → Download ZIP</b> button on <a href="https://github.com/craigm26/WorldCup2026BracketForFamilies">GitHub</a>, then unzip it.</li>
+        <li><b>Double-click</b> the launcher for your computer: <code>start.command</code> (Mac), <code>start.bat</code> (Windows), or <code>start.sh</code> (Linux).</li>
+        <li>Your browser opens the Hub at <code>http://localhost:8080/worldcup/</code>. That's it!</li>
+      </ol>
+      <p class="note">Prefer Docker? <code>docker build -t worldcup . &amp;&amp; docker run -p 8080:8080 worldcup</code>, then open <code>localhost:8080/worldcup/</code>. Full notes are in the <a href="https://github.com/craigm26/WorldCup2026BracketForFamilies#readme">README</a>.</p>
     </section>
   </div>
 
