@@ -163,6 +163,43 @@ function TradeMatcherView({ collections, players, activeId }) {
   );
 }
 
+function OverviewView({ collections, players }) {
+  const L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
+  const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
+  const maps = players.list.map((p) => collections[p.id] || {});
+  const rarest = L.rarestNeeded(maps, idx);
+  return (
+    <div>
+      <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
+        {players.list.map((p) => {
+          const t = L.playerTotals(collections[p.id] || {}, idx);
+          const pct = t.total ? Math.round((t.have / t.total) * 100) : 0;
+          return (
+            <div key={p.id} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#fff", marginBottom: 6 }}>
+                <span>{p.emoji} {p.name}</span>
+                <span style={{ color: "#f4b740", fontWeight: 700 }}>{t.have}/{t.total} · {t.doubles} dbl</span>
+              </div>
+              <div style={{ height: 6, background: "rgba(255,255,255,.1)", borderRadius: 6, overflow: "hidden" }}>
+                <div style={{ width: pct + "%", height: "100%", background: "#34c77b" }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ background: "rgba(244,183,64,.14)", border: "2px solid rgba(244,183,64,.4)", borderRadius: 14, padding: "12px 14px" }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#f4b740", marginBottom: 6 }}>🔎 Rarest — nobody has these ({rarest.length})</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {rarest.slice(0, 40).map((n) => (
+            <span key={n} style={{ background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 8, padding: "3px 8px", fontSize: 13 }}>#{n}</span>
+          ))}
+          {rarest.length > 40 && <span style={{ color: "#9fb0e0", fontSize: 13 }}>+{rarest.length - 40} more</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StickersTab({ collections, setSticker, players }) {
   const [view, setView] = React.useState("book"); // book | trade | overview
   const activeId = players.active;
@@ -181,7 +218,7 @@ function StickersTab({ collections, setSticker, players }) {
       </div>
       {view === "book" && <MyBookView map={map} setSticker={setSticker} activeId={activeId} />}
       {view === "trade" && <TradeMatcherView collections={collections} players={players} activeId={activeId} />}
-      {view === "overview" && <div style={{ color: "#9fb0e0", padding: 24 }}>Overview — coming in Task 10.</div>}
+      {view === "overview" && <OverviewView collections={collections} players={players} />}
     </div>
   );
 }
