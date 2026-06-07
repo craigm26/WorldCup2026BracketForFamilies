@@ -189,7 +189,7 @@ function BookBar({ reg, playerId, addBook, renameBook, removeBook, switchBook })
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
       {reg.list.map(pill)}
       {!adding ? (
-        <button onClick={() => { setAdding(true); setLabel(""); }} style={{ border: "none", cursor: "pointer", borderRadius: 20,
+        <button onClick={() => { setAdding(true); setEditing(false); setLabel(""); }} style={{ border: "none", cursor: "pointer", borderRadius: 20,
           padding: "6px 12px", fontSize: 14, fontWeight: 700, background: "rgba(255,255,255,.12)", color: "#dfe6ff" }}>＋ Book</button>
       ) : (
         <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -199,7 +199,7 @@ function BookBar({ reg, playerId, addBook, renameBook, removeBook, switchBook })
           <button onClick={() => setAdding(false)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 8, padding: "6px 10px" }}>✕</button>
         </span>
       )}
-      <button onClick={() => { setEditing((v) => !v); setLabel(activeBook.label); }} aria-label="Rename or delete this book"
+      <button onClick={() => { setEditing((v) => !v); setAdding(false); setLabel(activeBook.label); }} aria-label="Rename or delete this book"
         style={{ border: "none", cursor: "pointer", background: "transparent", color: "#9fb0e0", fontSize: 14, padding: "6px 4px" }}>✏️</button>
       {editing && (
         <span style={{ display: "flex", gap: 6, alignItems: "center", flexBasis: "100%" }}>

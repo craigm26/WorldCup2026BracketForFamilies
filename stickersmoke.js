@@ -49,8 +49,15 @@ const puppeteer = require('puppeteer-core');
   const matcherWorks = await page.evaluate(() => /perfect swap/i.test(document.body.innerText));
   console.log('after adding a player, Trade Matcher renders:', matcherWorks);
 
-  // --- multiple books per person ---
+  // --- multiple books per person: independent counts + switching, on the SAME player ---
   await clickSeg('My Book'); await new Promise(r => setTimeout(r, 300));
+  // active player here is "Mia" (added above); her album starts empty (0/980).
+  // tap the first sticker twice -> THIS book's header becomes "You: 1/980".
+  await tap(); await new Promise(r => setTimeout(r, 200));
+  await tap(); await new Promise(r => setTimeout(r, 300));
+  const albumHas = await page.evaluate(() => /1\/980/.test(document.body.innerText));
+  console.log('active book shows 1/980 after two taps:', albumHas);
+  // add a "Swaps" book -> becomes active; it must be INDEPENDENT (empty: 0/980, not 1/980).
   await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find(x => /＋ Book/.test(x.textContent)); if (b) b.click(); });
   await new Promise(r => setTimeout(r, 200));
   await page.type('input[placeholder*="Book name"]', 'Swaps');
@@ -58,16 +65,16 @@ const puppeteer = require('puppeteer-core');
   await new Promise(r => setTimeout(r, 400));
   const hasSwaps = await page.evaluate(() => /📗 Swaps/.test(document.body.innerText));
   console.log('second book "Swaps" added + active:', hasSwaps);
-  const swapsEmpty = await page.evaluate(() => !/×2/.test(document.body.innerText));
-  console.log('new book has independent (empty) counts:', swapsEmpty);
-  await tap(); await new Promise(r => setTimeout(r, 250));
+  const swapsIndependent = await page.evaluate(() => /0\/980/.test(document.body.innerText) && !/1\/980/.test(document.body.innerText));
+  console.log('Swaps book is independent (empty 0/980, not 1/980):', swapsIndependent);
+  // switch back to My album -> its "1/980" must still be there (switch works + data retained).
   await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find(x => /📗 My album/.test(x.textContent)); if (b) b.click(); });
   await new Promise(r => setTimeout(r, 350));
-  const backOnAlbum = await page.evaluate(() => /📗 My album/.test(document.body.innerText));
-  console.log('switched back to My album:', backOnAlbum);
+  const backRestored = await page.evaluate(() => /1\/980/.test(document.body.innerText));
+  console.log('switched back to My album, its 1/980 retained:', backRestored);
 
   console.log('JS errors:', errs.length, errs.slice(0, 3).join(' | '));
   await browser.close();
-  const ok = onBook && hasDouble && overviewAdd && tradeAdd && matcherWorks && hasSwaps && swapsEmpty && backOnAlbum && errs.length === 0;
+  const ok = onBook && hasDouble && overviewAdd && tradeAdd && matcherWorks && albumHas && hasSwaps && swapsIndependent && backRestored && errs.length === 0;
   process.exit(ok ? 0 : 1);
 })();
