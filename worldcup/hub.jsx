@@ -240,6 +240,7 @@ function FlagPicker({ sel, onSelect }) {
 function FactsTab({ fav, toggleFav }) {
   const WC = window.WC;
   const [sel, setSel] = React.useState("BRA");
+  const [mapView, setMapView] = React.useState("globe"); // globe | cities
   const [cityModal, setCityModal] = React.useState(null);
   const [factIdx, setFactIdx] = React.useState(0);
   const t = WC.T[sel];
@@ -254,9 +255,21 @@ function FactsTab({ fav, toggleFav }) {
   return (
     <div style={{ height: "100%", overflow: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <div style={{ flex: "2 1 360px", background: "#fff", borderRadius: 18, padding: 14, minHeight: 340, display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#16235a", marginBottom: 6 }}>📍 Tap a pin to explore the city &amp; stadium</div>
-          <div style={{ flex: 1, minHeight: 280 }}><StadiumMap onCityClick={setCityModal} /></div>
+        <div style={{ flex: "2 1 360px", background: mapView === "globe" ? "rgba(255,255,255,.04)" : "#fff", borderRadius: 18, padding: 14, minHeight: 340, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+            {["globe", "cities"].map((v) => (
+              <button key={v} onClick={() => setMapView(v)} style={{ border: "none", cursor: "pointer", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 700,
+                background: mapView === v ? "#f4b740" : "rgba(255,255,255,.12)", color: mapView === v ? "#16235a" : "#dfe6ff" }}>{v === "globe" ? "🌐 Globe" : "🗺️ Host cities"}</button>
+            ))}
+            <span style={{ fontSize: 12.5, color: mapView === "globe" ? "#9fb0e0" : "#16235a", marginLeft: 4 }}>
+              {mapView === "globe" ? "Spin it · tap a gold pin to explore a nation" : "Tap a pin for the city & stadium"}
+            </span>
+          </div>
+          <div style={{ flex: 1, minHeight: 280 }}>
+            {mapView === "globe"
+              ? <Globe3D sel={sel} onSelect={setSel} fallback={<div style={{ height: "100%", overflow: "auto" }}><div style={{ fontSize: 13.5, color: "#9fb0e0", marginBottom: 8 }}>Your device can't show the 3D globe — tap a flag to explore a nation.</div><FlagPicker sel={sel} onSelect={setSel} /></div>} />
+              : <StadiumMap onCityClick={setCityModal} />}
+          </div>
         </div>
         <div style={{ flex: "1 1 240px", background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16 }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 10 }}>⭐ Records</div>
