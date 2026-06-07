@@ -341,7 +341,7 @@ function buildDemo() {
 }
 window.buildDemo = buildDemo;
 
-function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liveActive, onAutofill, onReset }) {
+function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liveActive, onAutofill, onReset, sync }) {
   const WCTZ = window.WCTZ;
   const modes = [
     { id: "manual", icon: "✍️", title: "Manual — you type the scores", desc: "Best for kids! Watch the games, then type each score yourself on the Standings tab. Nothing changes on its own, so there are never any spoilers." },
@@ -421,6 +421,10 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
         <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 8 }}>🧹 Start over</div>
         <div style={{ fontSize: 13.5, color: "#cdd9ff", marginBottom: 12 }}>Clears every score and bracket pick on this device. Your settings above stay.</div>
         <button onClick={onReset} style={{ border: "none", cursor: "pointer", background: "#e2473b", color: "#fff", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>↺ Reset scores &amp; bracket</button>
+      </div>
+
+      <div style={{ marginTop: 16, fontSize: 13.5, color: "#9fb0e0" }}>
+        👨‍👩‍👧 <b style={{ color: "#dfe6ff" }}>Family Sync:</b> {sync ? "connected" : "not set up"} — manage it on the 🎟️ Stickers → Family tab.
       </div>
 
       <div style={{ fontSize: 12.5, color: "#7e8cc0", lineHeight: 1.6 }}>Published by Craig Merry · Designed with Anthropic Claude Design</div>
@@ -550,7 +554,7 @@ function HubApp() {
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
         {tab === "facts" && <FactsTab fav={fav} toggleFav={toggleFav} />}
         {tab === "play" && <PlayTab />}
-        {tab === "settings" && <SettingsTab settings={settings} setSetting={setSetting} tz={tz} setTz={setTz} fetchNow={fetchLive} lastFetch={lastFetch} liveActive={liveActive} onAutofill={autofillR32} onReset={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} />}
+        {tab === "settings" && <SettingsTab settings={settings} setSetting={setSetting} tz={tz} setTz={setTz} fetchNow={fetchLive} lastFetch={lastFetch} liveActive={liveActive} onAutofill={autofillR32} onReset={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} sync={sync} />}
       </main>
       <footer style={{ padding: isPhone ? "8px 14px" : "8px 26px", borderTop: "1px solid rgba(255,255,255,.1)", fontSize: 12.5, color: "#7e8cc0", display: "flex", justifyContent: isPhone ? "center" : "space-between", gap: isPhone ? 6 : 12, flexWrap: "wrap", textAlign: "center" }}>
         {!isPhone && <span>📺 Use ← → or keys 1–8 to switch tabs · saves on this device</span>}

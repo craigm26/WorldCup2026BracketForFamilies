@@ -65,6 +65,22 @@ The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV
 
 > **Try the demo:** open the Hub with `?demo=1` (e.g. `index.html?demo=1`) to see a fully-filled example bracket and standings. Add `&tab=facts` to jump straight to a tab.
 
+### 👨‍👩‍👧 Family Sync (trade stickers with relatives far away) — optional
+
+Stickers can be shared across households with a free Google Sheet as the backend. The Hub
+works fully without this — it's opt-in.
+
+1. Create a Google Sheet. **Extensions → Apps Script**, paste `worldcup/family-sync.gs`, Save.
+2. **Deploy → New deployment → Web app** — *Execute as: Me*, *Who has access: Anyone* — Deploy, and copy the **/exec URL**.
+3. Pick a **family code** (any word). Share this one link with relatives (a QR works too):
+   `https://<your-hub>/worldcup/?sync=<EXEC_URL>&code=<FAMILY_CODE>`
+4. Each person opens the link once on their phone, creates their player, taps **Publish my
+   collection**, and can propose trades on the **🎟️ Stickers → 👨‍👩‍👧 Family** tab.
+
+> Security: the endpoint is gated only by the family code — anyone with the link can read/write
+> your family's sticker data, so don't post it publicly. Data lives in your private Sheet
+> (names + sticker counts only). The `/exec` URL is a secret — never commit it.
+
 ### Quick deploy (any web server)
 
 The Hub is **plain static files**. To serve it at `http://<your-host>/worldcup/`:
