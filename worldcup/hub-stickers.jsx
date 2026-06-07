@@ -24,11 +24,17 @@ function StickerSlot({ slot, count, onTap, onMinus }) {
   );
 }
 
-function StickerPage({ page, map, onTap, onMinus }) {
+function StickerPage({ page, map, onTap, onMinus, setSticker, activeId }) {
   const WC = window.WC, L = window.WCSTKLOGIC;
   const prog = L.sectionProgress(map, page);
   const pct = prog.total ? Math.round((prog.have / prog.total) * 100) : 0;
   const flagIso = page.flag || (page.team && WC.T[page.team] ? WC.T[page.team].c : null);
+
+  const applyScan = (guesses) => {
+    // keys are string sticker codes — pass them through unchanged
+    Object.keys(guesses).forEach((n) => { if (guesses[n] && (map[n] || 0) < 1) setSticker(activeId, n, 1); });
+  };
+
   return (
     <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 16, padding: 14, marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
@@ -42,6 +48,7 @@ function StickerPage({ page, map, onTap, onMinus }) {
       <div style={{ height: 6, background: "rgba(255,255,255,.1)", borderRadius: 6, marginBottom: 12, overflow: "hidden" }}>
         <div style={{ width: pct + "%", height: "100%", background: pct === 100 ? "#34c77b" : "#f4b740" }} />
       </div>
+      <div style={{ marginBottom: 10 }}><ScanPage page={page} map={map} onApply={applyScan} /></div>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${page.cols}, 1fr)`, gap: 8 }}>
         {page.slots.map((s) => (
           <StickerSlot key={s.n} slot={s} count={map[s.n] || 0} onTap={onTap} onMinus={onMinus} />
@@ -105,6 +112,78 @@ function ScanSwap({ onAdd }) {
   );
 }
 
+function ScanPage({ page, map, onApply }) {
+  const L = window.WCSTKLOGIC;
+  const [open, setOpen] = React.useState(false);
+  const [guesses, setGuesses] = React.useState(null); // { n: bool }
+  const [msg, setMsg] = React.useState("");
+  const videoRef = React.useRef(null);
+  const streamRef = React.useRef(null);
+  const stop = () => { if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; } };
+  React.useEffect(() => stop, []);
+
+  const start = async () => {
+    setMsg(""); setGuesses(null);
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = s; if (videoRef.current) { videoRef.current.srcObject = s; await videoRef.current.play(); }
+    } catch (e) { setMsg("Camera unavailable on this device."); }
+  };
+
+  const capture = () => {
+    const v = videoRef.current; if (!v || !v.videoWidth) { setMsg("Point the camera at the page first."); return; }
+    const cv = document.createElement("canvas"); cv.width = v.videoWidth; cv.height = v.videoHeight;
+    const ctx = cv.getContext("2d"); ctx.drawImage(v, 0, 0);
+    const cellW = cv.width / page.cols, cellH = cv.height / page.rows;
+    const out = {};
+    page.slots.forEach((slot, i) => {
+      const r = Math.floor(i / page.cols), c = i % page.cols;
+      const data = ctx.getImageData(c * cellW, r * cellH, cellW, cellH).data;
+      const gray = [];
+      for (let p = 0; p < data.length; p += 4 * 37) gray.push(0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2]);
+      out[slot.n] = L.guessFilled(gray, 40);
+    });
+    stop();
+    if (auto) { onApply(out); setOpen(false); setGuesses(null); setMsg(""); return; }
+    setGuesses(out); setMsg("Tap any cell to fix it, then Apply.");
+  };
+
+  const [auto, setAuto] = React.useState(false);
+
+  const toggle = (n) => setGuesses((g) => Object.assign({}, g, { [n]: !g[n] }));
+  const apply = () => { onApply(guesses); setOpen(false); setGuesses(null); stop(); };
+
+  if (!open) return (
+    <button onClick={() => { setOpen(true); start(); }} style={{ border: "none", cursor: "pointer", borderRadius: 10,
+      padding: "6px 12px", fontSize: 13, fontWeight: 700, background: "rgba(255,255,255,.12)", color: "#dfe6ff" }}>📷 Scan this page</button>
+  );
+
+  return (
+    <div style={{ background: "rgba(0,0,0,.4)", borderRadius: 12, padding: 10, marginBottom: 10 }}>
+      {!guesses && <video ref={videoRef} muted playsInline style={{ width: "100%", maxHeight: 240, borderRadius: 8, background: "#000", objectFit: "cover" }} />}
+      {guesses && (
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${page.cols}, 1fr)`, gap: 6, marginBottom: 8 }}>
+          {page.slots.map((s) => (
+            <div key={s.n} onClick={() => toggle(s.n)} style={{ cursor: "pointer", textAlign: "center", borderRadius: 8, padding: "8px 4px", fontSize: 12, fontWeight: 700,
+              background: guesses[s.n] ? "rgba(52,199,123,.3)" : "rgba(255,255,255,.06)", border: guesses[s.n] ? "2px solid #34c77b" : "2px dashed rgba(255,255,255,.2)", color: "#fff" }}>
+              #{s.n}<br />{guesses[s.n] ? "have" : "—"}
+            </div>
+          ))}
+        </div>
+      )}
+      {msg && <div style={{ fontSize: 12.5, color: "#9fc0ff", marginBottom: 8 }}>{msg}</div>}
+      <div style={{ display: "flex", gap: 6 }}>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#dfe6ff", fontSize: 12.5, marginRight: "auto" }}>
+          <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Auto (no confirm)
+        </label>
+        {!guesses && <button onClick={capture} style={{ border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 700, borderRadius: 8, padding: "7px 14px" }}>Capture</button>}
+        {guesses && <button onClick={apply} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "7px 14px" }}>Apply</button>}
+        <button onClick={() => { setOpen(false); setGuesses(null); stop(); }} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 8, padding: "7px 12px" }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 function MyBookView({ map, setSticker, activeId }) {
   const WCSTK = window.WCSTK, L = window.WCSTKLOGIC;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
@@ -158,7 +237,7 @@ function MyBookView({ map, setSticker, activeId }) {
               <div style={{ fontSize: 18, fontWeight: 800, color: "#9fc0ff", margin: "6px 2px 10px",
                 borderBottom: "2px solid rgba(159,192,255,.3)", paddingBottom: 4 }}>Group {p.group}</div>
             )}
-            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} />
+            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} setSticker={setSticker} activeId={activeId} />
           </React.Fragment>
         );
       }) : <div style={{ color: "#9fb0e0", padding: 24, textAlign: "center" }}>No stickers match.</div>}
