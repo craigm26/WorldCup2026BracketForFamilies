@@ -88,9 +88,25 @@
         'Couldn’t load the script here. Open it on GitHub: ' +
         '<a href="https://github.com/craigm26/WorldCup2026BracketForFamilies/blob/main/worldcup/family-sync.gs" target="_blank" rel="noopener" style="color:#9fc0ff">family-sync.gs</a>';
     });
+  // copy that works on https, http, and file:// (clipboard API is secure-context only)
+  function copyText(text, btn) {
+    var done = function () { btn.textContent = '✓ Copied!'; };
+    var legacy = function () {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        var ok = document.execCommand('copy'); document.body.removeChild(ta);
+        if (ok) { done(); return; }
+      } catch (e) {}
+      btn.textContent = 'Press Ctrl-C to copy';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(legacy);
+    } else { legacy(); }
+  }
   document.getElementById('copyScript').onclick = function () {
-    navigator.clipboard.writeText(document.getElementById('script').textContent || '')
-      .then(function () { document.getElementById('copyScript').textContent = '✓ Copied!'; });
+    copyText(document.getElementById('script').textContent || '', document.getElementById('copyScript'));
   };
   // 4) live link + QR generator
   var qr = null;
@@ -106,13 +122,13 @@
       'mailto:?subject=' + encodeURIComponent('Join our World Cup sticker swap') +
       '&body=' + encodeURIComponent('Tap this to join our family sticker tracker:\n\n' + link);
     var box = document.getElementById('qr'); box.innerHTML = '';
-    qr = new QRCode(box, { text: link, width: 180, height: 180 });
+    if (typeof QRCode !== 'undefined') { qr = new QRCode(box, { text: link, width: 180, height: 180 }); }
+    else { box.style.display = 'none'; }
   }
   document.getElementById('exec').addEventListener('input', regen);
   document.getElementById('code').addEventListener('input', regen);
   document.getElementById('copyLink').onclick = function () {
-    navigator.clipboard.writeText(document.getElementById('link').value || '')
-      .then(function () { document.getElementById('copyLink').textContent = '✓ Copied!'; });
+    copyText(document.getElementById('link').value || '', document.getElementById('copyLink'));
   };
 </script>
 </body>
