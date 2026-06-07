@@ -25,5 +25,27 @@
     return out;
   }
 
-  return { genMemberId: genMemberId, parseSetupLink: parseSetupLink, serializeCollection: serializeCollection };
+  function buildPayload(action, cfg, extra) {
+    return Object.assign({ action: action, familyCode: cfg.code, memberId: cfg.memberId }, extra || {});
+  }
+
+  function tradeTransition(trade, response) {
+    if (!trade || trade.status !== 'pending') return null;
+    if (response === 'accept') return 'accepted';
+    if (response === 'decline') return 'declined';
+    return null;
+  }
+
+  function summarizeFamily(rows, myId, totalsOf) {
+    return (rows || []).map((r) => {
+      let collection = {};
+      try { collection = JSON.parse(r.collectionJSON || '{}') || {}; } catch (e) { collection = {}; }
+      const t = totalsOf(collection);
+      return { id: r.memberId, name: r.name, emoji: r.emoji, updatedAt: r.updatedAt,
+               have: t.have, total: t.total, doubles: t.doubles, isMe: r.memberId === myId, collection: collection };
+    });
+  }
+
+  return { genMemberId: genMemberId, parseSetupLink: parseSetupLink, serializeCollection: serializeCollection,
+           buildPayload: buildPayload, tradeTransition: tradeTransition, summarizeFamily: summarizeFamily };
 });
