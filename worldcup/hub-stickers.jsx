@@ -2,11 +2,11 @@
 // The camera needs a secure origin (https or localhost). On the http kiosk link, browsers
 // block getUserMedia — explain that instead of a vague "unavailable". Returns a message, or null.
 function cameraBlockedReason() {
-  if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    if (typeof window !== "undefined" && window.isSecureContext === false)
-      return "📷 The camera needs a secure (https) link. This TV/kiosk link is http, so the browser blocks it — open the Hub on your phone using the https link to scan, or just type the code below.";
+  // insecure origin (http kiosk link) blocks the camera even when mediaDevices looks present
+  if (typeof window !== "undefined" && window.isSecureContext === false)
+    return "📷 The camera needs a secure (https) link. This TV/kiosk link is http, so the browser blocks it — open the Hub on your phone using the https link to scan, or just type the code below.";
+  if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
     return "📷 Camera not available on this device — type the code below.";
-  }
   return null;
 }
 
