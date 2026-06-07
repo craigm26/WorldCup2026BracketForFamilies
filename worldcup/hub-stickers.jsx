@@ -506,7 +506,7 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
         <button onClick={publish} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 16px", fontSize: 15, opacity: busy ? .6 : 1 }}>⬆️ Publish my collection</button>
         <button onClick={load} disabled={busy} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", fontWeight: 700, borderRadius: 10, padding: "9px 14px", fontSize: 14 }}>↻ Refresh</button>
-        <button onClick={() => { if (window.confirm("Disconnect this device from family sync?")) setSync(null); }} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "transparent", color: "#7e8cc0", fontSize: 13, textDecoration: "underline" }}>Disconnect</button>
+        <button onClick={() => { if (!busy && window.confirm("Disconnect this device from family sync?")) setSync(null); }} disabled={busy} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "transparent", color: "#7e8cc0", fontSize: 13, textDecoration: "underline" }}>Disconnect</button>
       </div>
       {err && <div style={{ background: "rgba(226,71,59,.18)", border: "2px solid rgba(226,71,59,.5)", borderRadius: 12, padding: "10px 12px", color: "#ffd7d2", fontSize: 14, marginBottom: 12 }}>⚠️ {err}</div>}
       {busy && !data && <div style={{ color: "#9fb0e0", padding: 12 }}>Loading family…</div>}
@@ -535,13 +535,13 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
 function FamilyView({ map, players, activeId, sync, setSync }) {
   const SY = window.WCSTKSYNC;
   const [link, setLink] = React.useState("");
+  const [linkErr, setLinkErr] = React.useState("");
 
   if (!sync) {
     const connect = () => {
-      let cfg = null;
       const fromLink = SY.parseSetupLink(link.indexOf("?") >= 0 ? link.slice(link.indexOf("?")) : "?" + link);
-      if (fromLink) cfg = { url: fromLink.url, code: fromLink.code, memberId: SY.genMemberId() };
-      if (cfg) setSync(cfg);
+      if (fromLink) { setLinkErr(""); setSync({ url: fromLink.url, code: fromLink.code, memberId: SY.genMemberId() }); }
+      else { setLinkErr("Couldn't read that link — paste the whole “?sync=…&code=…” part someone shared."); }
     };
     return (
       <div style={{ background: "rgba(52,199,123,.12)", border: "2px solid rgba(52,199,123,.45)", borderRadius: 14, padding: 16, maxWidth: 560 }}>
@@ -554,6 +554,7 @@ function FamilyView({ map, players, activeId, sync, setSync }) {
             style={{ fontFamily: "inherit", fontSize: 15, borderRadius: 10, border: "none", padding: "9px 12px", background: "rgba(255,255,255,.14)", color: "#fff", flex: "1 1 220px" }} />
           <button onClick={connect} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 18px", fontSize: 15 }}>Connect</button>
         </div>
+        {linkErr && <div style={{ marginTop: 10, background: "rgba(226,71,59,.18)", border: "2px solid rgba(226,71,59,.5)", borderRadius: 12, padding: "8px 12px", color: "#ffd7d2", fontSize: 13.5 }}>⚠️ {linkErr}</div>}
       </div>
     );
   }
