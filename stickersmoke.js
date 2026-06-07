@@ -49,8 +49,25 @@ const puppeteer = require('puppeteer-core');
   const matcherWorks = await page.evaluate(() => /perfect swap/i.test(document.body.innerText));
   console.log('after adding a player, Trade Matcher renders:', matcherWorks);
 
+  // --- multiple books per person ---
+  await clickSeg('My Book'); await new Promise(r => setTimeout(r, 300));
+  await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find(x => /＋ Book/.test(x.textContent)); if (b) b.click(); });
+  await new Promise(r => setTimeout(r, 200));
+  await page.type('input[placeholder*="Book name"]', 'Swaps');
+  await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent === 'Add'); if (b) b.click(); });
+  await new Promise(r => setTimeout(r, 400));
+  const hasSwaps = await page.evaluate(() => /📗 Swaps/.test(document.body.innerText));
+  console.log('second book "Swaps" added + active:', hasSwaps);
+  const swapsEmpty = await page.evaluate(() => !/×2/.test(document.body.innerText));
+  console.log('new book has independent (empty) counts:', swapsEmpty);
+  await tap(); await new Promise(r => setTimeout(r, 250));
+  await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find(x => /📗 My album/.test(x.textContent)); if (b) b.click(); });
+  await new Promise(r => setTimeout(r, 350));
+  const backOnAlbum = await page.evaluate(() => /📗 My album/.test(document.body.innerText));
+  console.log('switched back to My album:', backOnAlbum);
+
   console.log('JS errors:', errs.length, errs.slice(0, 3).join(' | '));
   await browser.close();
-  const ok = onBook && hasDouble && overviewAdd && tradeAdd && matcherWorks && errs.length === 0;
+  const ok = onBook && hasDouble && overviewAdd && tradeAdd && matcherWorks && hasSwaps && swapsEmpty && backOnAlbum && errs.length === 0;
   process.exit(ok ? 0 : 1);
 })();

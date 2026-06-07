@@ -166,16 +166,64 @@ function StickerDetail({ slot, count, onClose, onSet }) {
   );
 }
 
-function MyBookView({ map, setSticker, activeId }) {
+function BookBar({ reg, playerId, addBook, renameBook, removeBook, switchBook }) {
+  const [adding, setAdding] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
+  const [label, setLabel] = React.useState("");
+  const active = reg.active;
+  const activeBook = reg.list.find((b) => b.id === active) || reg.list[0];
+  const canDelete = reg.list.length > 1;
+
+  const doAdd = () => { const n = label.trim(); if (n) { addBook(playerId, n); setLabel(""); setAdding(false); } };
+  const doRename = () => { const n = label.trim(); if (n) { renameBook(playerId, active, n); } setEditing(false); setLabel(""); };
+
+  const pill = (b) => (
+    <button key={b.id} onClick={() => switchBook(playerId, b.id)}
+      style={{ border: "none", cursor: "pointer", borderRadius: 20, padding: "6px 14px", fontSize: 14, fontWeight: 700,
+        background: b.id === active ? "#34c77b" : "rgba(255,255,255,.1)", color: b.id === active ? "#06351f" : "#dfe6ff" }}>
+      📗 {b.label}
+    </button>
+  );
+
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+      {reg.list.map(pill)}
+      {!adding ? (
+        <button onClick={() => { setAdding(true); setLabel(""); }} style={{ border: "none", cursor: "pointer", borderRadius: 20,
+          padding: "6px 12px", fontSize: 14, fontWeight: 700, background: "rgba(255,255,255,.12)", color: "#dfe6ff" }}>＋ Book</button>
+      ) : (
+        <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <input value={label} autoFocus onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") doAdd(); }}
+            placeholder="Book name e.g. Swaps" style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 8, border: "none", padding: "6px 10px", background: "rgba(255,255,255,.14)", color: "#fff", width: 150 }} />
+          <button onClick={doAdd} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "6px 12px" }}>Add</button>
+          <button onClick={() => setAdding(false)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 8, padding: "6px 10px" }}>✕</button>
+        </span>
+      )}
+      <button onClick={() => { setEditing((v) => !v); setLabel(activeBook.label); }} aria-label="Rename or delete this book"
+        style={{ border: "none", cursor: "pointer", background: "transparent", color: "#9fb0e0", fontSize: 14, padding: "6px 4px" }}>✏️</button>
+      {editing && (
+        <span style={{ display: "flex", gap: 6, alignItems: "center", flexBasis: "100%" }}>
+          <input value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") doRename(); }}
+            style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 8, border: "none", padding: "6px 10px", background: "rgba(255,255,255,.14)", color: "#fff", width: 150 }} />
+          <button onClick={doRename} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "6px 12px" }}>Rename</button>
+          <button onClick={() => { if (canDelete) { removeBook(playerId, active); setEditing(false); } }} disabled={!canDelete}
+            style={{ border: "none", cursor: canDelete ? "pointer" : "default", background: "rgba(226,71,59,.2)", color: "#ffd7d2", fontWeight: 700, borderRadius: 8, padding: "6px 12px", opacity: canDelete ? 1 : .4 }}>Delete book</button>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function MyBookView({ map, setSticker, activeBook, reg, playerId, addBook, renameBook, removeBook, switchBook }) {
   const WCSTK = window.WCSTK, L = window.WCSTKLOGIC;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
   const totals = L.playerTotals(map, idx);
-  const [filter, setFilter] = React.useState("all"); // all | need | doubles
+  const [filter, setFilter] = React.useState("all");
   const [q, setQ] = React.useState("");
-  const [info, setInfo] = React.useState(null); // slot shown in the detail modal
+  const [info, setInfo] = React.useState(null);
 
-  const onTap = (n) => setSticker(activeId, n, L.cycleCount(map[n]));
-  const onMinus = (n) => setSticker(activeId, n, Math.max(0, (map[n] || 0) - 1));
+  const onTap = (n) => setSticker(activeBook, n, L.cycleCount(map[n]));
+  const onMinus = (n) => setSticker(activeBook, n, Math.max(0, (map[n] || 0) - 1));
 
   const matchSlot = (s) => {
     const c = map[s.n] || 0;
@@ -196,6 +244,7 @@ function MyBookView({ map, setSticker, activeId }) {
 
   return (
     <div>
+      <BookBar reg={reg} playerId={playerId} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} />
       <div style={{ position: "sticky", top: 0, zIndex: 2, background: "rgba(21,50,127,.92)", padding: "10px 0",
         display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>
@@ -219,11 +268,11 @@ function MyBookView({ map, setSticker, activeId }) {
               <div style={{ fontSize: 18, fontWeight: 800, color: "#9fc0ff", margin: "6px 2px 10px",
                 borderBottom: "2px solid rgba(159,192,255,.3)", paddingBottom: 4 }}>Group {p.group}</div>
             )}
-            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} onInfo={setInfo} setSticker={setSticker} activeId={activeId} />
+            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} onInfo={setInfo} setSticker={setSticker} activeId={activeBook} />
           </React.Fragment>
         );
       }) : <div style={{ color: "#9fb0e0", padding: 24, textAlign: "center" }}>No stickers match.</div>}
-      <StickerDetail slot={info} count={info ? (map[info.n] || 0) : 0} onClose={() => setInfo(null)} onSet={(n, c) => setSticker(activeId, n, c)} />
+      <StickerDetail slot={info} count={info ? (map[info.n] || 0) : 0} onClose={() => setInfo(null)} onSet={(n, c) => setSticker(activeBook, n, c)} />
     </div>
   );
 }
@@ -514,10 +563,13 @@ function FamilyView({ map, players, activeId, sync, setSync, goHelp }) {
   return <FamilyConnected map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} />;
 }
 
-function StickersTab({ collections, setSticker, players, addPlayer, sync, setSync, goHelp }) {
+function StickersTab({ collections, setSticker, players, books, addBook, renameBook, removeBook, switchBook, addPlayer, sync, setSync, goHelp }) {
   const [view, setView] = React.useState("book"); // book | trade | overview | family
+  const B = window.WCSTKBOOKS;
   const activeId = players.active;
-  const map = (collections && collections[activeId]) || {};
+  const reg = (books && books[activeId]) || (B ? B.defaultRegistry(activeId) : { list: [{ id: activeId, label: "My album" }], active: activeId });
+  const activeBook = reg.active;
+  const map = (collections && collections[activeBook]) || {};
 
   const seg = (id, label) => (
     <button onClick={() => setView(id)} style={{ border: "none", cursor: "pointer", borderRadius: 12,
@@ -531,10 +583,10 @@ function StickersTab({ collections, setSticker, players, addPlayer, sync, setSyn
         {seg("book", "📖 My Book")}{seg("trade", "🔄 Trade Matcher")}{seg("overview", "📊 Overview")}{seg("family", "👨‍👩‍👧 Family")}
         {goHelp && <span style={{ marginLeft: "auto" }}><HelpLink goHelp={goHelp} id="stk-mark" label="How stickers work" /></span>}
       </div>
-      {view === "book" && <MyBookView map={map} setSticker={setSticker} activeId={activeId} />}
-      {view === "trade" && <TradeMatcherView collections={collections} players={players} activeId={activeId} addPlayer={addPlayer} />}
-      {view === "overview" && <OverviewView collections={collections} players={players} addPlayer={addPlayer} />}
-      {view === "family" && <FamilyView map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} goHelp={goHelp} />}
+      {view === "book" && <MyBookView map={map} setSticker={setSticker} activeBook={activeBook} reg={reg} playerId={activeId} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} />}
+      {view === "trade" && <TradeMatcherView collections={collections} players={players} books={books} activeId={activeId} addPlayer={addPlayer} />}
+      {view === "overview" && <OverviewView collections={collections} players={players} books={books} addPlayer={addPlayer} />}
+      {view === "family" && <FamilyView map={map} players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} goHelp={goHelp} />}
     </div>
   );
 }
