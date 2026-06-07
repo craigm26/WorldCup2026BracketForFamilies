@@ -62,6 +62,21 @@ window.computeStandings = function (letter, results) {
    their own bracket prediction. Migrates the old single `wc26hub` store once. */
 const bkey = (id) => "wc26bracket:" + id;
 const skey = (id) => "wc26stickers:" + id;
+const SYNC_KEY = "wc26sync";
+function loadSync() {
+  let cur = null;
+  try { cur = JSON.parse(localStorage.getItem(SYNC_KEY)); } catch (e) { cur = null; }
+  // a one-tap setup link (?sync=&code=) configures/updates this device
+  try {
+    const link = window.WCSTKSYNC && window.WCSTKSYNC.parseSetupLink(window.location.search);
+    if (link) {
+      const memberId = (cur && cur.memberId) || window.WCSTKSYNC.genMemberId();
+      cur = { url: link.url, code: link.code, memberId: memberId };
+      try { localStorage.setItem(SYNC_KEY, JSON.stringify(cur)); } catch (e) {}
+    }
+  } catch (e) {}
+  return cur || null;
+}
 function loadPlayers() {
   try { const p = JSON.parse(localStorage.getItem("wc26players")); if (p && p.list && p.list.length) return p; } catch (e) {}
   return { list: [{ id: "family", name: "Family", emoji: "👪" }], active: "family" };
@@ -99,6 +114,12 @@ window.useHubStore = function () {
     catch (e) {}
   }, [collections]);
 
+  const [sync, setSyncState] = React.useState(loadSync);
+  React.useEffect(() => { try {
+    if (sync) localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); else localStorage.removeItem(SYNC_KEY);
+  } catch (e) {} }, [sync]);
+  const setSync = (cfg) => setSyncState(cfg);
+
   const setSticker = (playerId, n, count) => setCollections((c) => {
     const cur = Object.assign({}, c[playerId] || {});
     if (count <= 0) delete cur[String(n)]; else cur[String(n)] = count;
@@ -114,7 +135,7 @@ window.useHubStore = function () {
   const removePlayer = (id) => setPlayers((p) => { if (p.list.length <= 1) return p; try { localStorage.removeItem(bkey(id)); localStorage.removeItem(skey(id)); } catch (e) {} setCollections((c) => { const n = Object.assign({}, c); delete n[id]; return n; }); const list = p.list.filter((x) => x.id !== id); return { list: list, active: p.active === id ? list[0].id : p.active }; });
   const importPlayer = (name, emoji, bracketObj) => { const id = "p" + Date.now(); setBrackets((b) => Object.assign({}, b, { [id]: bracketObj || {} })); setCollections((c) => Object.assign({}, c, { [id]: {} })); setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "📥" }]), active: id })); };
   return { store: { results: results, bracket: bracket }, brackets: brackets,
-           collections: collections, setSticker: setSticker,
+           collections: collections, setSticker: setSticker, sync: sync, setSync: setSync,
            setResult: setResult, setPick: setPick, reset: reset,
            players: players, addPlayer: addPlayer, switchPlayer: switchPlayer,
            removePlayer: removePlayer, importPlayer: importPlayer };

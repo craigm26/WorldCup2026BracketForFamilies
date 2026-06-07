@@ -341,7 +341,7 @@ function buildDemo() {
 }
 window.buildDemo = buildDemo;
 
-function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liveActive, onAutofill, onReset }) {
+function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liveActive, onAutofill, onReset, sync }) {
   const WCTZ = window.WCTZ;
   const modes = [
     { id: "manual", icon: "✍️", title: "Manual — you type the scores", desc: "Best for kids! Watch the games, then type each score yourself on the Standings tab. Nothing changes on its own, so there are never any spoilers." },
@@ -423,13 +423,17 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
         <button onClick={onReset} style={{ border: "none", cursor: "pointer", background: "#e2473b", color: "#fff", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>↺ Reset scores &amp; bracket</button>
       </div>
 
+      <div style={{ marginTop: 16, fontSize: 13.5, color: "#9fb0e0" }}>
+        👨‍👩‍👧 <b style={{ color: "#dfe6ff" }}>Family Sync:</b> {sync ? "connected" : "not set up"} — manage it on the 🎟️ Stickers → Family tab.
+      </div>
+
       <div style={{ fontSize: 12.5, color: "#7e8cc0", lineHeight: 1.6 }}>Published by Craig Merry · Designed with Anthropic Claude Design</div>
     </div>
   );
 }
 
 function HubApp() {
-  const { store, brackets, collections, setSticker, setResult, setPick, reset, players, addPlayer, switchPlayer, removePlayer, importPlayer } = useHubStore();
+  const { store, brackets, collections, setSticker, sync, setSync, setResult, setPick, reset, players, addPlayer, switchPlayer, removePlayer, importPlayer } = useHubStore();
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const demo = params.get("demo") === "1";
   const demoData = React.useMemo(() => (demo && window.buildDemo ? window.buildDemo() : null), [demo]);
@@ -543,14 +547,14 @@ function HubApp() {
       )}
       <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
         {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} />}
-        {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} addPlayer={addPlayer} />}
+        {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} addPlayer={addPlayer} sync={sync} setSync={setSync} />}
         {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} />}
         {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} />}
         {tab === "schedule" && <ScheduleTab results={results} status={lr.status} tz={tz} setTz={setTz} />}
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
         {tab === "facts" && <FactsTab fav={fav} toggleFav={toggleFav} />}
         {tab === "play" && <PlayTab />}
-        {tab === "settings" && <SettingsTab settings={settings} setSetting={setSetting} tz={tz} setTz={setTz} fetchNow={fetchLive} lastFetch={lastFetch} liveActive={liveActive} onAutofill={autofillR32} onReset={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} />}
+        {tab === "settings" && <SettingsTab settings={settings} setSetting={setSetting} tz={tz} setTz={setTz} fetchNow={fetchLive} lastFetch={lastFetch} liveActive={liveActive} onAutofill={autofillR32} onReset={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} sync={sync} />}
       </main>
       <footer style={{ padding: isPhone ? "8px 14px" : "8px 26px", borderTop: "1px solid rgba(255,255,255,.1)", fontSize: 12.5, color: "#7e8cc0", display: "flex", justifyContent: isPhone ? "center" : "space-between", gap: isPhone ? 6 : 12, flexWrap: "wrap", textAlign: "center" }}>
         {!isPhone && <span>📺 Use ← → or keys 1–8 to switch tabs · saves on this device</span>}

@@ -1,4 +1,45 @@
 /* 🎟️ Stickers tab — Panini WC2026 collection tracker (manual-first). */
+
+function fmtWhen(v) {
+  try {
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  } catch (e) { return ""; }
+}
+
+function FamilyMemberModal({ member, idx, onClose }) {
+  if (!member) return null;
+  const doubles = Object.keys(member.collection || {}).filter((c) => (member.collection[c] || 0) >= 2);
+  const stillNeeds = member.total - member.have;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(8,18,48,.72)", display: "grid", placeItems: "center", zIndex: 50, padding: 16 }}>
+      <div onClick={(ev) => ev.stopPropagation()} style={{ background: "#16235a", border: "2px solid rgba(255,255,255,.15)", borderRadius: 18, padding: 20, maxWidth: 360, width: "100%", color: "#fff", boxShadow: "0 20px 60px rgba(0,0,0,.5)" }}>
+        <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{member.emoji} {member.name}</div>
+        <div style={{ fontSize: 14, color: "#f4b740", fontWeight: 700, marginBottom: 14 }}>
+          {member.have}/{member.total} · {member.doubles} dbl
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#9fb0e0", marginBottom: 8 }}>Doubles (can trade away)</div>
+        {doubles.length ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+            {doubles.map((c) => (
+              <span key={c} style={{ background: "rgba(244,183,64,.18)", color: "#dfe6ff", borderRadius: 8, padding: "4px 9px", fontSize: 13, fontWeight: 600 }}>
+                #{c}{idx[c] && idx[c].slot && idx[c].slot.foil ? " ✨" : ""}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div style={{ color: "#7e8cc0", fontSize: 13, marginBottom: 14 }}>No spares yet.</div>
+        )}
+        <div style={{ fontSize: 14, color: "#dfe6ff", marginBottom: 16 }}>
+          Still needs <span style={{ fontWeight: 700, color: "#f4b740" }}>{stillNeeds}</span>
+        </div>
+        <button onClick={onClose} style={{ width: "100%", border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 800, borderRadius: 12, padding: "10px 0", fontSize: 15 }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 function StickerSlot({ slot, count, onTap, onMinus, onInfo }) {
   const have = count >= 1, dbl = count >= 2;
   const bg = dbl ? "rgba(244,183,64,.22)" : have ? "rgba(52,199,123,.22)" : "rgba(255,255,255,.05)";
@@ -406,8 +447,172 @@ function OverviewView({ collections, players, addPlayer }) {
   );
 }
 
-function StickersTab({ collections, setSticker, players, addPlayer }) {
-  const [view, setView] = React.useState("book"); // book | trade | overview
+function FamilyTrades({ data, fam, sync, idx, map, me, reload, setErr, setBusy, busy }) {
+  const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC;
+  const [withId, setWithId] = React.useState("");
+  if (!data) return null;
+  const others = fam.filter((f) => !f.isMe);
+  const trades = data.trades || [];
+  const incoming = trades.filter((t) => t.toId === sync.memberId && t.status === "pending");
+  const mineOut = trades.filter((t) => t.fromId === sync.memberId);
+
+  const target = others.find((o) => o.id === withId) || others[0];
+  const match = target ? L.tradeMatch(SY.serializeCollection(map), target.collection, idx) : { iGive: [], iWant: [], swaps: 0 };
+
+  const propose = async () => {
+    if (!target) return;
+    setErr(""); setBusy(true);
+    try {
+      await SY.postAction(sync, "proposeTrade", { toId: target.id, toName: target.name, fromName: me.name,
+        giveCodes: match.iGive, wantCodes: match.iWant });
+      await reload();
+    } catch (e) { setErr(String(e.message || e)); setBusy(false); }
+  };
+  const respond = async (tradeId, response) => {
+    setErr(""); setBusy(true);
+    try { await SY.postAction(sync, "respondTrade", { tradeId: tradeId, response: response }); await reload(); }
+    catch (e) { setErr(String(e.message || e)); setBusy(false); }
+  };
+
+  const chip = (c) => <span key={c} style={{ background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 8, padding: "3px 8px", fontSize: 13, marginRight: 4 }}>#{c}</span>;
+
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ fontSize: 16, fontWeight: 800, color: "#f4b740", marginBottom: 8 }}>🤝 Trades</div>
+
+      {incoming.length > 0 && <div style={{ fontSize: 13, color: "#9fb0e0", marginBottom: 6 }}>Waiting for you:</div>}
+      {incoming.map((t) => (
+        <div key={t.tradeId} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 12px", marginBottom: 8 }}>
+          <div style={{ fontSize: 14, color: "#fff", marginBottom: 6 }}><b>{t.fromName}</b> offers {String(t.giveCodes || "").split(",").filter(Boolean).map(chip)} for your {String(t.wantCodes || "").split(",").filter(Boolean).map(chip)}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => respond(t.tradeId, "accept")} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "6px 14px" }}>Accept</button>
+            <button onClick={() => respond(t.tradeId, "decline")} disabled={busy} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", fontWeight: 700, borderRadius: 8, padding: "6px 14px" }}>Decline</button>
+          </div>
+        </div>
+      ))}
+
+      {others.length > 0 ? (
+        <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 12px", marginTop: 6 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+            <span style={{ color: "#dfe6ff", fontSize: 14 }}>Propose a trade with</span>
+            <select value={target ? target.id : ""} onChange={(e) => setWithId(e.target.value)} style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: "#16235a", background: "#f4b740", border: "none", borderRadius: 8, padding: "5px 8px" }}>
+              {others.map((o) => <option key={o.id} value={o.id}>{o.emoji} {o.name}</option>)}
+            </select>
+            <button onClick={propose} disabled={busy || (!match.iGive.length && !match.iWant.length)} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "6px 14px", opacity: (!match.iGive.length && !match.iWant.length) ? .5 : 1 }}>Send proposal</button>
+          </div>
+          <div style={{ fontSize: 13, color: "#dfe6ff" }}>You give: {match.iGive.length ? match.iGive.map(chip) : <span style={{ color: "#7e8cc0" }}>—</span>}</div>
+          <div style={{ fontSize: 13, color: "#dfe6ff", marginTop: 4 }}>You get: {match.iWant.length ? match.iWant.map(chip) : <span style={{ color: "#7e8cc0" }}>—</span>}</div>
+        </div>
+      ) : <div style={{ color: "#9fb0e0", fontSize: 14 }}>When others publish, you can propose trades here.</div>}
+
+      {mineOut.length > 0 && (
+        <div style={{ marginTop: 10, fontSize: 13, color: "#9fb0e0" }}>
+          Your proposals: {mineOut.map((t) => <span key={t.tradeId} style={{ marginRight: 8 }}>→ {t.toName}: <b style={{ color: t.status === "accepted" ? "#34c77b" : t.status === "declined" ? "#e2473b" : "#f4b740" }}>{t.status}</b></span>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FamilyConnected({ map, players, activeId, sync, setSync }) {
+  const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
+  const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
+  const me = players.list.find((p) => p.id === activeId) || { name: "Me", emoji: "🙂" };
+  const [data, setData] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const [lastSync, setLastSync] = React.useState("");
+  const [viewing, setViewing] = React.useState(null);
+
+  const load = React.useCallback(async () => {
+    setErr(""); setBusy(true);
+    try {
+      setData(await SY.postAction(sync, "getFamily", {}));
+      setLastSync(new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
+    }
+    catch (e) { setErr(String(e.message || e)); }
+    setBusy(false);
+  }, [sync]);
+  React.useEffect(() => { load(); }, [load]);
+
+  const publish = async () => {
+    setErr(""); setBusy(true);
+    try {
+      await SY.postAction(sync, "publishCollection",
+        { name: me.name, emoji: me.emoji, collection: SY.serializeCollection(map) });
+      await load();
+    } catch (e) { setErr(String(e.message || e)); setBusy(false); }
+  };
+
+  const totalsOf = (m) => L.playerTotals(m, idx);
+  const fam = data ? SY.summarizeFamily(data.members, sync.memberId, totalsOf) : [];
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+        <button onClick={publish} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 16px", fontSize: 15, opacity: busy ? .6 : 1 }}>⬆️ Publish my collection</button>
+        <button onClick={load} disabled={busy} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", fontWeight: 700, borderRadius: 10, padding: "9px 14px", fontSize: 14 }}>↻ Refresh</button>
+        {lastSync && <span style={{ color: "#7e8cc0", fontSize: 12 }}>synced {lastSync}</span>}
+        <button onClick={() => { if (!busy && window.confirm("Disconnect this device from family sync?")) setSync(null); }} disabled={busy} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "transparent", color: "#7e8cc0", fontSize: 13, textDecoration: "underline" }}>Disconnect</button>
+      </div>
+      {err && <div style={{ background: "rgba(226,71,59,.18)", border: "2px solid rgba(226,71,59,.5)", borderRadius: 12, padding: "10px 12px", color: "#ffd7d2", fontSize: 14, marginBottom: 12 }}>⚠️ {err}</div>}
+      {busy && !data && <div style={{ color: "#9fb0e0", padding: 12 }}>Loading family…</div>}
+      <div style={{ display: "grid", gap: 10 }}>
+        {fam.map((f) => {
+          const pct = f.total ? Math.round((f.have / f.total) * 100) : 0;
+          const when = fmtWhen(f.updatedAt);
+          return (
+            <div key={f.id} onClick={() => setViewing(f)} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px", cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#fff", marginBottom: 4 }}>
+                <span>{f.emoji} {f.name} {f.isMe ? "(you)" : ""}</span>
+                <span style={{ color: "#f4b740", fontWeight: 700 }}>{f.have}/{f.total} · {f.doubles} dbl</span>
+              </div>
+              {when && <div style={{ color: "#7e8cc0", fontSize: 12, marginBottom: 4 }}>updated {when}</div>}
+              <div style={{ height: 6, background: "rgba(255,255,255,.1)", borderRadius: 6, overflow: "hidden" }}>
+                <div style={{ width: pct + "%", height: "100%", background: "#34c77b" }} />
+              </div>
+            </div>
+          );
+        })}
+        {data && !fam.length && <div style={{ color: "#9fb0e0", padding: 12 }}>No one has published yet — tap "Publish my collection".</div>}
+      </div>
+      <FamilyMemberModal member={viewing} idx={idx} onClose={() => setViewing(null)} />
+      <FamilyTrades data={data} fam={fam} sync={sync} idx={idx} map={map} me={me} reload={load} setErr={setErr} setBusy={setBusy} busy={busy} />
+    </div>
+  );
+}
+
+function FamilyView({ map, players, activeId, sync, setSync }) {
+  const SY = window.WCSTKSYNC;
+  const [link, setLink] = React.useState("");
+  const [linkErr, setLinkErr] = React.useState("");
+
+  if (!sync) {
+    const connect = () => {
+      const fromLink = SY.parseSetupLink(link.indexOf("?") >= 0 ? link.slice(link.indexOf("?")) : "?" + link);
+      if (fromLink) { setLinkErr(""); setSync({ url: fromLink.url, code: fromLink.code, memberId: SY.genMemberId() }); }
+      else { setLinkErr("Couldn't read that link — paste the whole “?sync=…&code=…” part someone shared."); }
+    };
+    return (
+      <div style={{ background: "rgba(52,199,123,.12)", border: "2px solid rgba(52,199,123,.45)", borderRadius: 14, padding: 16, maxWidth: 560 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: "#bdf0d3", marginBottom: 6 }}>👨‍👩‍👧 Trade with family far away</div>
+        <div style={{ fontSize: 14, color: "#dfe6ff", marginBottom: 12, lineHeight: 1.45 }}>
+          Paste the family setup link someone shared with you (it looks like <code>…/worldcup/?sync=…&code=…</code>). Then you can publish your collection and propose trades across households.
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste setup link"
+            style={{ fontFamily: "inherit", fontSize: 15, borderRadius: 10, border: "none", padding: "9px 12px", background: "rgba(255,255,255,.14)", color: "#fff", flex: "1 1 220px" }} />
+          <button onClick={connect} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 18px", fontSize: 15 }}>Connect</button>
+        </div>
+        {linkErr && <div style={{ marginTop: 10, background: "rgba(226,71,59,.18)", border: "2px solid rgba(226,71,59,.5)", borderRadius: 12, padding: "8px 12px", color: "#ffd7d2", fontSize: 13.5 }}>⚠️ {linkErr}</div>}
+      </div>
+    );
+  }
+  return <FamilyConnected map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} />;
+}
+
+function StickersTab({ collections, setSticker, players, addPlayer, sync, setSync }) {
+  const [view, setView] = React.useState("book"); // book | trade | overview | family
   const activeId = players.active;
   const map = (collections && collections[activeId]) || {};
 
@@ -420,11 +625,12 @@ function StickersTab({ collections, setSticker, players, addPlayer }) {
   return (
     <div style={{ height: "100%", overflow: "auto" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        {seg("book", "📖 My Book")}{seg("trade", "🔄 Trade Matcher")}{seg("overview", "📊 Overview")}
+        {seg("book", "📖 My Book")}{seg("trade", "🔄 Trade Matcher")}{seg("overview", "📊 Overview")}{seg("family", "👨‍👩‍👧 Family")}
       </div>
       {view === "book" && <MyBookView map={map} setSticker={setSticker} activeId={activeId} />}
       {view === "trade" && <TradeMatcherView collections={collections} players={players} activeId={activeId} addPlayer={addPlayer} />}
       {view === "overview" && <OverviewView collections={collections} players={players} addPlayer={addPlayer} />}
+      {view === "family" && <FamilyView map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} />}
     </div>
   );
 }
