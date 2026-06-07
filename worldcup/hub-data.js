@@ -68,6 +68,7 @@ function loadSync() {
   let cur = null;
   try { cur = JSON.parse(localStorage.getItem(SYNC_KEY)); } catch (e) { cur = null; }
   try {
+    // a one-tap setup link (?sync=&code=) configures/updates this device
     const link = window.WCSTKSYNC && window.WCSTKSYNC.parseSetupLink(window.location.search);
     if (link) {
       const memberId = (cur && cur.memberId) || window.WCSTKSYNC.genMemberId();
@@ -148,30 +149,37 @@ window.useHubStore = function () {
   const B = window.WCSTKBOOKS;
   const regOf = (pid) => (books[pid] || (B ? B.defaultRegistry(pid) : { list: [{ id: pid, label: "My album" }], active: pid }));
   const addBook = (playerId, label) => {
+    if (!B) return;
     const id = "b" + Date.now();
     setBooks((bk) => Object.assign({}, bk, { [playerId]: B.addBook(bk[playerId] || B.defaultRegistry(playerId), label, id) }));
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
   };
-  const renameBook = (playerId, bookId, label) => setBooks((bk) =>
-    Object.assign({}, bk, { [playerId]: B.renameBook(bk[playerId] || B.defaultRegistry(playerId), bookId, label) }));
+  const renameBook = (playerId, bookId, label) => {
+    if (!B) return;
+    setBooks((bk) => Object.assign({}, bk, { [playerId]: B.renameBook(bk[playerId] || B.defaultRegistry(playerId), bookId, label) }));
+  };
   const switchBook = (playerId, bookId) => setBooks((bk) => {
     const r = bk[playerId]; if (!r) return bk;
     return Object.assign({}, bk, { [playerId]: { list: r.list, active: bookId } });
   });
-  const removeBook = (playerId, bookId) => setBooks((bk) => {
-    const r = bk[playerId] || B.defaultRegistry(playerId);
-    const res = B.removeBook(r, bookId);
-    if (!res.removed) return bk;
-    try { localStorage.removeItem(skey(bookId)); } catch (e) {}
-    setCollections((c) => { const n = Object.assign({}, c); delete n[bookId]; return n; });
-    return Object.assign({}, bk, { [playerId]: res.reg });
-  });
+  const removeBook = (playerId, bookId) => {
+    if (!B) return;
+    setBooks((bk) => {
+      const r = bk[playerId] || B.defaultRegistry(playerId);
+      const res = B.removeBook(r, bookId);
+      if (!res.removed) return bk;
+      try { localStorage.removeItem(skey(bookId)); } catch (e) {}
+      setCollections((c) => { const n = Object.assign({}, c); delete n[bookId]; return n; });
+      return Object.assign({}, bk, { [playerId]: res.reg });
+    });
+  };
 
   const bracket = brackets[players.active] || {};
   const setResult = (gKey, side, val) => setResults((p) => { const cur = p[gKey] || ["", ""]; const nx = side === 0 ? [val, cur[1]] : [cur[0], val]; return Object.assign({}, p, { [gKey]: nx }); });
   const setPick = (slot, team) => setBrackets((b) => { const cur = b[players.active] || {}; return Object.assign({}, b, { [players.active]: Object.assign({}, cur, { [slot]: team }) }); });
   const reset = () => { setResults({}); setBrackets((b) => Object.assign({}, b, { [players.active]: {} })); };
   const addPlayer = (name, emoji) => {
+    if (!B) return;
     const id = "p" + Date.now();
     setBrackets((b) => Object.assign({}, b, { [id]: {} }));
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
@@ -189,6 +197,7 @@ window.useHubStore = function () {
     return { list: list, active: p.active === id ? list[0].id : p.active };
   });
   const importPlayer = (name, emoji, bracketObj) => {
+    if (!B) return;
     const id = "p" + Date.now();
     setBrackets((b) => Object.assign({}, b, { [id]: bracketObj || {} }));
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
