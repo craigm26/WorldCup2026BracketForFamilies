@@ -25,10 +25,11 @@ function StickerSlot({ slot, count, onTap, onMinus }) {
 }
 
 function StickerPage({ page, map, onTap, onMinus, setSticker, activeId }) {
-  const WC = window.WC, L = window.WCSTKLOGIC;
+  const WC = window.WC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
   const prog = L.sectionProgress(map, page);
   const pct = prog.total ? Math.round((prog.have / prog.total) * 100) : 0;
   const flagIso = page.flag || (page.team && WC.T[page.team] ? WC.T[page.team].c : null);
+  const fullPage = (WCSTK.pages.find((p) => p.page === page.page)) || page;
 
   const applyScan = (guesses) => {
     // keys are string sticker codes — pass them through unchanged
@@ -48,7 +49,7 @@ function StickerPage({ page, map, onTap, onMinus, setSticker, activeId }) {
       <div style={{ height: 6, background: "rgba(255,255,255,.1)", borderRadius: 6, marginBottom: 12, overflow: "hidden" }}>
         <div style={{ width: pct + "%", height: "100%", background: pct === 100 ? "#34c77b" : "#f4b740" }} />
       </div>
-      <div style={{ marginBottom: 10 }}><ScanPage page={page} map={map} onApply={applyScan} /></div>
+      <div style={{ marginBottom: 10 }}><ScanPage page={fullPage} map={map} onApply={applyScan} /></div>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${page.cols}, 1fr)`, gap: 8 }}>
         {page.slots.map((s) => (
           <StickerSlot key={s.n} slot={s} count={map[s.n] || 0} onTap={onTap} onMinus={onMinus} />
@@ -193,7 +194,6 @@ function MyBookView({ map, setSticker, activeId }) {
 
   const onTap = (n) => setSticker(activeId, n, L.cycleCount(map[n]));
   const onMinus = (n) => setSticker(activeId, n, Math.max(0, (map[n] || 0) - 1));
-  const onAdd = (n) => setSticker(activeId, n, L.cycleCount(map[n]));
 
   const matchSlot = (s) => {
     const c = map[s.n] || 0;
@@ -226,7 +226,7 @@ function MyBookView({ map, setSticker, activeId }) {
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search # or name"
           style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 10, border: "none", padding: "7px 12px",
             background: "rgba(255,255,255,.12)", color: "#fff", flex: "1 1 160px" }} />
-        <ScanSwap onAdd={onAdd} />
+        <ScanSwap onAdd={onTap} />
       </div>
       {pages.length ? pages.map((p, i) => {
         const prev = i ? pages[i - 1] : null;
