@@ -21,5 +21,26 @@
     return (count || 0) + 1;
   }
 
-  return { buildIndex: buildIndex, cycleCount: cycleCount };
+  // owned (count>=1) slots on one page
+  function sectionProgress(map, page) {
+    map = map || {};
+    let have = 0;
+    (page.slots || []).forEach((s) => { if ((map[s.n] || 0) >= 1) have++; });
+    return { have: have, total: (page.slots || []).length };
+  }
+
+  // album-wide totals for the header
+  function playerTotals(map, index) {
+    map = map || {};
+    let have = 0, doubles = 0;
+    Object.keys(index).forEach((n) => {
+      const c = map[n] || 0;
+      if (c >= 1) have++;
+      if (c >= 2) doubles += c - 1;
+    });
+    return { have: have, total: Object.keys(index).length, doubles: doubles };
+  }
+
+  return { buildIndex: buildIndex, cycleCount: cycleCount,
+           sectionProgress: sectionProgress, playerTotals: playerTotals };
 });
