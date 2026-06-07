@@ -84,6 +84,19 @@ works fully without this — it's opt-in.
 > your family's sticker data, so don't post it publicly. Data lives in your private Sheet
 > (names + sticker counts only). The `/exec` URL is a secret — never commit it.
 
+### ▶ Run it on your own computer (Mac / Windows / Linux)
+
+No Raspberry Pi required:
+
+1. **Download** this project (green **Code → Download ZIP** on GitHub) and unzip it.
+2. **Double-click** your launcher: `start.command` (Mac), `start.bat` (Windows), or `start.sh` (Linux).
+   It uses Python or Node (whichever you already have) to serve the Hub and opens your browser.
+3. The Hub opens at `http://localhost:8080/worldcup/`.
+
+Prefer Docker? `docker build -t worldcup . && docker run --rm -p 8080:8080 worldcup`, then open `localhost:8080/worldcup/`.
+
+**Family Sync setup:** open **`setup.html`** (in this project, or at the hosted site) for a guided, ~5-minute helper that writes your shareable family link for you.
+
 ### Quick deploy (any web server)
 
 The Hub is **plain static files**. To serve it at `http://<your-host>/worldcup/`:
