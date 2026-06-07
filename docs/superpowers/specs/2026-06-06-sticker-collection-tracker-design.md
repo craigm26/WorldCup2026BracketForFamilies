@@ -69,7 +69,8 @@ made of:
 
 ```js
 window.WCSTK = {
-  meta: { title: "Panini FIFA World Cup 2026", total: 678, confirmed: false, updated: "2026-06-06" },
+  // NOTE: shipped total is the owner-supplied 980 (20 specials + 48 teams × 20); 678 was an early estimate.
+  meta: { title: "Panini FIFA World Cup 2026", total: 980, confirmed: false, updated: "2026-06-06" },
   // Slot/sticker types drive markers + filtering.
   // types: "badge" | "player" | "legend" | "stadium" | "special"
   pages: [

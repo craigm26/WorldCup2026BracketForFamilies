@@ -26,10 +26,11 @@ function StickerSlot({ slot, count, onTap, onMinus }) {
 
 function StickerPage({ page, map, onTap, onMinus, setSticker, activeId }) {
   const WC = window.WC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
-  const prog = L.sectionProgress(map, page);
+  const fullPage = (WCSTK.pages.find((p) => p.page === page.page)) || page;
+  // progress reflects the WHOLE page, not the filtered subset shown below
+  const prog = L.sectionProgress(map, fullPage);
   const pct = prog.total ? Math.round((prog.have / prog.total) * 100) : 0;
   const flagIso = page.flag || (page.team && WC.T[page.team] ? WC.T[page.team].c : null);
-  const fullPage = (WCSTK.pages.find((p) => p.page === page.page)) || page;
 
   const applyScan = (guesses) => {
     // keys are string sticker codes — pass them through unchanged
