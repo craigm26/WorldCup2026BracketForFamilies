@@ -32,13 +32,13 @@
     return { list: list, active: id };
   }
   function renameBook(reg, bookId, label) {
-    var list = (reg.list || []).map(function (b, i) {
+    var list = ((reg && reg.list) || []).map(function (b, i) {
       return b.id === bookId ? { id: b.id, label: normalizeLabel(label, i + 1) } : b;
     });
     return { list: list, active: reg.active };
   }
   function removeBook(reg, bookId) {
-    var list = reg.list || [];
+    var list = (reg && reg.list) || [];
     if (list.length <= 1) return { reg: reg, removed: false };
     var nl = list.filter(function (b) { return b.id !== bookId; });
     if (nl.length === list.length) return { reg: reg, removed: false };

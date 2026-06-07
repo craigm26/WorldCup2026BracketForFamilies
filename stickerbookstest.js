@@ -59,3 +59,39 @@ test('removeBook: removing a non-active book keeps active', () => {
   assert.equal(res.removed, true);
   assert.equal(res.reg.active, 'p1');
 });
+
+test('addBook does not mutate the input registry', () => {
+  const original = B.defaultRegistry('p1');
+  B.addBook(original, 'Swaps', 'b2');
+  assert.deepEqual(original, B.defaultRegistry('p1'));
+});
+
+test('renameBook does not mutate the input registry', () => {
+  const original = B.addBook(B.defaultRegistry('p1'), 'Swaps', 'b2');
+  const snapshot = JSON.parse(JSON.stringify(original));
+  B.renameBook(original, 'b2', 'Spares');
+  assert.deepEqual(original, snapshot);
+});
+
+test('removeBook does not mutate the input registry', () => {
+  const original = B.addBook(B.defaultRegistry('p1'), 'Swaps', 'b2');
+  const snapshot = JSON.parse(JSON.stringify(original));
+  B.removeBook(original, 'b2');
+  assert.deepEqual(original, snapshot);
+});
+
+test('migrateRegistry does not mutate the input registry', () => {
+  const existing = { list: [{ id: 'p1', label: 'Main' }, { id: 'b2', label: 'Swaps' }], active: 'gone' };
+  const snapshot = JSON.parse(JSON.stringify(existing));
+  B.migrateRegistry(existing, 'p1');
+  assert.deepEqual(existing, snapshot);
+});
+
+test('activeBookId returns the active field (undefined for null reg)', () => {
+  assert.equal(B.activeBookId(B.defaultRegistry('p1')), 'p1');
+  assert.equal(B.activeBookId(null), undefined);
+});
+
+test('labelOf returns empty string for an unknown bookId', () => {
+  assert.equal(B.labelOf(B.defaultRegistry('p1'), 'missing'), '');
+});
