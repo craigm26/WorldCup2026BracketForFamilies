@@ -1,4 +1,14 @@
 /* 🎟️ Stickers tab — Panini WC2026 collection tracker (manual-first). */
+// The camera needs a secure origin (https or localhost). On the http kiosk link, browsers
+// block getUserMedia — explain that instead of a vague "unavailable". Returns a message, or null.
+function cameraBlockedReason() {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (typeof window !== "undefined" && window.isSecureContext === false)
+      return "📷 The camera needs a secure (https) link. This TV/kiosk link is http, so the browser blocks it — open the Hub on your phone using the https link to scan, or just type the code below.";
+    return "📷 Camera not available on this device — type the code below.";
+  }
+  return null;
+}
 
 function fmtWhen(v) {
   try {
@@ -88,7 +98,7 @@ function StickerPage({ page, map, onTap, onMinus, onInfo, setSticker, activeId }
         {flagIso && <Flag code={flagIso} w={28} style={{ border: "1.5px solid #fff", borderRadius: 3 }} />}
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>{page.title}</div>
-          <div style={{ fontSize: 12, color: "#9fb0e0" }}>Page {page.page}</div>
+          <div style={{ fontSize: 12, color: "#9fb0e0" }}>{fullPage.slots.length ? "#" + fullPage.slots[0].n + " – #" + fullPage.slots[fullPage.slots.length - 1].n : ""}</div>
         </div>
         <div style={{ fontSize: 14, fontWeight: 700, color: pct === 100 ? "#34c77b" : "#f4b740" }}>{prog.have}/{prog.total}</div>
       </div>
@@ -117,7 +127,9 @@ function ScanSwap({ onAdd }) {
 
   const startCam = async () => {
     setCamMsg("");
-    if (!("BarcodeDetector" in window)) { setCamMsg("This device can't auto-read numbers — type it below."); return; }
+    const blocked = cameraBlockedReason();
+    if (blocked) { setCamMsg(blocked); return; }
+    if (!("BarcodeDetector" in window)) { setCamMsg("This device can't auto-read codes — type it below (it still works great)."); return; }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       streamRef.current = stream;
@@ -173,10 +185,12 @@ function ScanPage({ page, map, onApply }) {
 
   const start = async () => {
     setMsg(""); setGuesses(null);
+    const blocked = cameraBlockedReason();
+    if (blocked) { setMsg(blocked); return; }
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       streamRef.current = s; if (videoRef.current) { videoRef.current.srcObject = s; await videoRef.current.play(); }
-    } catch (e) { setMsg("Camera unavailable on this device."); }
+    } catch (e) { setMsg("Couldn't start the camera on this device — try the https link, or type codes."); }
   };
 
   const capture = () => {
@@ -231,7 +245,7 @@ function ScanPage({ page, map, onApply }) {
   );
 }
 
-function StickerDetail({ slot, count, onClose }) {
+function StickerDetail({ slot, count, onClose, onSet }) {
   if (!slot) return null;
   const e = (window.WCSTKENRICH || {})[slot.n] || {};
   const POS = { GK: "Goalkeeper", DF: "Defender", MF: "Midfielder", FW: "Forward" };
@@ -258,7 +272,20 @@ function StickerDetail({ slot, count, onClose }) {
         {e.fact
           ? <div style={{ fontSize: 15, lineHeight: 1.45, background: "rgba(255,255,255,.07)", borderRadius: 12, padding: "10px 12px" }}>💡 {e.fact}</div>
           : (slot.type === "player" ? <div style={{ fontSize: 13.5, color: "#7e8cc0" }}>More details coming soon.</div> : null)}
-        <button onClick={onClose} style={{ marginTop: 16, width: "100%", border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 800, borderRadius: 12, padding: "10px 0", fontSize: 15 }}>Close</button>
+        {onSet && (
+          <div style={{ marginTop: 16, display: "flex", gap: 8, alignItems: "center" }}>
+            <button onClick={() => onSet(slot.n, Math.max(0, count - 1))} disabled={count <= 0}
+              style={{ border: "none", cursor: count <= 0 ? "default" : "pointer", background: "rgba(255,255,255,.14)", color: "#fff", fontWeight: 800, fontSize: 20, borderRadius: 10, width: 44, height: 40, opacity: count <= 0 ? .4 : 1 }}>−</button>
+            <div style={{ flex: 1, textAlign: "center", fontWeight: 700, fontSize: 15, color: dbl ? "#f4b740" : have ? "#34c77b" : "#9fb0e0" }}>
+              {count === 0 ? "Need it" : count === 1 ? "Have it" : "Have ×" + count}
+            </div>
+            <button onClick={() => onSet(slot.n, count + 1)}
+              style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.14)", color: "#fff", fontWeight: 800, fontSize: 20, borderRadius: 10, width: 44, height: 40 }}>+</button>
+            <button onClick={() => onSet(slot.n, 0)} disabled={count <= 0}
+              style={{ border: "none", cursor: count <= 0 ? "default" : "pointer", background: "rgba(226,71,59,.2)", color: "#ffd7d2", fontWeight: 700, fontSize: 14, borderRadius: 10, padding: "0 14px", height: 40, opacity: count <= 0 ? .4 : 1 }}>Clear</button>
+          </div>
+        )}
+        <button onClick={onClose} style={{ marginTop: 12, width: "100%", border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 800, borderRadius: 12, padding: "10px 0", fontSize: 15 }}>Close</button>
       </div>
     </div>
   );
@@ -321,7 +348,7 @@ function MyBookView({ map, setSticker, activeId }) {
           </React.Fragment>
         );
       }) : <div style={{ color: "#9fb0e0", padding: 24, textAlign: "center" }}>No stickers match.</div>}
-      <StickerDetail slot={info} count={info ? (map[info.n] || 0) : 0} onClose={() => setInfo(null)} />
+      <StickerDetail slot={info} count={info ? (map[info.n] || 0) : 0} onClose={() => setInfo(null)} onSet={(n, c) => setSticker(activeId, n, c)} />
     </div>
   );
 }
