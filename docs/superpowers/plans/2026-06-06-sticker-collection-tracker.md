@@ -297,10 +297,14 @@ git commit -m "feat(stickers): tradeMatch + rarestNeeded logic"
 - Create: `worldcup/sticker-data.js`
 - Modify: `stickertest.js`
 
-> The full official 678-sticker checklist is populated best-effort over time. This task
-> ships a **valid, self-consistent starter dataset** (intro page + a few team pages) with
-> `confirmed:false`, and an integrity test that enforces the schema invariants so any
-> later data edits stay valid.
+> **UPDATE (real data supplied):** the album owner provided the authoritative checklist —
+> **20 Specials (`00` + `FW1..FW19`) and 48 teams × 20 stickers, grouped A–L = 980 stickers**.
+> Sticker ids are **string codes** (`MEX5`, `FW3`, `00`), not numbers. `sticker-data.js`
+> builds these deterministically from a 48-team table (all `confirmed:true`), and the
+> integrity test enforces: string codes, uniqueness, slots ≤ grid, valid types, 49 pages /
+> 980 total, the `Che16`→`CZE16` fix, and a valid group A–L on every team page.
+> (Historical note: an earlier draft of this task shipped a numeric-id placeholder dataset;
+> it was replaced before later tasks were built, which is why Tasks 11–12 use string codes.)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -625,9 +629,19 @@ function MyBookView({ map, setSticker, activeId }) {
           style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 10, border: "none", padding: "7px 12px",
             background: "rgba(255,255,255,.12)", color: "#fff", flex: "1 1 160px" }} />
       </div>
-      {pages.length ? pages.map((p) => (
-        <StickerPage key={p.page} page={p} map={map} onTap={onTap} onMinus={onMinus} />
-      )) : <div style={{ color: "#9fb0e0", padding: 24, textAlign: "center" }}>No stickers match.</div>}
+      {pages.length ? pages.map((p, i) => {
+        const prev = i ? pages[i - 1] : null;
+        const showGroup = p.group && (!prev || prev.group !== p.group);
+        return (
+          <React.Fragment key={p.page}>
+            {showGroup && (
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#9fc0ff", margin: "6px 2px 10px",
+                borderBottom: "2px solid rgba(159,192,255,.3)", paddingBottom: 4 }}>Group {p.group}</div>
+            )}
+            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} />
+          </React.Fragment>
+        );
+      }) : <div style={{ color: "#9fb0e0", padding: 24, textAlign: "center" }}>No stickers match.</div>}
     </div>
   );
 }
@@ -998,16 +1012,18 @@ function ScanSwap({ onAdd }) {
         if (!streamRef.current || !videoRef.current) return;
         try {
           const codes = await det.detect(videoRef.current);
-          const hit = codes.map((c) => (c.rawValue || "").match(/\d+/)).find(Boolean);
-          if (hit) { setNum(hit[0]); setCamMsg("Read #" + hit[0] + " — confirm below."); stop(); return; }
+          // sticker codes are alphanumeric (MEX5, FW3, 00) — grab the first token
+          const hit = codes.map((c) => (c.rawValue || "").toUpperCase().match(/[A-Z0-9]+/)).find(Boolean);
+          if (hit) { setNum(hit[0]); setCamMsg("Read " + hit[0] + " — confirm below."); stop(); return; }
         } catch (e) {}
         requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
-    } catch (e) { setCamMsg("Camera unavailable — type the number below."); }
+    } catch (e) { setCamMsg("Camera unavailable — type the code below."); }
   };
 
-  const add = () => { const n = parseInt(num, 10); if (n > 0) { onAdd(n); setNum(""); setOpen(false); stop(); } };
+  // sticker codes are STRING codes (e.g. MEX5). Add the code as-is.
+  const add = () => { const n = num.trim(); if (n) { onAdd(n); setNum(""); setOpen(false); stop(); } };
 
   if (!open) return (
     <button onClick={() => { setOpen(true); startCam(); }} style={{ border: "none", cursor: "pointer", borderRadius: 20,
@@ -1019,8 +1035,8 @@ function ScanSwap({ onAdd }) {
       <video ref={videoRef} muted playsInline style={{ width: "100%", maxHeight: 160, borderRadius: 8, background: "#000", objectFit: "cover" }} />
       {camMsg && <div style={{ fontSize: 12.5, color: "#9fc0ff" }}>{camMsg}</div>}
       <div style={{ display: "flex", gap: 6 }}>
-        <input value={num} onChange={(e) => setNum(e.target.value.replace(/\D/g, ""))} placeholder="Sticker #" inputMode="numeric"
-          style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 8, border: "none", padding: "7px 10px", width: 90, background: "rgba(255,255,255,.14)", color: "#fff" }} />
+        <input value={num} onChange={(e) => setNum(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder="Code e.g. MEX5"
+          style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 8, border: "none", padding: "7px 10px", width: 120, background: "rgba(255,255,255,.14)", color: "#fff" }} />
         <button onClick={add} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "7px 14px" }}>Add +1</button>
         <button onClick={() => { setOpen(false); stop(); }} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 8, padding: "7px 12px" }}>Close</button>
       </div>
@@ -1198,7 +1214,8 @@ Immediately inside the component (before the `return`), add:
 
 ```jsx
   const applyScan = (guesses) => {
-    Object.keys(guesses).forEach((n) => { if (guesses[n] && (map[n] || 0) < 1) setSticker(activeId, Number(n), 1); });
+    // keys are string sticker codes — pass them through unchanged
+    Object.keys(guesses).forEach((n) => { if (guesses[n] && (map[n] || 0) < 1) setSticker(activeId, n, 1); });
   };
 ```
 
@@ -1208,10 +1225,11 @@ In the returned JSX, right after the progress-bar `div` and before the slots gri
       <div style={{ marginBottom: 10 }}><ScanPage page={page} map={map} onApply={applyScan} /></div>
 ```
 
-In `MyBookView`, update the `<StickerPage .../>` usage to pass the new props:
+In `MyBookView`'s pages render, add `setSticker={setSticker} activeId={activeId}` to the
+`<StickerPage ... />` element inside the group-divider `React.Fragment`:
 
 ```jsx
-        <StickerPage key={p.page} page={p} map={map} onTap={onTap} onMinus={onMinus} setSticker={setSticker} activeId={activeId} />
+            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} setSticker={setSticker} activeId={activeId} />
 ```
 
 - [ ] **Step 7: Smoke + unit tests**

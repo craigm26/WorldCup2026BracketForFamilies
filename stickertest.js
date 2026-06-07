@@ -81,10 +81,11 @@ test('dataset: each page slot count does not exceed its grid', () => {
   });
 });
 
-test('dataset: every slot has n, name, and a known type', () => {
+test('dataset: every slot has a non-empty string code, name, and known type', () => {
   const TYPES = new Set(['badge', 'player', 'legend', 'stadium', 'special']);
   DATA.pages.forEach((p) => p.slots.forEach((s) => {
-    assert.equal(typeof s.n, 'number');
+    assert.equal(typeof s.n, 'string', `slot code must be a string, got ${typeof s.n}`);
+    assert.ok(s.n.length > 0, 'empty sticker code');
     assert.ok(s.name && typeof s.name === 'string');
     assert.ok(TYPES.has(s.type), `bad type ${s.type} on #${s.n}`);
   }));
@@ -95,4 +96,27 @@ test('dataset: buildIndex round-trips with no collisions', () => {
   let count = 0;
   DATA.pages.forEach((p) => count += p.slots.length);
   assert.equal(Object.keys(idx).length, count);
+});
+
+test('dataset: real checklist — 20 specials + 48 teams x 20 = 980 across 49 pages', () => {
+  assert.equal(DATA.pages.length, 49, 'expect 1 specials page + 48 team pages');
+  assert.equal(DATA.meta.total, 980);
+  const teamPages = DATA.pages.filter((p) => p.team);
+  assert.equal(teamPages.length, 48);
+  teamPages.forEach((p) => assert.equal(p.slots.length, 20, `${p.title} should have 20 stickers`));
+});
+
+test('dataset: known codes present and the Che16 typo is fixed', () => {
+  const idx = L.buildIndex(DATA);
+  ['00', 'FW19', 'MEX1', 'ARG20', 'CZE16', 'PAN20'].forEach((code) => {
+    assert.ok(idx[code], `missing expected code ${code}`);
+  });
+  assert.ok(!idx['Che16'], 'the Che16 typo should not exist');
+});
+
+test('dataset: every team page carries a group A..L', () => {
+  const GROUPS = new Set(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']);
+  DATA.pages.filter((p) => p.team).forEach((p) => {
+    assert.ok(GROUPS.has(p.group), `${p.title} has bad group ${p.group}`);
+  });
 });
