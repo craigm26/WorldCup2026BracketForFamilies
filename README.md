@@ -77,6 +77,8 @@ works fully without this — it's opt-in.
 4. Each person opens the link once on their phone, creates their player, taps **Publish my
    collection**, and can propose trades on the **🎟️ Stickers → 👨‍👩‍👧 Family** tab.
 
+> Each device publishes its **active** player's collection — if several people share one device, switch player (🏠 Home) before publishing.
+
 > Security: the endpoint is gated only by the family code — anyone with the link can read/write
 > your family's sticker data, so don't post it publicly. Data lives in your private Sheet
 > (names + sticker counts only). The `/exec` URL is a secret — never commit it.

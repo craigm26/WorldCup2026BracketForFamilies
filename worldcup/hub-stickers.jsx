@@ -1,4 +1,45 @@
 /* 🎟️ Stickers tab — Panini WC2026 collection tracker (manual-first). */
+
+function fmtWhen(v) {
+  try {
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " " + d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  } catch (e) { return ""; }
+}
+
+function FamilyMemberModal({ member, idx, onClose }) {
+  if (!member) return null;
+  const doubles = Object.keys(member.collection || {}).filter((c) => (member.collection[c] || 0) >= 2);
+  const stillNeeds = member.total - member.have;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(8,18,48,.72)", display: "grid", placeItems: "center", zIndex: 50, padding: 16 }}>
+      <div onClick={(ev) => ev.stopPropagation()} style={{ background: "#16235a", border: "2px solid rgba(255,255,255,.15)", borderRadius: 18, padding: 20, maxWidth: 360, width: "100%", color: "#fff", boxShadow: "0 20px 60px rgba(0,0,0,.5)" }}>
+        <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>{member.emoji} {member.name}</div>
+        <div style={{ fontSize: 14, color: "#f4b740", fontWeight: 700, marginBottom: 14 }}>
+          {member.have}/{member.total} · {member.doubles} dbl
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#9fb0e0", marginBottom: 8 }}>Doubles (can trade away)</div>
+        {doubles.length ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+            {doubles.map((c) => (
+              <span key={c} style={{ background: "rgba(244,183,64,.18)", color: "#dfe6ff", borderRadius: 8, padding: "4px 9px", fontSize: 13, fontWeight: 600 }}>
+                #{c}{idx[c] && idx[c].slot && idx[c].slot.foil ? " ✨" : ""}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <div style={{ color: "#7e8cc0", fontSize: 13, marginBottom: 14 }}>No spares yet.</div>
+        )}
+        <div style={{ fontSize: 14, color: "#dfe6ff", marginBottom: 16 }}>
+          Still needs <span style={{ fontWeight: 700, color: "#f4b740" }}>{stillNeeds}</span>
+        </div>
+        <button onClick={onClose} style={{ width: "100%", border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 800, borderRadius: 12, padding: "10px 0", fontSize: 15 }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 function StickerSlot({ slot, count, onTap, onMinus, onInfo }) {
   const have = count >= 1, dbl = count >= 2;
   const bg = dbl ? "rgba(244,183,64,.22)" : have ? "rgba(52,199,123,.22)" : "rgba(255,255,255,.05)";
@@ -480,10 +521,15 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
   const [data, setData] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
+  const [lastSync, setLastSync] = React.useState("");
+  const [viewing, setViewing] = React.useState(null);
 
   const load = React.useCallback(async () => {
     setErr(""); setBusy(true);
-    try { setData(await SY.postAction(sync, "getFamily", {})); }
+    try {
+      setData(await SY.postAction(sync, "getFamily", {}));
+      setLastSync(new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }));
+    }
     catch (e) { setErr(String(e.message || e)); }
     setBusy(false);
   }, [sync]);
@@ -506,6 +552,7 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
         <button onClick={publish} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 16px", fontSize: 15, opacity: busy ? .6 : 1 }}>⬆️ Publish my collection</button>
         <button onClick={load} disabled={busy} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", fontWeight: 700, borderRadius: 10, padding: "9px 14px", fontSize: 14 }}>↻ Refresh</button>
+        {lastSync && <span style={{ color: "#7e8cc0", fontSize: 12 }}>synced {lastSync}</span>}
         <button onClick={() => { if (!busy && window.confirm("Disconnect this device from family sync?")) setSync(null); }} disabled={busy} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "transparent", color: "#7e8cc0", fontSize: 13, textDecoration: "underline" }}>Disconnect</button>
       </div>
       {err && <div style={{ background: "rgba(226,71,59,.18)", border: "2px solid rgba(226,71,59,.5)", borderRadius: 12, padding: "10px 12px", color: "#ffd7d2", fontSize: 14, marginBottom: 12 }}>⚠️ {err}</div>}
@@ -513,12 +560,14 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
       <div style={{ display: "grid", gap: 10 }}>
         {fam.map((f) => {
           const pct = f.total ? Math.round((f.have / f.total) * 100) : 0;
+          const when = fmtWhen(f.updatedAt);
           return (
-            <div key={f.id} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#fff", marginBottom: 6 }}>
+            <div key={f.id} onClick={() => setViewing(f)} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px", cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#fff", marginBottom: 4 }}>
                 <span>{f.emoji} {f.name} {f.isMe ? "(you)" : ""}</span>
                 <span style={{ color: "#f4b740", fontWeight: 700 }}>{f.have}/{f.total} · {f.doubles} dbl</span>
               </div>
+              {when && <div style={{ color: "#7e8cc0", fontSize: 12, marginBottom: 4 }}>updated {when}</div>}
               <div style={{ height: 6, background: "rgba(255,255,255,.1)", borderRadius: 6, overflow: "hidden" }}>
                 <div style={{ width: pct + "%", height: "100%", background: "#34c77b" }} />
               </div>
@@ -527,6 +576,7 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
         })}
         {data && !fam.length && <div style={{ color: "#9fb0e0", padding: 12 }}>No one has published yet — tap "Publish my collection".</div>}
       </div>
+      <FamilyMemberModal member={viewing} idx={idx} onClose={() => setViewing(null)} />
       <FamilyTrades data={data} fam={fam} sync={sync} idx={idx} map={map} me={me} reload={load} setErr={setErr} setBusy={setBusy} busy={busy} />
     </div>
   );
@@ -562,7 +612,7 @@ function FamilyView({ map, players, activeId, sync, setSync }) {
 }
 
 function StickersTab({ collections, setSticker, players, addPlayer, sync, setSync }) {
-  const [view, setView] = React.useState("book"); // book | trade | overview
+  const [view, setView] = React.useState("book"); // book | trade | overview | family
   const activeId = players.active;
   const map = (collections && collections[activeId]) || {};
 
