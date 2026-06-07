@@ -406,8 +406,65 @@ function OverviewView({ collections, players, addPlayer }) {
   );
 }
 
-function FamilyConnected({ sync }) {
-  return <div style={{ color: "#9fb0e0", padding: 24 }}>Connected to family sync. (Roster & trades — Tasks 7–8.)</div>;
+function FamilyTrades() { return null; }
+
+function FamilyConnected({ map, players, activeId, sync, setSync }) {
+  const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
+  const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
+  const me = players.list.find((p) => p.id === activeId) || { name: "Me", emoji: "🙂" };
+  const [data, setData] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
+
+  const load = React.useCallback(async () => {
+    setErr(""); setBusy(true);
+    try { setData(await SY.postAction(sync, "getFamily", {})); }
+    catch (e) { setErr(String(e.message || e)); }
+    setBusy(false);
+  }, [sync]);
+  React.useEffect(() => { load(); }, [load]);
+
+  const publish = async () => {
+    setErr(""); setBusy(true);
+    try {
+      await SY.postAction(sync, "publishCollection",
+        { name: me.name, emoji: me.emoji, collection: SY.serializeCollection(map) });
+      await load();
+    } catch (e) { setErr(String(e.message || e)); setBusy(false); }
+  };
+
+  const totalsOf = (m) => L.playerTotals(m, idx);
+  const fam = data ? SY.summarizeFamily(data.members, sync.memberId, totalsOf) : [];
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+        <button onClick={publish} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 16px", fontSize: 15, opacity: busy ? .6 : 1 }}>⬆️ Publish my collection</button>
+        <button onClick={load} disabled={busy} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", fontWeight: 700, borderRadius: 10, padding: "9px 14px", fontSize: 14 }}>↻ Refresh</button>
+        <button onClick={() => { if (window.confirm("Disconnect this device from family sync?")) setSync(null); }} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "transparent", color: "#7e8cc0", fontSize: 13, textDecoration: "underline" }}>Disconnect</button>
+      </div>
+      {err && <div style={{ background: "rgba(226,71,59,.18)", border: "2px solid rgba(226,71,59,.5)", borderRadius: 12, padding: "10px 12px", color: "#ffd7d2", fontSize: 14, marginBottom: 12 }}>⚠️ {err}</div>}
+      {busy && !data && <div style={{ color: "#9fb0e0", padding: 12 }}>Loading family…</div>}
+      <div style={{ display: "grid", gap: 10 }}>
+        {fam.map((f) => {
+          const pct = f.total ? Math.round((f.have / f.total) * 100) : 0;
+          return (
+            <div key={f.id} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#fff", marginBottom: 6 }}>
+                <span>{f.emoji} {f.name} {f.isMe ? "(you)" : ""}</span>
+                <span style={{ color: "#f4b740", fontWeight: 700 }}>{f.have}/{f.total} · {f.doubles} dbl</span>
+              </div>
+              <div style={{ height: 6, background: "rgba(255,255,255,.1)", borderRadius: 6, overflow: "hidden" }}>
+                <div style={{ width: pct + "%", height: "100%", background: "#34c77b" }} />
+              </div>
+            </div>
+          );
+        })}
+        {data && !fam.length && <div style={{ color: "#9fb0e0", padding: 12 }}>No one has published yet — tap "Publish my collection".</div>}
+      </div>
+      <FamilyTrades data={data} fam={fam} sync={sync} idx={idx} map={map} me={me} reload={load} setErr={setErr} setBusy={setBusy} busy={busy} />
+    </div>
+  );
 }
 
 function FamilyView({ map, players, activeId, sync, setSync }) {
