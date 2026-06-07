@@ -61,17 +61,7 @@
     return Object.keys(index).filter((n) => !maps.some((m) => has(m, n)));
   }
 
-  // grayscale[] = luminance samples of one grid cell; filled if stddev > threshold
-  function guessFilled(gray, threshold) {
-    if (!gray.length) return false;
-    let sum = 0; for (let i = 0; i < gray.length; i++) sum += gray[i];
-    const mean = sum / gray.length;
-    let v = 0; for (let i = 0; i < gray.length; i++) { const d = gray[i] - mean; v += d * d; }
-    return Math.sqrt(v / gray.length) > (threshold == null ? 40 : threshold);
-  }
-
   return { buildIndex: buildIndex, cycleCount: cycleCount,
            sectionProgress: sectionProgress, playerTotals: playerTotals,
-           tradeMatch: tradeMatch, rarestNeeded: rarestNeeded,
-           guessFilled: guessFilled };
+           tradeMatch: tradeMatch, rarestNeeded: rarestNeeded };
 });

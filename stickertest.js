@@ -162,12 +162,3 @@ test('enrich: every enriched code is a real sticker code with valid fields', () 
     assert.equal(typeof (e.fact || ''), 'string');
   });
 });
-
-test('guessFilled: high variance cell = filled, flat cell = empty', () => {
-  // a flat (empty slot) cell: all pixels similar -> low variance
-  const flat = new Array(64).fill(200);
-  // a busy (sticker) cell: alternating -> high variance
-  const busy = []; for (let i = 0; i < 64; i++) busy.push(i % 2 ? 30 : 220);
-  assert.equal(L.guessFilled(flat, 40), false);
-  assert.equal(L.guessFilled(busy, 40), true);
-});
