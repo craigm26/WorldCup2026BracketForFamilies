@@ -7,11 +7,14 @@ function Globe3D({ sel, onSelect, fallback }) {
   const [ok, setOk] = React.useState(true);
   const onSelectRef = React.useRef(onSelect);
   onSelectRef.current = onSelect;
+  const selRef = React.useRef(sel);
+  selRef.current = sel;
 
   React.useEffect(() => {
     const THREE = window.THREE;
     if (!G || !G.hasWebGL() || !THREE || !window.topojson || !window.d3) { setOk(false); return; }
     const el = ref.current; if (!el) return;
+    let alive = true;
     let W = el.clientWidth || 320, H = el.clientHeight || 320;
     const R = 1;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -37,6 +40,7 @@ function Globe3D({ sel, onSelect, fallback }) {
 
     fetch(window.NA_TOPO_URL || 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json')
       .then((r) => r.json()).then((topo) => {
+        if (!alive) return;
         const obj = topo.objects.countries;
         window.topojson.mesh(topo, obj).coordinates.forEach((seg) => addLine(seg, 0x3f5aa0, R * 1.001));
         const byId = {}; window.topojson.feature(topo, obj).features.forEach((f) => { byId[String(f.id)] = f; });
@@ -54,10 +58,10 @@ function Globe3D({ sel, onSelect, fallback }) {
           const pin = new THREE.Mesh(pgeo, pmat); pin.position.set(v.x, v.y, v.z);
           pin.userData.team = code; globe.add(pin); pins.push(pin); disposables.push(pgeo, pmat);
         });
-        if (api.current.applySel) api.current.applySel(sel);
-      }).catch(() => {});
+        if (api.current.applySel) api.current.applySel(selRef.current);
+      }).catch(() => { if (alive) setOk(false); });
 
-    let dragging = false, lx = 0, ly = 0, moved = false, auto = true;
+    let dragging = false, lx = 0, ly = 0, moved = false;
     const down = (e) => { dragging = true; moved = false; lx = e.clientX; ly = e.clientY; };
     const move = (e) => {
       if (!dragging) return;
@@ -86,11 +90,13 @@ function Globe3D({ sel, onSelect, fallback }) {
       pn.material.color.set(on ? 0x34c77b : 0xf4b740);
     });
 
-    let raf;
-    const animate = () => { raf = requestAnimationFrame(animate); if (auto && !dragging) globe.rotation.y += 0.0012; renderer.render(scene, camera); };
-    animate();
+    let raf = null;
+    const animate = () => { raf = requestAnimationFrame(animate); if (!dragging) globe.rotation.y += 0.0012; renderer.render(scene, camera); };
+    const start = () => { if (!raf) animate(); };
+    const stop = () => { if (raf) { cancelAnimationFrame(raf); raf = null; } };
+    start();
 
-    const onVis = () => { auto = !document.hidden; };
+    const onVis = () => { if (document.hidden) stop(); else start(); }; // truly pause rAF when hidden
     document.addEventListener('visibilitychange', onVis);
     const onLost = (e) => { e.preventDefault(); setOk(false); };
     dom.addEventListener('webglcontextlost', onLost);
@@ -101,7 +107,8 @@ function Globe3D({ sel, onSelect, fallback }) {
     ro.observe(el);
 
     return () => {
-      cancelAnimationFrame(raf);
+      alive = false;
+      stop();
       dom.removeEventListener('pointerdown', down);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
@@ -110,6 +117,7 @@ function Globe3D({ sel, onSelect, fallback }) {
       ro.disconnect();
       disposables.forEach((d) => { if (d.dispose) d.dispose(); });
       pins.forEach((pn) => { if (pn.geometry.dispose) pn.geometry.dispose(); if (pn.material.dispose) pn.material.dispose(); });
+      if (renderer.forceContextLoss) renderer.forceContextLoss(); // release the GL context (dispose() alone doesn't)
       renderer.dispose();
       if (dom.parentNode) dom.parentNode.removeChild(dom);
       api.current = {};
