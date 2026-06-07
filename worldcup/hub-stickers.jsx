@@ -406,7 +406,39 @@ function OverviewView({ collections, players, addPlayer }) {
   );
 }
 
-function StickersTab({ collections, setSticker, players, addPlayer }) {
+function FamilyConnected({ sync }) {
+  return <div style={{ color: "#9fb0e0", padding: 24 }}>Connected to family sync. (Roster & trades — Tasks 7–8.)</div>;
+}
+
+function FamilyView({ map, players, activeId, sync, setSync }) {
+  const SY = window.WCSTKSYNC;
+  const [link, setLink] = React.useState("");
+
+  if (!sync) {
+    const connect = () => {
+      let cfg = null;
+      const fromLink = SY.parseSetupLink(link.indexOf("?") >= 0 ? link.slice(link.indexOf("?")) : "?" + link);
+      if (fromLink) cfg = { url: fromLink.url, code: fromLink.code, memberId: SY.genMemberId() };
+      if (cfg) setSync(cfg);
+    };
+    return (
+      <div style={{ background: "rgba(52,199,123,.12)", border: "2px solid rgba(52,199,123,.45)", borderRadius: 14, padding: 16, maxWidth: 560 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: "#bdf0d3", marginBottom: 6 }}>👨‍👩‍👧 Trade with family far away</div>
+        <div style={{ fontSize: 14, color: "#dfe6ff", marginBottom: 12, lineHeight: 1.45 }}>
+          Paste the family setup link someone shared with you (it looks like <code>…/worldcup/?sync=…&code=…</code>). Then you can publish your collection and propose trades across households.
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Paste setup link"
+            style={{ fontFamily: "inherit", fontSize: 15, borderRadius: 10, border: "none", padding: "9px 12px", background: "rgba(255,255,255,.14)", color: "#fff", flex: "1 1 220px" }} />
+          <button onClick={connect} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 18px", fontSize: 15 }}>Connect</button>
+        </div>
+      </div>
+    );
+  }
+  return <FamilyConnected map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} />;
+}
+
+function StickersTab({ collections, setSticker, players, addPlayer, sync, setSync }) {
   const [view, setView] = React.useState("book"); // book | trade | overview
   const activeId = players.active;
   const map = (collections && collections[activeId]) || {};
@@ -420,11 +452,12 @@ function StickersTab({ collections, setSticker, players, addPlayer }) {
   return (
     <div style={{ height: "100%", overflow: "auto" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        {seg("book", "📖 My Book")}{seg("trade", "🔄 Trade Matcher")}{seg("overview", "📊 Overview")}
+        {seg("book", "📖 My Book")}{seg("trade", "🔄 Trade Matcher")}{seg("overview", "📊 Overview")}{seg("family", "👨‍👩‍👧 Family")}
       </div>
       {view === "book" && <MyBookView map={map} setSticker={setSticker} activeId={activeId} />}
       {view === "trade" && <TradeMatcherView collections={collections} players={players} activeId={activeId} addPlayer={addPlayer} />}
       {view === "overview" && <OverviewView collections={collections} players={players} addPlayer={addPlayer} />}
+      {view === "family" && <FamilyView map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} />}
     </div>
   );
 }
