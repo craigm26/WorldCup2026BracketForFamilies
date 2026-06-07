@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Set up Family Sync — World Cup 2026 Hub</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'Fredoka', sans-serif; color: #fff;
+    background: radial-gradient(circle at 18% 0%, #3a7bef 0%, #244fb5 42%, #15327f 78%, #0f2566 100%); min-height: 100vh; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 18px 60px; }
+  h1 { font-size: 28px; margin: 8px 0 4px; }
+  .sub { color: #9fb0e0; margin: 0 0 22px; }
+  .step { background: rgba(255,255,255,.06); border-radius: 16px; padding: 16px 18px; margin-bottom: 14px; }
+  .step h2 { font-size: 18px; margin: 0 0 8px; }
+  .step p { color: #dfe6ff; line-height: 1.5; margin: 0 0 10px; }
+  a.btn, button.btn { display: inline-block; border: none; cursor: pointer; font-family: inherit; font-weight: 700;
+    border-radius: 10px; padding: 9px 16px; font-size: 15px; text-decoration: none; }
+  .btn.primary { background: #f4b740; color: #16235a; } .btn.green { background: #34c77b; color: #06351f; }
+  .btn.ghost { background: rgba(255,255,255,.12); color: #dfe6ff; }
+  pre { background: #0c1740; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; padding: 12px;
+    overflow: auto; max-height: 240px; font-size: 12px; color: #cfe0ff; white-space: pre; }
+  input { font-family: inherit; font-size: 15px; border-radius: 10px; border: none; padding: 10px 12px;
+    background: rgba(255,255,255,.14); color: #fff; width: 100%; margin-bottom: 8px; }
+  label { display: block; font-size: 13.5px; color: #9fb0e0; margin-bottom: 4px; }
+  #out { display: none; margin-top: 12px; }
+  #qr { background: #fff; padding: 10px; border-radius: 12px; display: inline-block; margin-top: 10px; }
+  .note { font-size: 13px; color: #9fb0e0; margin-top: 10px; line-height: 1.5; }
+  .muted { color: #7e8cc0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>👨‍👩‍👧 Set up Family Sync</h1>
+  <p class="sub">One-time, about 5 minutes. This lets relatives in other homes trade stickers with you. Free — it uses your own Google Sheet.</p>
+
+  <div class="step">
+    <h2>1 · Make a Google Sheet</h2>
+    <p>It will quietly store who has which stickers.</p>
+    <a class="btn primary" href="https://sheets.new" target="_blank" rel="noopener">Create a blank Sheet ↗</a>
+  </div>
+
+  <div class="step">
+    <h2>2 · Add the script</h2>
+    <p>In your Sheet: <b>Extensions → Apps Script</b>. Delete anything there, then paste this and click <b>Save</b>:</p>
+    <button class="btn green" id="copyScript">📋 Copy the script</button>
+    <pre id="script">Loading…</pre>
+  </div>
+
+  <div class="step">
+    <h2>3 · Publish it</h2>
+    <p><b>Deploy → New deployment → Web app</b>. Set <b>Execute as: Me</b> and <b>Who has access: Anyone</b>, then <b>Deploy</b>. Copy the <b>/exec URL</b> it gives you.</p>
+  </div>
+
+  <div class="step">
+    <h2>4 · Make your family link</h2>
+    <label for="exec">Paste the /exec URL</label>
+    <input id="exec" placeholder="https://script.google.com/macros/s/…/exec" />
+    <label for="code">Pick a family code (a secret word everyone uses)</label>
+    <input id="code" placeholder="e.g. merry-fam" />
+    <div id="out">
+      <p class="note" id="localnote" style="display:none; color:#ffd7d2; background:rgba(226,71,59,.18); border:2px solid rgba(226,71,59,.5); border-radius:12px; padding:8px 12px;">⚠️ You're running this on your own computer, so this link starts with <code>localhost</code> and won't open on your family's phones. Make the link from the <b>hosted site</b> instead: <a href="https://craigm26.github.io/WorldCup2026BracketForFamilies/setup.html" style="color:#9fc0ff">github.io setup page</a>.</p>
+      <label>Share this link with your family (text or email it):</label>
+      <input id="link" readonly />
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;">
+        <button class="btn green" id="copyLink">📋 Copy link</button>
+        <a class="btn ghost" id="mailLink" href="#">✉️ Email it</a>
+      </div>
+      <div id="qr"></div>
+      <p class="note">🔒 This link is built right here in your browser — the URL and code aren't sent anywhere. Anyone with the link can see and edit your family's stickers, so only share it with family.</p>
+    </div>
+    <p class="note muted" id="hint">Paste your /exec URL and a code above to get your link + QR.</p>
+  </div>
+
+  <p class="note"><a class="btn ghost" href="worldcup/">← Back to the Hub</a></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="setup-link.js"></script>
+<script>
+  // base path = the folder this setup.html lives in (so links are correct for any host)
+  var BASEPATH = location.pathname.replace(/setup\.html$/, '');
+  // 1) load the reference Apps Script into the copy box (single source of truth)
+  fetch('worldcup/family-sync.gs').then(function (r) { return r.ok ? r.text() : Promise.reject(); })
+    .then(function (t) { document.getElementById('script').textContent = t; })
+    .catch(function () {
+      document.getElementById('script').innerHTML =
+        'Couldn’t load the script here. Open it on GitHub: ' +
+        '<a href="https://github.com/craigm26/WorldCup2026BracketForFamilies/blob/main/worldcup/family-sync.gs" target="_blank" rel="noopener" style="color:#9fc0ff">family-sync.gs</a>';
+    });
+  // copy that works on https, http, and file:// (clipboard API is secure-context only)
+  function copyText(text, btn) {
+    var done = function () { btn.textContent = '✓ Copied!'; };
+    var legacy = function () {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        var ok = document.execCommand('copy'); document.body.removeChild(ta);
+        if (ok) { done(); return; }
+      } catch (e) {}
+      btn.textContent = 'Press Ctrl-C to copy';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(legacy);
+    } else { legacy(); }
+  }
+  document.getElementById('copyScript').onclick = function () {
+    copyText(document.getElementById('script').textContent || '', document.getElementById('copyScript'));
+  };
+  // 4) live link + QR generator
+  var qr = null;
+  function regen() {
+    var exec = document.getElementById('exec').value;
+    var code = document.getElementById('code').value;
+    var link = window.WCSETUP.buildShareLink(location.origin, BASEPATH, exec, code);
+    var out = document.getElementById('out'), hint = document.getElementById('hint');
+    if (!link) { out.style.display = 'none'; hint.style.display = 'block'; return; }
+    out.style.display = 'block'; hint.style.display = 'none';
+    var isLocal = location.protocol === 'file:' || /^(localhost|127\.|0\.0\.0\.0|192\.168\.|10\.|\[)/.test(location.hostname);
+    document.getElementById('localnote').style.display = isLocal ? 'block' : 'none';
+    document.getElementById('link').value = link;
+    document.getElementById('mailLink').href =
+      'mailto:?subject=' + encodeURIComponent('Join our World Cup sticker swap') +
+      '&body=' + encodeURIComponent('Tap this to join our family sticker tracker:\n\n' + link);
+    var box = document.getElementById('qr'); box.innerHTML = '';
+    if (typeof QRCode !== 'undefined') { qr = new QRCode(box, { text: link, width: 180, height: 180 }); }
+    else { box.style.display = 'none'; }
+  }
+  document.getElementById('exec').addEventListener('input', regen);
+  document.getElementById('code').addEventListener('input', regen);
+  document.getElementById('copyLink').onclick = function () {
+    copyText(document.getElementById('link').value || '', document.getElementById('copyLink'));
+  };
+</script>
+</body>
+</html>

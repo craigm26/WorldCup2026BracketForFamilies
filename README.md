@@ -48,8 +48,8 @@ The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV
 | 📺 **Watch** | Where & how to watch in the US, Canada, Mexico & the rest of the world — including the **free** options — plus kick-off windows converted to your zone. |
 | 🌍 **Map & Facts** | An accurate host-city map (tap a pin for the stadium) and a country explorer with **rotating, kid-friendly facts** — tap **☆ Follow** to track your team. |
 | 🎮 **Play** | A flag / country / food **quiz game** for the kids — score, streak and best, with a fun fact after every answer. |
-| 🎟️ **Stickers** | Track each family member's **Panini WC2026** album, laid out page-by-page by group with **every real player name** (all 980 stickers) — tap to mark Have / Need / doubles, tap **ⓘ** for a player's position, club & a fun fact, then the **Trade Matcher** shows exactly who can swap what. Scan stickers or whole pages with the phone camera (manual entry always works). |
-| ❓ **Help** | Friendly, searchable **how-to cards** for every feature — how to fill the bracket, mark & scan stickers, find trades, and set up family trading. Tap the small **❓** on a tab for the matching guide. |
+| 🎟️ **Stickers** | Track each family member's **Panini WC2026** album, laid out page-by-page by group with **every real player name** (all 980 stickers) — tap to mark Have / Need / doubles, tap **ⓘ** for a player's position, club & a fun fact, then the **Trade Matcher** shows exactly who can swap what — or add a sticker by its code. |
+| ❓ **Help** | Friendly, searchable **how-to cards** for every feature — how to fill the bracket, mark & trade stickers, find swaps, and set up family trading. Tap the small **❓** on a tab for the matching guide. |
 | ⚙️ **Settings** | Choose how scores update — **Manual** (type your own, no spoilers), **Semi-auto** (update when *you* press the button), or **Auto** — plus an auto-fill-the-bracket helper and the time-zone picker. |
 
 > **Family Pick'em:** add a player for each family member (Mom, Dad, each kid), and everyone keeps their own bracket. The Home leaderboard scores how many of the 32 qualifiers each person predicted — a friendly, spoiler-safe family competition that updates as real results come in.
@@ -83,6 +83,19 @@ works fully without this — it's opt-in.
 > Security: the endpoint is gated only by the family code — anyone with the link can read/write
 > your family's sticker data, so don't post it publicly. Data lives in your private Sheet
 > (names + sticker counts only). The `/exec` URL is a secret — never commit it.
+
+### ▶ Run it on your own computer (Mac / Windows / Linux)
+
+No Raspberry Pi required:
+
+1. **Download** this project (green **Code → Download ZIP** on GitHub) and unzip it.
+2. **Double-click** your launcher: `start.command` (Mac), `start.bat` (Windows), or `start.sh` (Linux).
+   It uses Python or Node (whichever you already have) to serve the Hub and opens your browser.
+3. The Hub opens at `http://localhost:8080/worldcup/`.
+
+Prefer Docker? `docker build -t worldcup . && docker run --rm -p 8080:8080 worldcup`, then open `localhost:8080/worldcup/`.
+
+**Family Sync setup:** open **`setup.html`** (in this project, or at the hosted site) for a guided, ~5-minute helper that writes your shareable family link for you.
 
 ### Quick deploy (any web server)
 
