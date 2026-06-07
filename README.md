@@ -3,7 +3,7 @@
 A two-part family kit for the **2026 FIFA World Cup** (June 11 – July 19, 2026 · hosted by 🇨🇦 Canada · 🇲🇽 Mexico · 🇺🇸 USA):
 
 1. **🖨️ Print it** — a giant wall bracket, a print-at-home version, and cut-out flags you fill in by hand. **Color *or* black & white** for any printer.
-2. **📺 Host it** — a self-contained interactive **Hub** you serve from any computer (a Raspberry Pi, an old laptop, anything) so the whole family can poke at it on the TV: fillable bracket, live-or-manual standings, a schedule **in your own time zone**, where-to-watch, and rotating kid-friendly country facts.
+2. **📺 Host it** — a self-contained interactive **Hub** you serve from any computer (a Raspberry Pi, an old laptop, anything) so the whole family can poke at it on the TV: fillable bracket, live-or-manual standings, a schedule **in your own time zone**, where-to-watch, rotating kid-friendly country facts, and a **🎟️ Panini sticker-album tracker** (mark Have/Need/doubles for all 980 stickers, then a **Trade Matcher** shows who can swap what).
 
 The printed poster has a **QR code** that opens the Hub. Set it up once, and the bracket on your wall and the screen in your living room stay in sync with your family's picks.
 
@@ -48,7 +48,7 @@ The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV
 | 📺 **Watch** | Where & how to watch in the US, Canada, Mexico & the rest of the world — including the **free** options — plus kick-off windows converted to your zone. |
 | 🌍 **Map & Facts** | An accurate host-city map (tap a pin for the stadium) and a country explorer with **rotating, kid-friendly facts** — tap **☆ Follow** to track your team. |
 | 🎮 **Play** | A flag / country / food **quiz game** for the kids — score, streak and best, with a fun fact after every answer. |
-| 🎟️ **Stickers** | Track each family member's **Panini WC2026** album, laid out page-by-page by group (all 980 stickers) — tap to mark Have / Need / doubles, then the **Trade Matcher** shows exactly who can swap what. Scan stickers or whole pages with the phone camera (manual entry always works). |
+| 🎟️ **Stickers** | Track each family member's **Panini WC2026** album, laid out page-by-page by group with **every real player name** (all 980 stickers) — tap to mark Have / Need / doubles, tap **ⓘ** for a player's position, club & a fun fact, then the **Trade Matcher** shows exactly who can swap what. Scan stickers or whole pages with the phone camera (manual entry always works). |
 | ⚙️ **Settings** | Choose how scores update — **Manual** (type your own, no spoilers), **Semi-auto** (update when *you* press the button), or **Auto** — plus an auto-fill-the-bracket helper and the time-zone picker. |
 
 > **Family Pick'em:** add a player for each family member (Mom, Dad, each kid), and everyone keeps their own bracket. The Home leaderboard scores how many of the 32 qualifiers each person predicted — a friendly, spoiler-safe family competition that updates as real results come in.
