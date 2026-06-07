@@ -46,6 +46,22 @@
     });
   }
 
+  async function postAction(cfg, action, extra, fetchImpl) {
+    const f = fetchImpl || (typeof fetch !== 'undefined' ? fetch : null);
+    if (!f) throw new Error('no fetch available');
+    if (!cfg || !cfg.url) throw new Error('Family Sync is not set up');
+    const res = await f(cfg.url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(buildPayload(action, cfg, extra)),
+    });
+    if (!res.ok) throw new Error('network error (' + res.status + ')');
+    const data = await res.json();
+    if (!data || data.ok === false) throw new Error((data && data.error) || 'request failed');
+    return data;
+  }
+
   return { genMemberId: genMemberId, parseSetupLink: parseSetupLink, serializeCollection: serializeCollection,
-           buildPayload: buildPayload, tradeTransition: tradeTransition, summarizeFamily: summarizeFamily };
+           buildPayload: buildPayload, tradeTransition: tradeTransition, summarizeFamily: summarizeFamily,
+           postAction: postAction };
 });
