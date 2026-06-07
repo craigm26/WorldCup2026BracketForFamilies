@@ -514,8 +514,11 @@ function FamilyConnected({ players, books, collections, activeId, sync, setSync 
     setErr(""); setBusy(true);
     try {
       for (const bk of reg.list) {
+        // The default book (id == playerId) publishes under the device memberId so it
+        // updates — not duplicates — a row published before multi-book support existed.
+        const remoteBookId = bk.id === activeId ? sync.memberId : bk.id;
         await SY.postAction(sync, "publishCollection",
-          { name: me.name, emoji: me.emoji, bookId: bk.id, bookLabel: bk.label,
+          { name: me.name, emoji: me.emoji, bookId: remoteBookId, bookLabel: bk.label,
             collection: SY.serializeCollection(collections[bk.id] || {}) });
       }
       await load();

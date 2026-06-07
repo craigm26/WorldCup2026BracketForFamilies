@@ -188,6 +188,7 @@ window.useHubStore = function () {
   };
   const switchPlayer = (id) => setPlayers((p) => Object.assign({}, p, { active: id }));
   const removePlayer = (id) => setPlayers((p) => {
+    if (!B) return p;
     if (p.list.length <= 1) return p;
     const reg = books[id] || B.defaultRegistry(id);
     try { localStorage.removeItem(bkkey(id)); localStorage.removeItem(bkey(id)); reg.list.forEach((bk) => localStorage.removeItem(skey(bk.id))); } catch (e) {}
