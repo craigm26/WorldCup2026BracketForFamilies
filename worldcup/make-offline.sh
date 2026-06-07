@@ -19,6 +19,7 @@ dl https://unpkg.com/@babel/standalone@7.29.0/babel.min.js               vendor/
 dl https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js                      vendor/d3.min.js
 dl https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js vendor/topojson-client.min.js
 dl https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js   vendor/qrcode.min.js
+dl https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js  vendor/three.min.js
 dl https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json         vendor/countries-50m.json
 
 echo "→ downloading 48 flags…"
@@ -62,6 +63,7 @@ repl = {
   "https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js": "vendor/d3.min.js",
   "https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js": "vendor/topojson-client.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js": "vendor/qrcode.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js": "vendor/three.min.js",
 }
 for k, v in repl.items():
     s = s.replace(k, v)
