@@ -110,6 +110,59 @@ function MyBookView({ map, setSticker, activeId }) {
   );
 }
 
+function TradeColumn({ title, nums, idx, accent }) {
+  return (
+    <div style={{ flex: "1 1 240px", background: "rgba(255,255,255,.06)", borderRadius: 14, padding: 12 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: accent, marginBottom: 8 }}>{title} <span style={{ color: "#9fb0e0" }}>({nums.length})</span></div>
+      {nums.length ? (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {nums.map((n) => {
+            const slot = idx[n] && idx[n].slot;
+            return (
+              <span key={n} title={slot ? slot.name : ""} style={{ background: "rgba(255,255,255,.1)", color: "#dfe6ff",
+                borderRadius: 8, padding: "4px 9px", fontSize: 13, fontWeight: 600 }}>
+                #{n}{slot && slot.foil ? " ✨" : ""}
+              </span>
+            );
+          })}
+        </div>
+      ) : <div style={{ color: "#7e8cc0", fontSize: 13 }}>Nothing to swap.</div>}
+    </div>
+  );
+}
+
+function TradeMatcherView({ collections, players, activeId }) {
+  const L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
+  const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
+  const others = players.list.filter((p) => p.id !== activeId);
+  const [otherId, setOtherId] = React.useState(others.length ? others[0].id : null);
+
+  if (!others.length) return <div style={{ color: "#9fb0e0", padding: 24 }}>Add another family member to trade with (🏠 Home → + Add player).</div>;
+
+  const mine = collections[activeId] || {};
+  const theirs = collections[otherId] || {};
+  const r = L.tradeMatch(mine, theirs, idx);
+  const me = players.list.find((p) => p.id === activeId);
+  const them = players.list.find((p) => p.id === otherId);
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+        <span style={{ color: "#dfe6ff", fontWeight: 600 }}>Trade {me ? me.emoji + " " + me.name : "you"} with</span>
+        <select value={otherId} onChange={(e) => setOtherId(e.target.value)} style={{ fontFamily: "inherit", fontSize: 15,
+          fontWeight: 700, color: "#16235a", background: "#f4b740", border: "none", borderRadius: 8, padding: "6px 10px" }}>
+          {others.map((p) => <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>)}
+        </select>
+        <span style={{ marginLeft: "auto", fontSize: 16, fontWeight: 800, color: "#34c77b" }}>🤝 {r.swaps} perfect swap{r.swaps === 1 ? "" : "s"}</span>
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <TradeColumn title={"You give → " + (them ? them.name : "")} nums={r.iGive} idx={idx} accent="#f4b740" />
+        <TradeColumn title={(them ? them.name : "") + " gives → you"} nums={r.iWant} idx={idx} accent="#9fc0ff" />
+      </div>
+    </div>
+  );
+}
+
 function StickersTab({ collections, setSticker, players }) {
   const [view, setView] = React.useState("book"); // book | trade | overview
   const activeId = players.active;
@@ -127,7 +180,7 @@ function StickersTab({ collections, setSticker, players }) {
         {seg("book", "📖 My Book")}{seg("trade", "🔄 Trade Matcher")}{seg("overview", "📊 Overview")}
       </div>
       {view === "book" && <MyBookView map={map} setSticker={setSticker} activeId={activeId} />}
-      {view === "trade" && <div style={{ color: "#9fb0e0", padding: 24 }}>Trade Matcher — coming in Task 9.</div>}
+      {view === "trade" && <TradeMatcherView collections={collections} players={players} activeId={activeId} />}
       {view === "overview" && <div style={{ color: "#9fb0e0", padding: 24 }}>Overview — coming in Task 10.</div>}
     </div>
   );
