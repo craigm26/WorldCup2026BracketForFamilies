@@ -465,7 +465,10 @@ function FamilyTrades({ data, fam, sync, idx, map, me, reload, setErr, setBusy, 
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
             <span style={{ color: "#dfe6ff", fontSize: 14 }}>Propose a trade with</span>
             <select value={target ? target.id : ""} onChange={(e) => setWithId(e.target.value)} style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: "#16235a", background: "#f4b740", border: "none", borderRadius: 8, padding: "5px 8px" }}>
-              {others.map((o) => <option key={o.id} value={o.id}>{o.emoji} {o.name}</option>)}
+              {others.map((o) => {
+                const olabel = o.name + (o.bookLabel && o.bookLabel !== "My album" ? " · " + o.bookLabel : "");
+                return <option key={o.id} value={o.id}>{o.emoji} {olabel}</option>;
+              })}
             </select>
             <button onClick={propose} disabled={busy || (!match.iGive.length && !match.iWant.length)} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "6px 14px", opacity: (!match.iGive.length && !match.iWant.length) ? .5 : 1 }}>Send proposal</button>
           </div>
@@ -550,7 +553,7 @@ function FamilyConnected({ players, books, collections, activeId, sync, setSync 
             </div>
           );
         })}
-        {data && !fam.length && <div style={{ color: "#9fb0e0", padding: 12 }}>No one has published yet — tap "Publish my collection".</div>}
+        {data && !fam.length && <div style={{ color: "#9fb0e0", padding: 12 }}>No one has published yet — tap "Publish my book".</div>}
       </div>
       <FamilyMemberModal member={viewing} idx={idx} onClose={() => setViewing(null)} />
       <FamilyTrades data={data} fam={fam} sync={sync} idx={idx} map={map} me={me} reload={load} setErr={setErr} setBusy={setBusy} busy={busy} />
