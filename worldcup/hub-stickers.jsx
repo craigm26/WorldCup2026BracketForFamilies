@@ -51,6 +51,60 @@ function StickerPage({ page, map, onTap, onMinus }) {
   );
 }
 
+function ScanSwap({ onAdd }) {
+  const [open, setOpen] = React.useState(false);
+  const [num, setNum] = React.useState("");
+  const [camMsg, setCamMsg] = React.useState("");
+  const videoRef = React.useRef(null);
+  const streamRef = React.useRef(null);
+
+  const stop = () => { if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; } };
+  React.useEffect(() => stop, []);
+
+  const startCam = async () => {
+    setCamMsg("");
+    if (!("BarcodeDetector" in window)) { setCamMsg("This device can't auto-read numbers — type it below."); return; }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+      const det = new window.BarcodeDetector({ formats: ["code_128", "ean_13", "qr_code"] });
+      const tick = async () => {
+        if (!streamRef.current || !videoRef.current) return;
+        try {
+          const codes = await det.detect(videoRef.current);
+          // sticker codes are alphanumeric (MEX5, FW3, 00) — grab the first token
+          const hit = codes.map((c) => (c.rawValue || "").toUpperCase().match(/[A-Z0-9]+/)).find(Boolean);
+          if (hit) { setNum(hit[0]); setCamMsg("Read " + hit[0] + " — confirm below."); stop(); return; }
+        } catch (e) {}
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    } catch (e) { setCamMsg("Camera unavailable — type the code below."); }
+  };
+
+  // sticker codes are STRING codes (e.g. MEX5). Add the code as-is.
+  const add = () => { const n = num.trim(); if (n) { onAdd(n); setNum(""); setOpen(false); stop(); } };
+
+  if (!open) return (
+    <button onClick={() => { setOpen(true); startCam(); }} style={{ border: "none", cursor: "pointer", borderRadius: 20,
+      padding: "6px 14px", fontSize: 14, fontWeight: 700, background: "rgba(255,255,255,.12)", color: "#dfe6ff" }}>📷 Scan a swap</button>
+  );
+
+  return (
+    <div style={{ background: "rgba(0,0,0,.35)", borderRadius: 12, padding: 10, display: "flex", flexDirection: "column", gap: 8, flex: "1 1 220px" }}>
+      <video ref={videoRef} muted playsInline style={{ width: "100%", maxHeight: 160, borderRadius: 8, background: "#000", objectFit: "cover" }} />
+      {camMsg && <div style={{ fontSize: 12.5, color: "#9fc0ff" }}>{camMsg}</div>}
+      <div style={{ display: "flex", gap: 6 }}>
+        <input value={num} onChange={(e) => setNum(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))} placeholder="Code e.g. MEX5"
+          style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 8, border: "none", padding: "7px 10px", width: 120, background: "rgba(255,255,255,.14)", color: "#fff" }} />
+        <button onClick={add} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "7px 14px" }}>Add +1</button>
+        <button onClick={() => { setOpen(false); stop(); }} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 8, padding: "7px 12px" }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 function MyBookView({ map, setSticker, activeId }) {
   const WCSTK = window.WCSTK, L = window.WCSTKLOGIC;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
@@ -60,6 +114,7 @@ function MyBookView({ map, setSticker, activeId }) {
 
   const onTap = (n) => setSticker(activeId, n, L.cycleCount(map[n]));
   const onMinus = (n) => setSticker(activeId, n, Math.max(0, (map[n] || 0) - 1));
+  const onAdd = (n) => setSticker(activeId, n, L.cycleCount(map[n]));
 
   const matchSlot = (s) => {
     const c = map[s.n] || 0;
@@ -92,6 +147,7 @@ function MyBookView({ map, setSticker, activeId }) {
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search # or name"
           style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 10, border: "none", padding: "7px 12px",
             background: "rgba(255,255,255,.12)", color: "#fff", flex: "1 1 160px" }} />
+        <ScanSwap onAdd={onAdd} />
       </div>
       {pages.length ? pages.map((p, i) => {
         const prev = i ? pages[i - 1] : null;
