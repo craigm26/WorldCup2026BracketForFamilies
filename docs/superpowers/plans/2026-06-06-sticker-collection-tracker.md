@@ -735,14 +735,19 @@ block, ~line 544). Add after the `home` line:
         {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} />}
 ```
 
-- [ ] **Step 5: Add files to the offline bundle**
+- [ ] **Step 5: Confirm the offline bundle picks up the new files**
 
-In `worldcup/make-offline.sh`, find where the hub source files are listed/copied
-(grep for `hub-extras.jsx` or `data.js`). Add `sticker-logic.js`, `sticker-data.js`, and
-`hub-stickers.jsx` to the same copy list so the offline kiosk bundle includes them.
+**CORRECTION (verified):** `worldcup/make-offline.sh` does NOT keep a source-file copy
+list — it builds the offline bundle **in place** (it downloads vendor libs/flags/fonts and
+rewrites each HTML's CDN URLs to local paths, leaving relative `*.js`/`*.jsx` `<script src>`
+references untouched). Because `sticker-logic.js`, `sticker-data.js`, and `hub-stickers.jsx`
+live in `worldcup/` and are referenced by `index.html` with relative paths (no
+`integrity`/`crossorigin`), they are automatically part of the offline build. **No edit to
+`make-offline.sh` is required.** Just confirm the three files exist in `worldcup/` and are
+referenced in `index.html`.
 
-Run: `grep -n "hub-extras.jsx\|hub-data.js\|hub-stickers" worldcup/make-offline.sh`
-Expected: after editing, `hub-stickers.jsx` and the two sticker `*.js` appear in the list.
+Run: `grep -c "sticker-logic.js\|sticker-data.js\|hub-stickers.jsx" worldcup/index.html`
+Expected: `3`.
 
 - [ ] **Step 6: Commit**
 
