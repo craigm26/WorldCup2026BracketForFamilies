@@ -3,15 +3,11 @@ const puppeteer = require('puppeteer-core');
   const errs = [];
   const browser = await puppeteer.launch({ executablePath: '/usr/bin/chromium', headless: 'new', args: ['--no-sandbox','--disable-gpu'] });
   const page = await browser.newPage();
-  // track benign 404s (favicon etc.) so we don't count them as JS errors
-  const benign404s = new Set();
-  page.on('response', r => { if (r.status() === 404) benign404s.add(r.url()); });
   page.on('pageerror', e => errs.push('PAGEERROR: ' + e.message));
   page.on('console', m => {
     if (m.type() === 'error') {
       const txt = m.text();
-      // skip "Failed to load resource" when the URL is a known benign 404 (e.g. favicon)
-      if (txt.includes('Failed to load resource')) return;
+      if (txt.includes('Failed to load resource') && /favicon/i.test(txt + m.location().url)) return; // ignore the harmless favicon 404
       errs.push('CONSOLE: ' + txt);
     }
   });

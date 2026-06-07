@@ -28,11 +28,11 @@ function StickerPage({ page, map, onTap, onMinus }) {
   const WC = window.WC, L = window.WCSTKLOGIC;
   const prog = L.sectionProgress(map, page);
   const pct = prog.total ? Math.round((prog.have / prog.total) * 100) : 0;
-  const team = page.team && WC.T[page.team];
+  const flagIso = page.flag || (page.team && WC.T[page.team] ? WC.T[page.team].c : null);
   return (
     <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 16, padding: 14, marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        {team && <Flag code={team.c} w={28} style={{ border: "1.5px solid #fff", borderRadius: 3 }} />}
+        {flagIso && <Flag code={flagIso} w={28} style={{ border: "1.5px solid #fff", borderRadius: 3 }} />}
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>{page.title}</div>
           <div style={{ fontSize: 12, color: "#9fb0e0" }}>Page {page.page}</div>

@@ -8,14 +8,15 @@
   if (typeof window !== 'undefined') window.WCSTK = data;
   if (typeof module !== 'undefined' && module.exports) module.exports = data;
 })(this, function () {
-  // [group, code, country] — 4 teams per group, A..L. Codes are the album's own.
+  // [group, code, country, flagIso?] — 4 teams per group, A..L. Codes are the album's own.
+  // flagIso is optional; only set when the sticker code doesn't match WC.T's key (e.g. JAP→jp, BIH→ba).
   const TEAMS = [
     ['A', 'MEX', 'Mexico'],        ['A', 'RSA', 'South Africa'], ['A', 'KOR', 'South Korea'],   ['A', 'CZE', 'Czech Republic'],
-    ['B', 'CAN', 'Canada'],        ['B', 'BIH', 'Bosnia and Herzegovina'], ['B', 'QAT', 'Qatar'], ['B', 'SUI', 'Switzerland'],
+    ['B', 'CAN', 'Canada'],        ['B', 'BIH', 'Bosnia and Herzegovina', 'ba'], ['B', 'QAT', 'Qatar'], ['B', 'SUI', 'Switzerland'],
     ['C', 'BRA', 'Brazil'],        ['C', 'MAR', 'Morocco'],      ['C', 'HAI', 'Haiti'],          ['C', 'SCO', 'Scotland'],
     ['D', 'USA', 'United States'], ['D', 'PAR', 'Paraguay'],     ['D', 'AUS', 'Australia'],       ['D', 'TUR', 'Turkey'],
     ['E', 'GER', 'Germany'],       ['E', 'CUW', 'Curacao'],      ['E', 'CIV', 'Ivory Coast'],     ['E', 'ECU', 'Ecuador'],
-    ['F', 'NED', 'Netherlands'],   ['F', 'JAP', 'Japan'],        ['F', 'SWE', 'Sweden'],          ['F', 'TUN', 'Tunisia'],
+    ['F', 'NED', 'Netherlands'],   ['F', 'JAP', 'Japan', 'jp'],  ['F', 'SWE', 'Sweden'],          ['F', 'TUN', 'Tunisia'],
     ['G', 'BEL', 'Belgium'],       ['G', 'EGY', 'Egypt'],        ['G', 'IRN', 'Iran'],            ['G', 'NZL', 'New Zealand'],
     ['H', 'ESP', 'Spain'],         ['H', 'CPV', 'Cape Verde'],   ['H', 'KSA', 'Saudi Arabia'],    ['H', 'URU', 'Uruguay'],
     ['I', 'FRA', 'France'],        ['I', 'SEN', 'Senegal'],      ['I', 'IRQ', 'Iraq'],            ['I', 'NOR', 'Norway'],
@@ -38,12 +39,13 @@
   // One page per team, 20 stickers, codes <CODE>1..<CODE>20.
   TEAMS.forEach((t, ti) => {
     const group = t[0], code = t[1], country = t[2];
+    const flag = t[3] || null;
     const slots = [];
     for (let i = 1; i <= PER_TEAM; i++) {
       slots.push({ n: code + i, name: country, type: 'player', confirmed: true });
     }
     pages.push({ page: ti + 2, section: group, group: group, title: country,
-      team: code, cols: 4, rows: 5, confirmed: true, slots: slots });
+      team: code, flag: flag, cols: 4, rows: 5, confirmed: true, slots: slots });
   });
 
   let total = 0;
