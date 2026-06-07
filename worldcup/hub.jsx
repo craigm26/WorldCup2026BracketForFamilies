@@ -224,6 +224,19 @@ function CityPortal({ city, onClose }) {
   );
 }
 
+function FlagPicker({ sel, onSelect }) {
+  const WC = window.WC;
+  return (
+    <div style={{ flex: "1 1 360px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(46px,1fr))", gap: 7 }}>
+      {Object.keys(WC.T).map((k) => (
+        <button key={k} onClick={() => onSelect(k)} title={WC.T[k].n} style={{ border: sel === k ? "3px solid #f4b740" : "3px solid transparent", borderRadius: 6, padding: 0, cursor: "pointer", background: "none", lineHeight: 0 }}>
+          <Flag code={WC.T[k].c} w={46} style={{ borderRadius: 3, display: "block" }} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function FactsTab({ fav, toggleFav }) {
   const WC = window.WC;
   const [sel, setSel] = React.useState("BRA");
@@ -261,13 +274,7 @@ function FactsTab({ fav, toggleFav }) {
       <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16 }}>
         <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 10 }}>🌍 Tap a country</div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 360px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(46px,1fr))", gap: 7 }}>
-            {Object.keys(WC.T).map((k) => (
-              <button key={k} onClick={() => setSel(k)} title={WC.T[k].n} style={{ border: sel === k ? "3px solid #f4b740" : "3px solid transparent", borderRadius: 6, padding: 0, cursor: "pointer", background: "none", lineHeight: 0 }}>
-                <Flag code={WC.T[k].c} w={46} style={{ borderRadius: 3, display: "block" }} />
-              </button>
-            ))}
-          </div>
+          <FlagPicker sel={sel} onSelect={setSel} />
           <div style={{ flex: "1 1 280px", background: "rgba(255,255,255,.06)", borderRadius: 14, padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
               <Flag code={t.c} w={64} style={{ border: "3px solid #fff", borderRadius: 5, flex: "none" }} />
