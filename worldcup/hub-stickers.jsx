@@ -122,6 +122,8 @@ function ScanPage({ page, map, onApply }) {
   const stop = () => { if (streamRef.current) { streamRef.current.getTracks().forEach((t) => t.stop()); streamRef.current = null; } };
   React.useEffect(() => stop, []);
 
+  const [auto, setAuto] = React.useState(false);
+
   const start = async () => {
     setMsg(""); setGuesses(null);
     try {
@@ -147,8 +149,6 @@ function ScanPage({ page, map, onApply }) {
     if (auto) { onApply(out); setOpen(false); setGuesses(null); setMsg(""); return; }
     setGuesses(out); setMsg("Tap any cell to fix it, then Apply.");
   };
-
-  const [auto, setAuto] = React.useState(false);
 
   const toggle = (n) => setGuesses((g) => Object.assign({}, g, { [n]: !g[n] }));
   const apply = () => { onApply(guesses); setOpen(false); setGuesses(null); stop(); };
