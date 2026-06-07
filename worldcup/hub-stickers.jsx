@@ -139,17 +139,19 @@ function TradeMatcherView({ collections, players, activeId }) {
 
   if (!others.length) return <div style={{ color: "#9fb0e0", padding: 24 }}>Add another family member to trade with (🏠 Home → + Add player).</div>;
 
+  // reconcile the selection if the player list changed (e.g. a future header switcher)
+  const validOtherId = others.some((p) => p.id === otherId) ? otherId : others[0].id;
   const mine = collections[activeId] || {};
-  const theirs = collections[otherId] || {};
+  const theirs = collections[validOtherId] || {};
   const r = L.tradeMatch(mine, theirs, idx);
   const me = players.list.find((p) => p.id === activeId);
-  const them = players.list.find((p) => p.id === otherId);
+  const them = players.list.find((p) => p.id === validOtherId);
 
   return (
     <div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
         <span style={{ color: "#dfe6ff", fontWeight: 600 }}>Trade {me ? me.emoji + " " + me.name : "you"} with</span>
-        <select value={otherId} onChange={(e) => setOtherId(e.target.value)} style={{ fontFamily: "inherit", fontSize: 15,
+        <select value={validOtherId} onChange={(e) => setOtherId(e.target.value)} style={{ fontFamily: "inherit", fontSize: 15,
           fontWeight: 700, color: "#16235a", background: "#f4b740", border: "none", borderRadius: 8, padding: "6px 10px" }}>
           {others.map((p) => <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>)}
         </select>
