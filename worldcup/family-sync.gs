@@ -5,6 +5,12 @@
  *
  * Optional: set SECRET below to reject any other code. Empty SECRET = any code works and
  * simply namespaces its own data (the code is the shared "room key").
+ *
+ * MULTIPLE BOOKS: each member can publish several books; rows are keyed by memberId + bookId.
+ * RE-DEPLOY this script BEFORE anyone adds a second book. The read path tolerates old rows
+ * (no bookId => treated as one "My album" book); the write path auto-adds the bookId/bookLabel
+ * columns to an existing Members sheet. Until re-deployed, a multi-book publish would collapse
+ * to a single row (last write wins). Single-book users are unaffected.
  */
 var SECRET = ''; // e.g. 'merry-fam-2026' to lock to one code; '' = accept any code.
 var MEMBERS = 'Members';
@@ -32,22 +38,36 @@ function rows(sh) {
   for (var i = 1; i < v.length; i++) { var o = {}; for (var j = 0; j < h.length; j++) o[h[j]] = v[i][j]; o._row = i + 1; out.push(o); }
   return out;
 }
+function ensureHeaders(sh, names) {
+  var lastCol = sh.getLastColumn();
+  var h = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  names.forEach(function (name) {
+    if (h.indexOf(name) === -1) { sh.getRange(1, sh.getLastColumn() + 1).setValue(name); h.push(name); }
+  });
+}
+function headerOf(sh) { return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]; }
 
 function handle(b) {
   var fc = String(b.familyCode || '');
   if (b.action === 'publishCollection') {
-    var sh = sheet(MEMBERS, ['familyCode','memberId','name','emoji','updatedAt','collectionJSON']);
-    var rs = rows(sh), now = new Date().toISOString();
-    var found = rs.filter(function (r) { return String(r.familyCode) === fc && r.memberId === b.memberId; })[0];
-    var rec = [fc, b.memberId, b.name || '', b.emoji || '🙂', now, JSON.stringify(b.collection || {})];
+    var sh = sheet(MEMBERS, ['familyCode','memberId','bookId','bookLabel','name','emoji','updatedAt','collectionJSON']);
+    ensureHeaders(sh, ['bookId','bookLabel']); // upgrade an existing pre-books sheet in place
+    var header = headerOf(sh);
+    var bookId = String(b.bookId || b.memberId);
+    var values = { familyCode: fc, memberId: b.memberId, bookId: bookId, bookLabel: String(b.bookLabel || 'My album'),
+                   name: b.name || '', emoji: b.emoji || '🙂', updatedAt: new Date().toISOString(),
+                   collectionJSON: JSON.stringify(b.collection || {}) };
+    var rs = rows(sh);
+    var found = rs.filter(function (r) { return String(r.familyCode) === fc && r.memberId === b.memberId && String(r.bookId || r.memberId) === bookId; })[0];
+    var rec = header.map(function (name) { return values.hasOwnProperty(name) ? values[name] : ''; });
     if (found) sh.getRange(found._row, 1, 1, rec.length).setValues([rec]);
     else sh.appendRow(rec);
     return { ok: true };
   }
   if (b.action === 'getFamily') {
-    var ms = rows(sheet(MEMBERS, ['familyCode','memberId','name','emoji','updatedAt','collectionJSON']))
+    var ms = rows(sheet(MEMBERS, ['familyCode','memberId','bookId','bookLabel','name','emoji','updatedAt','collectionJSON']))
       .filter(function (r) { return String(r.familyCode) === fc; })
-      .map(function (r) { return { memberId: r.memberId, name: r.name, emoji: r.emoji, updatedAt: r.updatedAt, collectionJSON: r.collectionJSON }; });
+      .map(function (r) { return { memberId: r.memberId, bookId: r.bookId || r.memberId, bookLabel: r.bookLabel || '', name: r.name, emoji: r.emoji, updatedAt: r.updatedAt, collectionJSON: r.collectionJSON }; });
     var ts = rows(sheet(TRADES, ['tradeId','familyCode','fromId','fromName','toId','toName','giveCodes','wantCodes','status','createdAt','updatedAt']))
       .filter(function (r) { return String(r.familyCode) === fc; });
     return { ok: true, members: ms, trades: ts };

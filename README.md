@@ -48,7 +48,7 @@ The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV
 | 📺 **Watch** | Where & how to watch in the US, Canada, Mexico & the rest of the world — including the **free** options — plus kick-off windows converted to your zone. |
 | 🌍 **Map & Facts** | A spinnable **3D globe** of the whole planet with all **48 nations** highlighted — tap one for its **rotating kid-friendly facts** and ☆ Follow. Toggle to the host-city stadium map any time. (Falls back to a flag grid on devices without 3D.) |
 | 🎮 **Play** | A flag / country / food **quiz game** for the kids — score, streak and best, with a fun fact after every answer. |
-| 🎟️ **Stickers** | Track each family member's **Panini WC2026** album, laid out page-by-page by group with **every real player name** (all 980 stickers) — tap to mark Have / Need / doubles, tap **ⓘ** for a player's position, club & a fun fact, then the **Trade Matcher** shows exactly who can swap what — or add a sticker by its code. |
+| 🎟️ **Stickers** | Track each family member's **Panini WC2026** album, laid out page-by-page by group with **every real player name** (all 980 stickers) — tap to mark Have / Need / doubles, tap **ⓘ** for a player's position, club & a fun fact, then the **Trade Matcher** shows exactly who can swap what — or add a sticker by its code. Each person can keep **more than one book** (e.g. a main album plus a "Swaps" book of duplicates); books are the unit of trading — the Trade Matcher works **book-to-book** and Family Sync shares **each book as its own entry**. |
 | ❓ **Help** | Friendly, searchable **how-to cards** for every feature — how to fill the bracket, mark & trade stickers, find swaps, and set up family trading. Tap the small **❓** on a tab for the matching guide. |
 | ⚙️ **Settings** | Choose how scores update — **Manual** (type your own, no spoilers), **Semi-auto** (update when *you* press the button), or **Auto** — plus an auto-fill-the-bracket helper and the time-zone picker. |
 
@@ -78,7 +78,7 @@ works fully without this — it's opt-in.
 4. Each person opens the link once on their phone, creates their player, taps **Publish my
    collection**, and can propose trades on the **🎟️ Stickers → 👨‍👩‍👧 Family** tab.
 
-> Each device publishes its **active** player's collection — if several people share one device, switch player (🏠 Home) before publishing.
+> Each device publishes its **active** player's books — one shared entry per book — if several people share one device, switch player (🏠 Home) before publishing.
 
 > Security: the endpoint is gated only by the family code — anyone with the link can read/write
 > your family's sticker data, so don't post it publicly. Data lives in your private Sheet

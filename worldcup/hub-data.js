@@ -61,13 +61,14 @@ window.computeStandings = function (letter, results) {
    Results (the objective scores) are shared by the whole family; each player keeps
    their own bracket prediction. Migrates the old single `wc26hub` store once. */
 const bkey = (id) => "wc26bracket:" + id;
-const skey = (id) => "wc26stickers:" + id;
+const skey = (id) => "wc26stickers:" + id;     // keyed by bookId (default book's id == playerId)
+const bkkey = (id) => "wc26books:" + id;        // per-player book registry
 const SYNC_KEY = "wc26sync";
 function loadSync() {
   let cur = null;
   try { cur = JSON.parse(localStorage.getItem(SYNC_KEY)); } catch (e) { cur = null; }
-  // a one-tap setup link (?sync=&code=) configures/updates this device
   try {
+    // a one-tap setup link (?sync=&code=) configures/updates this device
     const link = window.WCSTKSYNC && window.WCSTKSYNC.parseSetupLink(window.location.search);
     if (link) {
       const memberId = (cur && cur.memberId) || window.WCSTKSYNC.genMemberId();
@@ -80,6 +81,34 @@ function loadSync() {
 function loadPlayers() {
   try { const p = JSON.parse(localStorage.getItem("wc26players")); if (p && p.list && p.list.length) return p; } catch (e) {}
   return { list: [{ id: "family", name: "Family", emoji: "👪" }], active: "family" };
+}
+// Per-player book registries; migrates (and persists) a default book for any player missing one.
+// Metadata-only: never reads or writes wc26stickers:* — the default book's id == playerId, so the
+// existing per-player collection already IS that book.
+function loadBooks(players) {
+  const B = window.WCSTKBOOKS;
+  const out = {};
+  (players.list || []).forEach((pl) => {
+    let existing = null;
+    try { existing = JSON.parse(localStorage.getItem(bkkey(pl.id))); } catch (e) { existing = null; }
+    const reg = B ? B.migrateRegistry(existing, pl.id)
+                  : (existing && existing.list && existing.list.length ? existing
+                     : { list: [{ id: pl.id, label: "My album" }], active: pl.id });
+    out[pl.id] = reg;
+    try { localStorage.setItem(bkkey(pl.id), JSON.stringify(reg)); } catch (e) {}
+  });
+  return out;
+}
+// Collections keyed by bookId, read across every book of every player.
+function loadCollections(books) {
+  const out = {};
+  Object.keys(books).forEach((pid) => {
+    (books[pid].list || []).forEach((bk) => {
+      try { out[bk.id] = JSON.parse(localStorage.getItem(skey(bk.id))) || {}; }
+      catch (e) { out[bk.id] = {}; }
+    });
+  });
+  return out;
 }
 if (!window.__wc26migrated) {
   window.__wc26migrated = true;
@@ -97,22 +126,13 @@ window.useHubStore = function () {
   const [brackets, setBrackets] = React.useState(() => {
     const out = {}; loadPlayers().list.forEach((pl) => { try { out[pl.id] = JSON.parse(localStorage.getItem(bkey(pl.id))) || {}; } catch (e) { out[pl.id] = {}; } }); return out;
   });
-  const [collections, setCollections] = React.useState(() => {
-    const out = {};
-    loadPlayers().list.forEach((pl) => {
-      try { out[pl.id] = JSON.parse(localStorage.getItem(skey(pl.id))) || {}; }
-      catch (e) { out[pl.id] = {}; }
-    });
-    return out;
-  });
+  const [books, setBooks] = React.useState(() => loadBooks(loadPlayers()));
+  const [collections, setCollections] = React.useState(() => loadCollections(loadBooks(loadPlayers())));
   React.useEffect(() => { try { localStorage.setItem("wc26players", JSON.stringify(players)); } catch (e) {} }, [players]);
   React.useEffect(() => { try { localStorage.setItem("wc26results", JSON.stringify(results)); } catch (e) {} }, [results]);
   React.useEffect(() => { try { Object.keys(brackets).forEach((id) => localStorage.setItem(bkey(id), JSON.stringify(brackets[id]))); } catch (e) {} }, [brackets]);
-
-  React.useEffect(() => {
-    try { Object.keys(collections).forEach((id) => localStorage.setItem(skey(id), JSON.stringify(collections[id]))); }
-    catch (e) {}
-  }, [collections]);
+  React.useEffect(() => { try { Object.keys(books).forEach((pid) => localStorage.setItem(bkkey(pid), JSON.stringify(books[pid]))); } catch (e) {} }, [books]);
+  React.useEffect(() => { try { Object.keys(collections).forEach((id) => localStorage.setItem(skey(id), JSON.stringify(collections[id]))); } catch (e) {} }, [collections]);
 
   const [sync, setSyncState] = React.useState(loadSync);
   React.useEffect(() => { try {
@@ -120,25 +140,77 @@ window.useHubStore = function () {
   } catch (e) {} }, [sync]);
   const setSync = (cfg) => setSyncState(cfg);
 
-  const setSticker = (playerId, n, count) => setCollections((c) => {
-    const cur = Object.assign({}, c[playerId] || {});
+  const setSticker = (bookId, n, count) => setCollections((c) => {
+    const cur = Object.assign({}, c[bookId] || {});
     if (count <= 0) delete cur[String(n)]; else cur[String(n)] = count;
-    return Object.assign({}, c, { [playerId]: cur });
+    return Object.assign({}, c, { [bookId]: cur });
   });
+
+  const B = window.WCSTKBOOKS;
+  const regOf = (pid) => (books[pid] || (B ? B.defaultRegistry(pid) : { list: [{ id: pid, label: "My album" }], active: pid }));
+  const addBook = (playerId, label) => {
+    if (!B) return;
+    const id = "b" + Date.now();
+    setBooks((bk) => Object.assign({}, bk, { [playerId]: B.addBook(bk[playerId] || B.defaultRegistry(playerId), label, id) }));
+    setCollections((c) => Object.assign({}, c, { [id]: {} }));
+  };
+  const renameBook = (playerId, bookId, label) => {
+    if (!B) return;
+    setBooks((bk) => Object.assign({}, bk, { [playerId]: B.renameBook(bk[playerId] || B.defaultRegistry(playerId), bookId, label) }));
+  };
+  const switchBook = (playerId, bookId) => setBooks((bk) => {
+    const r = bk[playerId]; if (!r) return bk;
+    return Object.assign({}, bk, { [playerId]: { list: r.list, active: bookId } });
+  });
+  const removeBook = (playerId, bookId) => {
+    if (!B) return;
+    setBooks((bk) => {
+      const r = bk[playerId] || B.defaultRegistry(playerId);
+      const res = B.removeBook(r, bookId);
+      if (!res.removed) return bk;
+      try { localStorage.removeItem(skey(bookId)); } catch (e) {}
+      setCollections((c) => { const n = Object.assign({}, c); delete n[bookId]; return n; });
+      return Object.assign({}, bk, { [playerId]: res.reg });
+    });
+  };
 
   const bracket = brackets[players.active] || {};
   const setResult = (gKey, side, val) => setResults((p) => { const cur = p[gKey] || ["", ""]; const nx = side === 0 ? [val, cur[1]] : [cur[0], val]; return Object.assign({}, p, { [gKey]: nx }); });
   const setPick = (slot, team) => setBrackets((b) => { const cur = b[players.active] || {}; return Object.assign({}, b, { [players.active]: Object.assign({}, cur, { [slot]: team }) }); });
   const reset = () => { setResults({}); setBrackets((b) => Object.assign({}, b, { [players.active]: {} })); };
-  const addPlayer = (name, emoji) => { const id = "p" + Date.now(); setBrackets((b) => Object.assign({}, b, { [id]: {} })); setCollections((c) => Object.assign({}, c, { [id]: {} })); setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "🙂" }]), active: id })); };
+  const addPlayer = (name, emoji) => {
+    if (!B) return;
+    const id = "p" + Date.now();
+    setBrackets((b) => Object.assign({}, b, { [id]: {} }));
+    setCollections((c) => Object.assign({}, c, { [id]: {} }));
+    setBooks((bk) => Object.assign({}, bk, { [id]: B.defaultRegistry(id) }));
+    setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "🙂" }]), active: id }));
+  };
   const switchPlayer = (id) => setPlayers((p) => Object.assign({}, p, { active: id }));
-  const removePlayer = (id) => setPlayers((p) => { if (p.list.length <= 1) return p; try { localStorage.removeItem(bkey(id)); localStorage.removeItem(skey(id)); } catch (e) {} setCollections((c) => { const n = Object.assign({}, c); delete n[id]; return n; }); const list = p.list.filter((x) => x.id !== id); return { list: list, active: p.active === id ? list[0].id : p.active }; });
-  const importPlayer = (name, emoji, bracketObj) => { const id = "p" + Date.now(); setBrackets((b) => Object.assign({}, b, { [id]: bracketObj || {} })); setCollections((c) => Object.assign({}, c, { [id]: {} })); setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "📥" }]), active: id })); };
+  const removePlayer = (id) => setPlayers((p) => {
+    if (!B) return p;
+    if (p.list.length <= 1) return p;
+    const reg = books[id] || B.defaultRegistry(id);
+    try { localStorage.removeItem(bkkey(id)); localStorage.removeItem(bkey(id)); reg.list.forEach((bk) => localStorage.removeItem(skey(bk.id))); } catch (e) {}
+    setBooks((bk) => { const n = Object.assign({}, bk); delete n[id]; return n; });
+    setCollections((c) => { const n = Object.assign({}, c); reg.list.forEach((bk) => delete n[bk.id]); return n; });
+    const list = p.list.filter((x) => x.id !== id);
+    return { list: list, active: p.active === id ? list[0].id : p.active };
+  });
+  const importPlayer = (name, emoji, bracketObj) => {
+    if (!B) return;
+    const id = "p" + Date.now();
+    setBrackets((b) => Object.assign({}, b, { [id]: bracketObj || {} }));
+    setCollections((c) => Object.assign({}, c, { [id]: {} }));
+    setBooks((bk) => Object.assign({}, bk, { [id]: B.defaultRegistry(id) }));
+    setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "📥" }]), active: id }));
+  };
   return { store: { results: results, bracket: bracket }, brackets: brackets,
            collections: collections, setSticker: setSticker, sync: sync, setSync: setSync,
            setResult: setResult, setPick: setPick, reset: reset,
            players: players, addPlayer: addPlayer, switchPlayer: switchPlayer,
-           removePlayer: removePlayer, importPlayer: importPlayer };
+           removePlayer: removePlayer, importPlayer: importPlayer,
+           books: books, addBook: addBook, renameBook: renameBook, removeBook: removeBook, switchBook: switchBook };
 };
 
 /* ---- Share a bracket as a compact URL (no backend): one char per slot ---- */

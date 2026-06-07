@@ -7,6 +7,23 @@ function fmtWhen(v) {
   } catch (e) { return ""; }
 }
 
+// Flatten players × their books into trade/overview entries. The default book
+// (id == playerId, label "My album") shows as just the person's name.
+function bookEntries(players, books, collections) {
+  const B = window.WCSTKBOOKS;
+  const out = [];
+  (players.list || []).forEach((p) => {
+    const reg = (books && books[p.id]) || (B ? B.defaultRegistry(p.id) : { list: [{ id: p.id, label: "My album" }] });
+    (reg.list || []).forEach((bk) => {
+      const isDefault = bk.id === p.id && bk.label === ((B && B.DEFAULT_LABEL) || "My album");
+      out.push({ key: bk.id, playerId: p.id, bookId: bk.id, emoji: p.emoji,
+        name: isDefault ? p.name : (p.name + " · " + bk.label),
+        map: (collections && collections[bk.id]) || {} });
+    });
+  });
+  return out;
+}
+
 function FamilyMemberModal({ member, idx, onClose }) {
   if (!member) return null;
   const doubles = Object.keys(member.collection || {}).filter((c) => (member.collection[c] || 0) >= 2);
@@ -166,16 +183,64 @@ function StickerDetail({ slot, count, onClose, onSet }) {
   );
 }
 
-function MyBookView({ map, setSticker, activeId }) {
+function BookBar({ reg, playerId, addBook, renameBook, removeBook, switchBook }) {
+  const [adding, setAdding] = React.useState(false);
+  const [editing, setEditing] = React.useState(false);
+  const [label, setLabel] = React.useState("");
+  const active = reg.active;
+  const activeBook = reg.list.find((b) => b.id === active) || reg.list[0];
+  const canDelete = reg.list.length > 1;
+
+  const doAdd = () => { const n = label.trim(); if (n) { addBook(playerId, n); setLabel(""); setAdding(false); } };
+  const doRename = () => { const n = label.trim(); if (n) { renameBook(playerId, active, n); } setEditing(false); setLabel(""); };
+
+  const pill = (b) => (
+    <button key={b.id} onClick={() => switchBook(playerId, b.id)}
+      style={{ border: "none", cursor: "pointer", borderRadius: 20, padding: "6px 14px", fontSize: 14, fontWeight: 700,
+        background: b.id === active ? "#34c77b" : "rgba(255,255,255,.1)", color: b.id === active ? "#06351f" : "#dfe6ff" }}>
+      📗 {b.label}
+    </button>
+  );
+
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+      {reg.list.map(pill)}
+      {!adding ? (
+        <button onClick={() => { setAdding(true); setEditing(false); setLabel(""); }} style={{ border: "none", cursor: "pointer", borderRadius: 20,
+          padding: "6px 12px", fontSize: 14, fontWeight: 700, background: "rgba(255,255,255,.12)", color: "#dfe6ff" }}>＋ Book</button>
+      ) : (
+        <span style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <input value={label} autoFocus onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") doAdd(); }}
+            placeholder="Book name e.g. Swaps" style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 8, border: "none", padding: "6px 10px", background: "rgba(255,255,255,.14)", color: "#fff", width: 150 }} />
+          <button onClick={doAdd} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "6px 12px" }}>Add</button>
+          <button onClick={() => setAdding(false)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 8, padding: "6px 10px" }}>✕</button>
+        </span>
+      )}
+      <button onClick={() => { setEditing((v) => !v); setAdding(false); setLabel(activeBook.label); }} aria-label="Rename or delete this book"
+        style={{ border: "none", cursor: "pointer", background: "transparent", color: "#9fb0e0", fontSize: 14, padding: "6px 4px" }}>✏️</button>
+      {editing && (
+        <span style={{ display: "flex", gap: 6, alignItems: "center", flexBasis: "100%" }}>
+          <input value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") doRename(); }}
+            style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 8, border: "none", padding: "6px 10px", background: "rgba(255,255,255,.14)", color: "#fff", width: 150 }} />
+          <button onClick={doRename} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "6px 12px" }}>Rename</button>
+          <button onClick={() => { if (canDelete) { removeBook(playerId, active); setEditing(false); } }} disabled={!canDelete}
+            style={{ border: "none", cursor: canDelete ? "pointer" : "default", background: "rgba(226,71,59,.2)", color: "#ffd7d2", fontWeight: 700, borderRadius: 8, padding: "6px 12px", opacity: canDelete ? 1 : .4 }}>Delete book</button>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function MyBookView({ map, setSticker, activeBook, reg, playerId, addBook, renameBook, removeBook, switchBook }) {
   const WCSTK = window.WCSTK, L = window.WCSTKLOGIC;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
   const totals = L.playerTotals(map, idx);
-  const [filter, setFilter] = React.useState("all"); // all | need | doubles
+  const [filter, setFilter] = React.useState("all");
   const [q, setQ] = React.useState("");
-  const [info, setInfo] = React.useState(null); // slot shown in the detail modal
+  const [info, setInfo] = React.useState(null);
 
-  const onTap = (n) => setSticker(activeId, n, L.cycleCount(map[n]));
-  const onMinus = (n) => setSticker(activeId, n, Math.max(0, (map[n] || 0) - 1));
+  const onTap = (n) => setSticker(activeBook, n, L.cycleCount(map[n]));
+  const onMinus = (n) => setSticker(activeBook, n, Math.max(0, (map[n] || 0) - 1));
 
   const matchSlot = (s) => {
     const c = map[s.n] || 0;
@@ -196,6 +261,7 @@ function MyBookView({ map, setSticker, activeId }) {
 
   return (
     <div>
+      <BookBar reg={reg} playerId={playerId} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} />
       <div style={{ position: "sticky", top: 0, zIndex: 2, background: "rgba(21,50,127,.92)", padding: "10px 0",
         display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>
@@ -219,11 +285,11 @@ function MyBookView({ map, setSticker, activeId }) {
               <div style={{ fontSize: 18, fontWeight: 800, color: "#9fc0ff", margin: "6px 2px 10px",
                 borderBottom: "2px solid rgba(159,192,255,.3)", paddingBottom: 4 }}>Group {p.group}</div>
             )}
-            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} onInfo={setInfo} setSticker={setSticker} activeId={activeId} />
+            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} onInfo={setInfo} setSticker={setSticker} activeId={activeBook} />
           </React.Fragment>
         );
       }) : <div style={{ color: "#9fb0e0", padding: 24, textAlign: "center" }}>No stickers match.</div>}
-      <StickerDetail slot={info} count={info ? (map[info.n] || 0) : 0} onClose={() => setInfo(null)} onSet={(n, c) => setSticker(activeId, n, c)} />
+      <StickerDetail slot={info} count={info ? (map[info.n] || 0) : 0} onClose={() => setInfo(null)} onSet={(n, c) => setSticker(activeBook, n, c)} />
     </div>
   );
 }
@@ -267,66 +333,67 @@ function TradeColumn({ title, nums, idx, accent }) {
   );
 }
 
-function TradeMatcherView({ collections, players, activeId, addPlayer }) {
-  const L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
+function TradeMatcherView({ collections, players, books, activeId, addPlayer }) {
+  const L = window.WCSTKLOGIC, WCSTK = window.WCSTK, B = window.WCSTKBOOKS;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
-  const others = players.list.filter((p) => p.id !== activeId);
-  const [otherId, setOtherId] = React.useState(others.length ? others[0].id : null);
+  const entries = bookEntries(players, books, collections);
+  const reg = (books && books[activeId]) || (B ? B.defaultRegistry(activeId) : { active: activeId });
+  const activeBook = reg.active;
+  const mineEntry = entries.find((e) => e.bookId === activeBook) || entries.find((e) => e.playerId === activeId);
+  const others = entries.filter((e) => e.bookId !== (mineEntry ? mineEntry.bookId : activeBook));
+  const [otherKey, setOtherKey] = React.useState(others.length ? others[0].key : null);
 
   if (!others.length) return (
     <AddPlayerCard addPlayer={addPlayer}
-      title="🔄 Trading needs at least two people"
-      blurb="Add each family member as a player — then the Trade Matcher shows exactly which of your doubles you can swap for the stickers they still need. (Players are shared with the 🏠 Home Pick'em.)" />
+      title="🔄 Trading needs at least two books"
+      blurb="Add another family member as a player — or add a second book (like a 'Swaps' book) in 📖 My Book — then the Trade Matcher shows exactly which of your doubles you can swap for the stickers they still need. (Players are shared with the 🏠 Home Pick'em.)" />
   );
 
-  // reconcile the selection if the player list changed (e.g. a future header switcher)
-  const validOtherId = others.some((p) => p.id === otherId) ? otherId : others[0].id;
-  const mine = collections[activeId] || {};
-  const theirs = collections[validOtherId] || {};
-  const r = L.tradeMatch(mine, theirs, idx);
-  const me = players.list.find((p) => p.id === activeId);
-  const them = players.list.find((p) => p.id === validOtherId);
+  const validKey = others.some((e) => e.key === otherKey) ? otherKey : others[0].key;
+  const them = others.find((e) => e.key === validKey);
+  const mine = mineEntry ? mineEntry.map : {};
+  const r = L.tradeMatch(mine, them.map, idx);
 
   return (
     <div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
-        <span style={{ color: "#dfe6ff", fontWeight: 600 }}>Trade {me ? me.emoji + " " + me.name : "you"} with</span>
-        <select value={validOtherId} onChange={(e) => setOtherId(e.target.value)} style={{ fontFamily: "inherit", fontSize: 15,
+        <span style={{ color: "#dfe6ff", fontWeight: 600 }}>Trade {mineEntry ? mineEntry.emoji + " " + mineEntry.name : "you"} with</span>
+        <select value={validKey} onChange={(e) => setOtherKey(e.target.value)} style={{ fontFamily: "inherit", fontSize: 15,
           fontWeight: 700, color: "#16235a", background: "#f4b740", border: "none", borderRadius: 8, padding: "6px 10px" }}>
-          {others.map((p) => <option key={p.id} value={p.id}>{p.emoji} {p.name}</option>)}
+          {others.map((e) => <option key={e.key} value={e.key}>{e.emoji} {e.name}</option>)}
         </select>
         <span style={{ marginLeft: "auto", fontSize: 16, fontWeight: 800, color: "#34c77b" }}>🤝 {r.swaps} perfect swap{r.swaps === 1 ? "" : "s"}</span>
       </div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <TradeColumn title={"You give → " + (them ? them.name : "")} nums={r.iGive} idx={idx} accent="#f4b740" />
-        <TradeColumn title={(them ? them.name : "") + " gives → you"} nums={r.iWant} idx={idx} accent="#9fc0ff" />
+        <TradeColumn title={"You give → " + them.name} nums={r.iGive} idx={idx} accent="#f4b740" />
+        <TradeColumn title={them.name + " gives → you"} nums={r.iWant} idx={idx} accent="#9fc0ff" />
       </div>
     </div>
   );
 }
 
-function OverviewView({ collections, players, addPlayer }) {
+function OverviewView({ collections, players, books, addPlayer }) {
   const L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
-  const maps = players.list.map((p) => collections[p.id] || {});
-  const rarest = L.rarestNeeded(maps, idx);
+  const entries = bookEntries(players, books, collections);
+  const rarest = L.rarestNeeded(entries.map((e) => e.map), idx);
   return (
     <div>
-      {players.list.length < 2 && (
+      {entries.length < 2 && (
         <div style={{ marginBottom: 16 }}>
           <AddPlayerCard addPlayer={addPlayer}
             title="👪 Add the whole family to compare"
-            blurb="Each person gets their own collection. Add a player for each family member to see everyone’s progress side by side — and who needs what for trading." />
+            blurb="Each person gets their own collection — and can keep more than one book. Add a player for each family member (or a second book) to see everyone’s progress side by side, and who needs what for trading." />
         </div>
       )}
       <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
-        {players.list.map((p) => {
-          const t = L.playerTotals(collections[p.id] || {}, idx);
+        {entries.map((e) => {
+          const t = L.playerTotals(e.map, idx);
           const pct = t.total ? Math.round((t.have / t.total) * 100) : 0;
           return (
-            <div key={p.id} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px" }}>
+            <div key={e.key} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#fff", marginBottom: 6 }}>
-                <span>{p.emoji} {p.name}</span>
+                <span>{e.emoji} {e.name}</span>
                 <span style={{ color: "#f4b740", fontWeight: 700 }}>{t.have}/{t.total} · {t.doubles} dbl</span>
               </div>
               <div style={{ height: 6, background: "rgba(255,255,255,.1)", borderRadius: 6, overflow: "hidden" }}>
@@ -365,7 +432,7 @@ function FamilyTrades({ data, fam, sync, idx, map, me, reload, setErr, setBusy, 
     if (!target) return;
     setErr(""); setBusy(true);
     try {
-      await SY.postAction(sync, "proposeTrade", { toId: target.id, toName: target.name, fromName: me.name,
+      await SY.postAction(sync, "proposeTrade", { toId: target.memberId, toName: target.name, fromName: me.name,
         giveCodes: match.iGive, wantCodes: match.iWant });
       await reload();
     } catch (e) { setErr(String(e.message || e)); setBusy(false); }
@@ -398,7 +465,10 @@ function FamilyTrades({ data, fam, sync, idx, map, me, reload, setErr, setBusy, 
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
             <span style={{ color: "#dfe6ff", fontSize: 14 }}>Propose a trade with</span>
             <select value={target ? target.id : ""} onChange={(e) => setWithId(e.target.value)} style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: "#16235a", background: "#f4b740", border: "none", borderRadius: 8, padding: "5px 8px" }}>
-              {others.map((o) => <option key={o.id} value={o.id}>{o.emoji} {o.name}</option>)}
+              {others.map((o) => {
+                const olabel = o.name + (o.bookLabel && o.bookLabel !== "My album" ? " · " + o.bookLabel : "");
+                return <option key={o.id} value={o.id}>{o.emoji} {olabel}</option>;
+              })}
             </select>
             <button onClick={propose} disabled={busy || (!match.iGive.length && !match.iWant.length)} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "6px 14px", opacity: (!match.iGive.length && !match.iWant.length) ? .5 : 1 }}>Send proposal</button>
           </div>
@@ -416,10 +486,13 @@ function FamilyTrades({ data, fam, sync, idx, map, me, reload, setErr, setBusy, 
   );
 }
 
-function FamilyConnected({ map, players, activeId, sync, setSync }) {
-  const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
+function FamilyConnected({ players, books, collections, activeId, sync, setSync }) {
+  const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK, B = window.WCSTKBOOKS;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
   const me = players.list.find((p) => p.id === activeId) || { name: "Me", emoji: "🙂" };
+  const reg = (books && books[activeId]) || (B ? B.defaultRegistry(activeId) : { list: [{ id: activeId, label: "My album" }], active: activeId });
+  const activeBook = reg.active;
+  const map = (collections && collections[activeBook]) || {};
   const [data, setData] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
@@ -440,19 +513,26 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
   const publish = async () => {
     setErr(""); setBusy(true);
     try {
-      await SY.postAction(sync, "publishCollection",
-        { name: me.name, emoji: me.emoji, collection: SY.serializeCollection(map) });
+      for (const bk of reg.list) {
+        // The default book (id == playerId) publishes under the device memberId so it
+        // updates — not duplicates — a row published before multi-book support existed.
+        const remoteBookId = bk.id === activeId ? sync.memberId : bk.id;
+        await SY.postAction(sync, "publishCollection",
+          { name: me.name, emoji: me.emoji, bookId: remoteBookId, bookLabel: bk.label,
+            collection: SY.serializeCollection(collections[bk.id] || {}) });
+      }
       await load();
     } catch (e) { setErr(String(e.message || e)); setBusy(false); }
   };
 
   const totalsOf = (m) => L.playerTotals(m, idx);
   const fam = data ? SY.summarizeFamily(data.members, sync.memberId, totalsOf) : [];
+  const famLabel = (f) => f.name + (f.bookLabel && f.bookLabel !== "My album" ? " · " + f.bookLabel : "");
 
   return (
     <div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
-        <button onClick={publish} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 16px", fontSize: 15, opacity: busy ? .6 : 1 }}>⬆️ Publish my collection</button>
+        <button onClick={publish} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 16px", fontSize: 15, opacity: busy ? .6 : 1 }}>⬆️ Publish my book{reg.list.length > 1 ? "s" : ""}</button>
         <button onClick={load} disabled={busy} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", fontWeight: 700, borderRadius: 10, padding: "9px 14px", fontSize: 14 }}>↻ Refresh</button>
         {lastSync && <span style={{ color: "#7e8cc0", fontSize: 12 }}>synced {lastSync}</span>}
         <button onClick={() => { if (!busy && window.confirm("Disconnect this device from family sync?")) setSync(null); }} disabled={busy} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "transparent", color: "#7e8cc0", fontSize: 13, textDecoration: "underline" }}>Disconnect</button>
@@ -466,7 +546,7 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
           return (
             <div key={f.id} onClick={() => setViewing(f)} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px", cursor: "pointer" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#fff", marginBottom: 4 }}>
-                <span>{f.emoji} {f.name} {f.isMe ? "(you)" : ""}</span>
+                <span>{f.emoji} {famLabel(f)} {f.isMe ? "(you)" : ""}</span>
                 <span style={{ color: "#f4b740", fontWeight: 700 }}>{f.have}/{f.total} · {f.doubles} dbl</span>
               </div>
               {when && <div style={{ color: "#7e8cc0", fontSize: 12, marginBottom: 4 }}>updated {when}</div>}
@@ -476,7 +556,7 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
             </div>
           );
         })}
-        {data && !fam.length && <div style={{ color: "#9fb0e0", padding: 12 }}>No one has published yet — tap "Publish my collection".</div>}
+        {data && !fam.length && <div style={{ color: "#9fb0e0", padding: 12 }}>No one has published yet — tap "Publish my book".</div>}
       </div>
       <FamilyMemberModal member={viewing} idx={idx} onClose={() => setViewing(null)} />
       <FamilyTrades data={data} fam={fam} sync={sync} idx={idx} map={map} me={me} reload={load} setErr={setErr} setBusy={setBusy} busy={busy} />
@@ -484,7 +564,7 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
   );
 }
 
-function FamilyView({ map, players, activeId, sync, setSync, goHelp }) {
+function FamilyView({ map, players, books, collections, activeId, sync, setSync, goHelp }) {
   const SY = window.WCSTKSYNC;
   const [link, setLink] = React.useState("");
   const [linkErr, setLinkErr] = React.useState("");
@@ -511,13 +591,16 @@ function FamilyView({ map, players, activeId, sync, setSync, goHelp }) {
       </div>
     );
   }
-  return <FamilyConnected map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} />;
+  return <FamilyConnected players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} />;
 }
 
-function StickersTab({ collections, setSticker, players, addPlayer, sync, setSync, goHelp }) {
+function StickersTab({ collections, setSticker, players, books, addBook, renameBook, removeBook, switchBook, addPlayer, sync, setSync, goHelp }) {
   const [view, setView] = React.useState("book"); // book | trade | overview | family
+  const B = window.WCSTKBOOKS;
   const activeId = players.active;
-  const map = (collections && collections[activeId]) || {};
+  const reg = (books && books[activeId]) || (B ? B.defaultRegistry(activeId) : { list: [{ id: activeId, label: "My album" }], active: activeId });
+  const activeBook = reg.active;
+  const map = (collections && collections[activeBook]) || {};
 
   const seg = (id, label) => (
     <button onClick={() => setView(id)} style={{ border: "none", cursor: "pointer", borderRadius: 12,
@@ -531,10 +614,10 @@ function StickersTab({ collections, setSticker, players, addPlayer, sync, setSyn
         {seg("book", "📖 My Book")}{seg("trade", "🔄 Trade Matcher")}{seg("overview", "📊 Overview")}{seg("family", "👨‍👩‍👧 Family")}
         {goHelp && <span style={{ marginLeft: "auto" }}><HelpLink goHelp={goHelp} id="stk-mark" label="How stickers work" /></span>}
       </div>
-      {view === "book" && <MyBookView map={map} setSticker={setSticker} activeId={activeId} />}
-      {view === "trade" && <TradeMatcherView collections={collections} players={players} activeId={activeId} addPlayer={addPlayer} />}
-      {view === "overview" && <OverviewView collections={collections} players={players} addPlayer={addPlayer} />}
-      {view === "family" && <FamilyView map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} goHelp={goHelp} />}
+      {view === "book" && <MyBookView map={map} setSticker={setSticker} activeBook={activeBook} reg={reg} playerId={activeId} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} />}
+      {view === "trade" && <TradeMatcherView collections={collections} players={players} books={books} activeId={activeId} addPlayer={addPlayer} />}
+      {view === "overview" && <OverviewView collections={collections} players={players} books={books} addPlayer={addPlayer} />}
+      {view === "family" && <FamilyView map={map} players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} goHelp={goHelp} />}
     </div>
   );
 }
