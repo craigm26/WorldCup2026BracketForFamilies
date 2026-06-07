@@ -98,20 +98,49 @@ test('dataset: buildIndex round-trips with no collisions', () => {
   assert.equal(Object.keys(idx).length, count);
 });
 
-test('dataset: real checklist — 20 specials + 48 teams x 20 = 980 across 49 pages', () => {
-  assert.equal(DATA.pages.length, 49, 'expect 1 specials page + 48 team pages');
+test('dataset: real checklist — 20 specials + 48 teams x 20 = 980 across 50 pages', () => {
+  assert.equal(DATA.pages.length, 50, 'expect 2 specials pages + 48 team pages');
   assert.equal(DATA.meta.total, 980);
   const teamPages = DATA.pages.filter((p) => p.team);
   assert.equal(teamPages.length, 48);
   teamPages.forEach((p) => assert.equal(p.slots.length, 20, `${p.title} should have 20 stickers`));
+  // specials total to 20 (9 opening + 11 history)
+  const specials = DATA.pages.filter((p) => !p.team).reduce((n, p) => n + p.slots.length, 0);
+  assert.equal(specials, 20);
 });
 
-test('dataset: known codes present and the Che16 typo is fixed', () => {
+test('dataset: authoritative codes present (00 + FWC specials, JPN for Japan)', () => {
   const idx = L.buildIndex(DATA);
-  ['00', 'FW19', 'MEX1', 'ARG20', 'CZE16', 'PAN20'].forEach((code) => {
+  ['00', 'FWC1', 'FWC19', 'MEX1', 'ARG20', 'CZE16', 'PAN20', 'JPN1', 'JPN20'].forEach((code) => {
     assert.ok(idx[code], `missing expected code ${code}`);
   });
-  assert.ok(!idx['Che16'], 'the Che16 typo should not exist');
+  assert.ok(!idx['JAP1'], 'Japan should be JPN, not JAP');
+  assert.ok(!idx['FW1'], 'specials should be FWC*, not FW*');
+});
+
+test('dataset: real player names present at known slots', () => {
+  const idx = L.buildIndex(DATA);
+  const expect = { MEX17: 'Raúl Jiménez', ARG17: 'Lionel Messi', POR15: 'Cristiano Ronaldo',
+    ENG18: 'Harry Kane', FRA20: 'Kylian Mbappe', EGY17: 'Mohamed Salah', NOR15: 'Erling Haaland' };
+  Object.keys(expect).forEach((code) => {
+    assert.equal(idx[code].slot.name, expect[code], `${code} name mismatch`);
+  });
+});
+
+test('dataset: each team page is Emblem(1) + Team Photo(13) + 18 players', () => {
+  DATA.pages.filter((p) => p.team).forEach((p) => {
+    assert.equal(p.slots[0].name, 'Emblem', `${p.title} #1 should be Emblem`);
+    assert.equal(p.slots[0].type, 'badge');
+    assert.equal(p.slots[12].name, 'Team Photo', `${p.title} #13 should be Team Photo`);
+    const players = p.slots.filter((s) => s.type === 'player');
+    assert.equal(players.length, 18, `${p.title} should have 18 players`);
+  });
+});
+
+test('dataset: no placeholder names remain (a slot name never equals its country)', () => {
+  DATA.pages.filter((p) => p.team).forEach((p) => {
+    p.slots.forEach((s) => assert.notEqual(s.name, p.title, `${s.n} still labelled with the country name`));
+  });
 });
 
 test('dataset: every team page carries a group A..L', () => {
