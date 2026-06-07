@@ -46,7 +46,7 @@ The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV
 | 📊 **Standings** | Type scores (or let them fill automatically) — points, goal difference & 2026 tiebreakers update live. |
 | 📅 **Schedule** | Every match with a **kick-off time in YOUR time zone**, a 🌞/🌙 **day-or-night** icon (so you know what's on past bedtime), and a kid-friendly time-zone lesson. |
 | 📺 **Watch** | Where & how to watch in the US, Canada, Mexico & the rest of the world — including the **free** options — plus kick-off windows converted to your zone. |
-| 🌍 **Map & Facts** | An accurate host-city map (tap a pin for the stadium) and a country explorer with **rotating, kid-friendly facts** — tap **☆ Follow** to track your team. |
+| 🌍 **Map & Facts** | A spinnable **3D globe** of the whole planet with all **48 nations** highlighted — tap one for its **rotating kid-friendly facts** and ☆ Follow. Toggle to the host-city stadium map any time. (Falls back to a flag grid on devices without 3D.) |
 | 🎮 **Play** | A flag / country / food **quiz game** for the kids — score, streak and best, with a fun fact after every answer. |
 | 🎟️ **Stickers** | Track each family member's **Panini WC2026** album, laid out page-by-page by group with **every real player name** (all 980 stickers) — tap to mark Have / Need / doubles, tap **ⓘ** for a player's position, club & a fun fact, then the **Trade Matcher** shows exactly who can swap what — or add a sticker by its code. |
 | ❓ **Help** | Friendly, searchable **how-to cards** for every feature — how to fill the bracket, mark & trade stickers, find swaps, and set up family trading. Tap the small **❓** on a tab for the matching guide. |
