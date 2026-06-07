@@ -37,7 +37,7 @@ Open any of these in a browser and hit **Print / Save PDF**. Every one has a **�
 
 ## 📺 Option 2 — Host the interactive Hub
 
-The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV or any phone. It has nine tabs:
+The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV or any phone. It has ten tabs:
 
 | Tab | What it does |
 |---|---|
@@ -49,6 +49,7 @@ The **Hub** is what the QR code opens — a touch/remote-friendly app for the TV
 | 🌍 **Map & Facts** | An accurate host-city map (tap a pin for the stadium) and a country explorer with **rotating, kid-friendly facts** — tap **☆ Follow** to track your team. |
 | 🎮 **Play** | A flag / country / food **quiz game** for the kids — score, streak and best, with a fun fact after every answer. |
 | 🎟️ **Stickers** | Track each family member's **Panini WC2026** album, laid out page-by-page by group with **every real player name** (all 980 stickers) — tap to mark Have / Need / doubles, tap **ⓘ** for a player's position, club & a fun fact, then the **Trade Matcher** shows exactly who can swap what. Scan stickers or whole pages with the phone camera (manual entry always works). |
+| ❓ **Help** | Friendly, searchable **how-to cards** for every feature — how to fill the bracket, mark & scan stickers, find trades, and set up family trading. Tap the small **❓** on a tab for the matching guide. |
 | ⚙️ **Settings** | Choose how scores update — **Manual** (type your own, no spoilers), **Semi-auto** (update when *you* press the button), or **Auto** — plus an auto-fill-the-bracket helper and the time-zone picker. |
 
 > **Family Pick'em:** add a player for each family member (Mom, Dad, each kid), and everyone keeps their own bracket. The Home leaderboard scores how many of the 32 qualifiers each person predicted — a friendly, spoiler-safe family competition that updates as real results come in.
