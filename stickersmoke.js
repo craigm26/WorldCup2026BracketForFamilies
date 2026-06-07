@@ -26,7 +26,31 @@ const puppeteer = require('puppeteer-core');
   console.log('double badge after two taps:', hasDouble);
 
   await page.screenshot({ path: '/tmp/stickers_book.png' });
+
+  // --- single-player empty states for the collaborative views ---
+  const clickSeg = (label) => page.evaluate((label) => {
+    const el = [...document.querySelectorAll('button')].find(x => x.textContent.includes(label));
+    if (el) { el.click(); return true; } return false;
+  }, label);
+  const hasAddPlayerControl = () => page.evaluate(() =>
+    [...document.querySelectorAll('button')].some(b => /add (a )?(family member|player)/i.test(b.textContent)));
+
+  await clickSeg('Overview'); await new Promise(r => setTimeout(r, 400));
+  const overviewAdd = await hasAddPlayerControl();
+  console.log('Overview (1 player) offers an add-player control:', overviewAdd);
+
+  // Trade Matcher: the add-player card must actually WORK (add a player → matcher appears)
+  await clickSeg('Trade Matcher'); await new Promise(r => setTimeout(r, 400));
+  const tradeAdd = await hasAddPlayerControl();
+  console.log('Trade Matcher (1 player) offers an add-player control:', tradeAdd);
+  await page.type('input[placeholder*="Name"]', 'Mia');
+  await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find(x => /Add a player/i.test(x.textContent)); if (b) b.click(); });
+  await new Promise(r => setTimeout(r, 700));
+  const matcherWorks = await page.evaluate(() => /perfect swap/i.test(document.body.innerText));
+  console.log('after adding a player, Trade Matcher renders:', matcherWorks);
+
   console.log('JS errors:', errs.length, errs.slice(0, 3).join(' | '));
   await browser.close();
-  process.exit(errs.length ? 1 : 0);
+  const ok = onBook && hasDouble && overviewAdd && tradeAdd && matcherWorks && errs.length === 0;
+  process.exit(ok ? 0 : 1);
 })();

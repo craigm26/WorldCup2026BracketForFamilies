@@ -285,6 +285,24 @@ function MyBookView({ map, setSticker, activeId }) {
   );
 }
 
+function AddPlayerCard({ addPlayer, title, blurb }) {
+  const [name, setName] = React.useState("");
+  const add = () => { const n = name.trim(); if (n) { addPlayer(n, "🙂"); setName(""); } };
+  return (
+    <div style={{ background: "rgba(52,199,123,.12)", border: "2px solid rgba(52,199,123,.45)", borderRadius: 14, padding: 16, maxWidth: 540 }}>
+      <div style={{ fontSize: 16, fontWeight: 800, color: "#bdf0d3", marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 14, color: "#dfe6ff", marginBottom: 12, lineHeight: 1.45 }}>{blurb}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }}
+          placeholder="Name (e.g. Mia)" style={{ fontFamily: "inherit", fontSize: 15, borderRadius: 10, border: "none",
+            padding: "9px 12px", background: "rgba(255,255,255,.14)", color: "#fff", flex: "1 1 160px" }} />
+        <button onClick={add} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f",
+          fontWeight: 800, borderRadius: 10, padding: "9px 18px", fontSize: 15 }}>➕ Add a player</button>
+      </div>
+    </div>
+  );
+}
+
 function TradeColumn({ title, nums, idx, accent }) {
   return (
     <div style={{ flex: "1 1 240px", background: "rgba(255,255,255,.06)", borderRadius: 14, padding: 12 }}>
@@ -306,13 +324,17 @@ function TradeColumn({ title, nums, idx, accent }) {
   );
 }
 
-function TradeMatcherView({ collections, players, activeId }) {
+function TradeMatcherView({ collections, players, activeId, addPlayer }) {
   const L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
   const others = players.list.filter((p) => p.id !== activeId);
   const [otherId, setOtherId] = React.useState(others.length ? others[0].id : null);
 
-  if (!others.length) return <div style={{ color: "#9fb0e0", padding: 24 }}>Add another family member to trade with (🏠 Home → + Add player).</div>;
+  if (!others.length) return (
+    <AddPlayerCard addPlayer={addPlayer}
+      title="🔄 Trading needs at least two people"
+      blurb="Add each family member as a player — then the Trade Matcher shows exactly which of your doubles you can swap for the stickers they still need. (Players are shared with the 🏠 Home Pick'em.)" />
+  );
 
   // reconcile the selection if the player list changed (e.g. a future header switcher)
   const validOtherId = others.some((p) => p.id === otherId) ? otherId : others[0].id;
@@ -340,13 +362,20 @@ function TradeMatcherView({ collections, players, activeId }) {
   );
 }
 
-function OverviewView({ collections, players }) {
+function OverviewView({ collections, players, addPlayer }) {
   const L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
   const maps = players.list.map((p) => collections[p.id] || {});
   const rarest = L.rarestNeeded(maps, idx);
   return (
     <div>
+      {players.list.length < 2 && (
+        <div style={{ marginBottom: 16 }}>
+          <AddPlayerCard addPlayer={addPlayer}
+            title="👪 Add the whole family to compare"
+            blurb="Each person gets their own collection. Add a player for each family member to see everyone’s progress side by side — and who needs what for trading." />
+        </div>
+      )}
       <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
         {players.list.map((p) => {
           const t = L.playerTotals(collections[p.id] || {}, idx);
@@ -377,7 +406,7 @@ function OverviewView({ collections, players }) {
   );
 }
 
-function StickersTab({ collections, setSticker, players }) {
+function StickersTab({ collections, setSticker, players, addPlayer }) {
   const [view, setView] = React.useState("book"); // book | trade | overview
   const activeId = players.active;
   const map = (collections && collections[activeId]) || {};
@@ -394,8 +423,8 @@ function StickersTab({ collections, setSticker, players }) {
         {seg("book", "📖 My Book")}{seg("trade", "🔄 Trade Matcher")}{seg("overview", "📊 Overview")}
       </div>
       {view === "book" && <MyBookView map={map} setSticker={setSticker} activeId={activeId} />}
-      {view === "trade" && <TradeMatcherView collections={collections} players={players} activeId={activeId} />}
-      {view === "overview" && <OverviewView collections={collections} players={players} />}
+      {view === "trade" && <TradeMatcherView collections={collections} players={players} activeId={activeId} addPlayer={addPlayer} />}
+      {view === "overview" && <OverviewView collections={collections} players={players} addPlayer={addPlayer} />}
     </div>
   );
 }
