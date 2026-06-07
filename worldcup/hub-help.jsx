@@ -1,16 +1,17 @@
 /* ❓ Help tab — kid-friendly how-to cards (renders window.WCHELP). */
 function HelpCard({ card, open, onToggle, innerRef }) {
+  const hasSteps = !!(card.steps && card.steps.length > 0);
   return (
     <div ref={innerRef} style={{ background: "rgba(255,255,255,.06)", borderRadius: 14, marginBottom: 10, overflow: "hidden" }}>
-      <button onClick={onToggle} style={{ width: "100%", textAlign: "left", border: "none", cursor: "pointer", background: "transparent", color: "#fff", padding: "12px 14px", display: "flex", gap: 10, alignItems: "center" }}>
+      <button onClick={hasSteps ? onToggle : undefined} style={{ width: "100%", textAlign: "left", border: "none", cursor: hasSteps ? "pointer" : "default", background: "transparent", color: "#fff", padding: "12px 14px", display: "flex", gap: 10, alignItems: "center" }}>
         <span style={{ fontSize: 22 }}>{card.icon}</span>
         <span style={{ flex: 1 }}>
           <span style={{ fontSize: 16, fontWeight: 700, display: "block" }}>{card.title}</span>
           <span style={{ fontSize: 13.5, color: "#9fb0e0" }}>{card.summary}</span>
         </span>
-        <span style={{ color: "#9fb0e0", fontSize: 13 }}>{open ? "▲" : "▼"}</span>
+        {hasSteps && <span style={{ color: "#9fb0e0", fontSize: 13 }}>{open ? "▲" : "▼"}</span>}
       </button>
-      {open && card.steps && card.steps.length > 0 && (
+      {open && hasSteps && (
         <ol style={{ margin: 0, padding: "0 18px 14px 36px", color: "#dfe6ff", fontSize: 14.5, lineHeight: 1.5 }}>
           {card.steps.map((s, i) => <li key={i} style={{ marginBottom: 4 }}>{s}</li>)}
         </ol>
@@ -60,7 +61,7 @@ function HelpTab({ target, clearTarget }) {
 
 function HelpLink({ goHelp, id, label }) {
   return (
-    <button onClick={() => goHelp(id)} aria-label="How does this work?"
+    <button onClick={() => goHelp(id)}
       style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 20, padding: "4px 10px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>❓ {label || "Help"}</button>
   );
 }
