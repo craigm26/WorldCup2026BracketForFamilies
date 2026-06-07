@@ -61,6 +61,7 @@ window.computeStandings = function (letter, results) {
    Results (the objective scores) are shared by the whole family; each player keeps
    their own bracket prediction. Migrates the old single `wc26hub` store once. */
 const bkey = (id) => "wc26bracket:" + id;
+const skey = (id) => "wc26stickers:" + id;
 function loadPlayers() {
   try { const p = JSON.parse(localStorage.getItem("wc26players")); if (p && p.list && p.list.length) return p; } catch (e) {}
   return { list: [{ id: "family", name: "Family", emoji: "👪" }], active: "family" };
@@ -81,19 +82,42 @@ window.useHubStore = function () {
   const [brackets, setBrackets] = React.useState(() => {
     const out = {}; loadPlayers().list.forEach((pl) => { try { out[pl.id] = JSON.parse(localStorage.getItem(bkey(pl.id))) || {}; } catch (e) { out[pl.id] = {}; } }); return out;
   });
+  const [collections, setCollections] = React.useState(() => {
+    const out = {};
+    loadPlayers().list.forEach((pl) => {
+      try { out[pl.id] = JSON.parse(localStorage.getItem(skey(pl.id))) || {}; }
+      catch (e) { out[pl.id] = {}; }
+    });
+    return out;
+  });
   React.useEffect(() => { try { localStorage.setItem("wc26players", JSON.stringify(players)); } catch (e) {} }, [players]);
   React.useEffect(() => { try { localStorage.setItem("wc26results", JSON.stringify(results)); } catch (e) {} }, [results]);
   React.useEffect(() => { try { Object.keys(brackets).forEach((id) => localStorage.setItem(bkey(id), JSON.stringify(brackets[id]))); } catch (e) {} }, [brackets]);
+
+  React.useEffect(() => {
+    try { Object.keys(collections).forEach((id) => localStorage.setItem(skey(id), JSON.stringify(collections[id]))); }
+    catch (e) {}
+  }, [collections]);
+
+  const setSticker = (playerId, n, count) => setCollections((c) => {
+    const cur = Object.assign({}, c[playerId] || {});
+    if (count <= 0) delete cur[String(n)]; else cur[String(n)] = count;
+    return Object.assign({}, c, { [playerId]: cur });
+  });
 
   const bracket = brackets[players.active] || {};
   const setResult = (gKey, side, val) => setResults((p) => { const cur = p[gKey] || ["", ""]; const nx = side === 0 ? [val, cur[1]] : [cur[0], val]; return Object.assign({}, p, { [gKey]: nx }); });
   const setPick = (slot, team) => setBrackets((b) => { const cur = b[players.active] || {}; return Object.assign({}, b, { [players.active]: Object.assign({}, cur, { [slot]: team }) }); });
   const reset = () => { setResults({}); setBrackets((b) => Object.assign({}, b, { [players.active]: {} })); };
-  const addPlayer = (name, emoji) => { const id = "p" + Date.now(); setBrackets((b) => Object.assign({}, b, { [id]: {} })); setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "🙂" }]), active: id })); };
+  const addPlayer = (name, emoji) => { const id = "p" + Date.now(); setBrackets((b) => Object.assign({}, b, { [id]: {} })); setCollections((c) => Object.assign({}, c, { [id]: {} })); setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "🙂" }]), active: id })); };
   const switchPlayer = (id) => setPlayers((p) => Object.assign({}, p, { active: id }));
-  const removePlayer = (id) => setPlayers((p) => { if (p.list.length <= 1) return p; try { localStorage.removeItem(bkey(id)); } catch (e) {} const list = p.list.filter((x) => x.id !== id); return { list: list, active: p.active === id ? list[0].id : p.active }; });
-  const importPlayer = (name, emoji, bracketObj) => { const id = "p" + Date.now(); setBrackets((b) => Object.assign({}, b, { [id]: bracketObj || {} })); setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "📥" }]), active: id })); };
-  return { store: { results: results, bracket: bracket }, brackets: brackets, setResult: setResult, setPick: setPick, reset: reset, players: players, addPlayer: addPlayer, switchPlayer: switchPlayer, removePlayer: removePlayer, importPlayer: importPlayer };
+  const removePlayer = (id) => setPlayers((p) => { if (p.list.length <= 1) return p; try { localStorage.removeItem(bkey(id)); localStorage.removeItem(skey(id)); } catch (e) {} setCollections((c) => { const n = Object.assign({}, c); delete n[id]; return n; }); const list = p.list.filter((x) => x.id !== id); return { list: list, active: p.active === id ? list[0].id : p.active }; });
+  const importPlayer = (name, emoji, bracketObj) => { const id = "p" + Date.now(); setBrackets((b) => Object.assign({}, b, { [id]: bracketObj || {} })); setCollections((c) => Object.assign({}, c, { [id]: {} })); setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "📥" }]), active: id })); };
+  return { store: { results: results, bracket: bracket }, brackets: brackets,
+           collections: collections, setSticker: setSticker,
+           setResult: setResult, setPick: setPick, reset: reset,
+           players: players, addPlayer: addPlayer, switchPlayer: switchPlayer,
+           removePlayer: removePlayer, importPlayer: importPlayer };
 };
 
 /* ---- Share a bracket as a compact URL (no backend): one char per slot ---- */
