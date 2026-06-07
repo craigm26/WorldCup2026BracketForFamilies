@@ -582,7 +582,7 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
   );
 }
 
-function FamilyView({ map, players, activeId, sync, setSync }) {
+function FamilyView({ map, players, activeId, sync, setSync, goHelp }) {
   const SY = window.WCSTKSYNC;
   const [link, setLink] = React.useState("");
   const [linkErr, setLinkErr] = React.useState("");
@@ -605,13 +605,14 @@ function FamilyView({ map, players, activeId, sync, setSync }) {
           <button onClick={connect} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 18px", fontSize: 15 }}>Connect</button>
         </div>
         {linkErr && <div style={{ marginTop: 10, background: "rgba(226,71,59,.18)", border: "2px solid rgba(226,71,59,.5)", borderRadius: 12, padding: "8px 12px", color: "#ffd7d2", fontSize: 13.5 }}>⚠️ {linkErr}</div>}
+        {goHelp && <div style={{ marginTop: 10 }}><HelpLink goHelp={goHelp} id="family-relative" label="How family trading works" /></div>}
       </div>
     );
   }
   return <FamilyConnected map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} />;
 }
 
-function StickersTab({ collections, setSticker, players, addPlayer, sync, setSync }) {
+function StickersTab({ collections, setSticker, players, addPlayer, sync, setSync, goHelp }) {
   const [view, setView] = React.useState("book"); // book | trade | overview | family
   const activeId = players.active;
   const map = (collections && collections[activeId]) || {};
@@ -626,11 +627,12 @@ function StickersTab({ collections, setSticker, players, addPlayer, sync, setSyn
     <div style={{ height: "100%", overflow: "auto" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         {seg("book", "📖 My Book")}{seg("trade", "🔄 Trade Matcher")}{seg("overview", "📊 Overview")}{seg("family", "👨‍👩‍👧 Family")}
+        {goHelp && <span style={{ marginLeft: "auto" }}><HelpLink goHelp={goHelp} id="stk-mark" label="How stickers work" /></span>}
       </div>
       {view === "book" && <MyBookView map={map} setSticker={setSticker} activeId={activeId} />}
       {view === "trade" && <TradeMatcherView collections={collections} players={players} activeId={activeId} addPlayer={addPlayer} />}
       {view === "overview" && <OverviewView collections={collections} players={players} addPlayer={addPlayer} />}
-      {view === "family" && <FamilyView map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} />}
+      {view === "family" && <FamilyView map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} goHelp={goHelp} />}
     </div>
   );
 }

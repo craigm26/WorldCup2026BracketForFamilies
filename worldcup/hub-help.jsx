@@ -60,7 +60,7 @@ function HelpTab({ target, clearTarget }) {
 
 function HelpLink({ goHelp, id, label }) {
   return (
-    <button onClick={() => goHelp(id)} title="How does this work?"
+    <button onClick={() => goHelp(id)} aria-label="How does this work?"
       style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 20, padding: "4px 10px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>❓ {label || "Help"}</button>
   );
 }

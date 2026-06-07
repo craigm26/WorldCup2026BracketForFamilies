@@ -551,9 +551,9 @@ function HubApp() {
       )}
       <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
         {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} />}
-        {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} addPlayer={addPlayer} sync={sync} setSync={setSync} />}
+        {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} addPlayer={addPlayer} sync={sync} setSync={setSync} goHelp={goHelp} />}
         {tab === "help" && <HelpTab target={helpTarget} clearTarget={() => setHelpTarget(null)} />}
-        {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} />}
+        {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} goHelp={goHelp} />}
         {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} />}
         {tab === "schedule" && <ScheduleTab results={results} status={lr.status} tz={tz} setTz={setTz} />}
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
