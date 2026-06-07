@@ -65,3 +65,34 @@ test('rarestNeeded lists numbers nobody owns', () => {
   const maps = [ { '1': 1, '3': 2 }, { '3': 1, '4': 1 } ]; // owned union: 1,3,4 ; missing: 2
   assert.deepEqual(L.rarestNeeded(maps, idx).map(Number), [2]);
 });
+
+const DATA = require('./worldcup/sticker-data.js');
+
+test('dataset: every sticker number is unique', () => {
+  const nums = [];
+  DATA.pages.forEach((p) => p.slots.forEach((s) => nums.push(s.n)));
+  assert.equal(new Set(nums).size, nums.length, 'duplicate sticker number(s)');
+});
+
+test('dataset: each page slot count does not exceed its grid', () => {
+  DATA.pages.forEach((p) => {
+    assert.ok(p.slots.length <= p.cols * p.rows,
+      `page ${p.page} has ${p.slots.length} slots > ${p.cols}x${p.rows}`);
+  });
+});
+
+test('dataset: every slot has n, name, and a known type', () => {
+  const TYPES = new Set(['badge', 'player', 'legend', 'stadium', 'special']);
+  DATA.pages.forEach((p) => p.slots.forEach((s) => {
+    assert.equal(typeof s.n, 'number');
+    assert.ok(s.name && typeof s.name === 'string');
+    assert.ok(TYPES.has(s.type), `bad type ${s.type} on #${s.n}`);
+  }));
+});
+
+test('dataset: buildIndex round-trips with no collisions', () => {
+  const idx = L.buildIndex(DATA);
+  let count = 0;
+  DATA.pages.forEach((p) => count += p.slots.length);
+  assert.equal(Object.keys(idx).length, count);
+});
