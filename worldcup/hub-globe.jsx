@@ -47,7 +47,7 @@ function Globe3D({ sel, onSelect, fallback }) {
         const WC = window.WC;
         Object.keys(WC.T).forEach((code) => {
           const g = G.TEAM_GEO[code]; if (!g) return;
-          const f = g.iso && byId[g.iso];
+          const f = g.iso && (byId[g.iso] || byId[String(+g.iso)]);
           if (f) {
             const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates;
             polys.forEach((poly) => poly.forEach((ring) => addLine(ring, 0xf4b740, R * 1.002)));
@@ -98,7 +98,7 @@ function Globe3D({ sel, onSelect, fallback }) {
 
     const onVis = () => { if (document.hidden) stop(); else start(); }; // truly pause rAF when hidden
     document.addEventListener('visibilitychange', onVis);
-    const onLost = (e) => { e.preventDefault(); setOk(false); };
+    const onLost = (e) => { e.preventDefault(); stop(); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); setOk(false); };
     dom.addEventListener('webglcontextlost', onLost);
     const ro = new ResizeObserver(() => {
       W = el.clientWidth || W; H = el.clientHeight || H;
