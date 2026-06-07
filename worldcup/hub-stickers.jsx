@@ -406,7 +406,72 @@ function OverviewView({ collections, players, addPlayer }) {
   );
 }
 
-function FamilyTrades() { return null; }
+function FamilyTrades({ data, fam, sync, idx, map, me, reload, setErr, setBusy, busy }) {
+  const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC;
+  const [withId, setWithId] = React.useState("");
+  if (!data) return null;
+  const others = fam.filter((f) => !f.isMe);
+  const trades = data.trades || [];
+  const incoming = trades.filter((t) => t.toId === sync.memberId && t.status === "pending");
+  const mineOut = trades.filter((t) => t.fromId === sync.memberId);
+
+  const target = others.find((o) => o.id === withId) || others[0];
+  const match = target ? L.tradeMatch(SY.serializeCollection(map), target.collection, idx) : { iGive: [], iWant: [], swaps: 0 };
+
+  const propose = async () => {
+    if (!target) return;
+    setErr(""); setBusy(true);
+    try {
+      await SY.postAction(sync, "proposeTrade", { toId: target.id, toName: target.name, fromName: me.name,
+        giveCodes: match.iGive, wantCodes: match.iWant });
+      await reload();
+    } catch (e) { setErr(String(e.message || e)); setBusy(false); }
+  };
+  const respond = async (tradeId, response) => {
+    setErr(""); setBusy(true);
+    try { await SY.postAction(sync, "respondTrade", { tradeId: tradeId, response: response }); await reload(); }
+    catch (e) { setErr(String(e.message || e)); setBusy(false); }
+  };
+
+  const chip = (c) => <span key={c} style={{ background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 8, padding: "3px 8px", fontSize: 13, marginRight: 4 }}>#{c}</span>;
+
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ fontSize: 16, fontWeight: 800, color: "#f4b740", marginBottom: 8 }}>🤝 Trades</div>
+
+      {incoming.length > 0 && <div style={{ fontSize: 13, color: "#9fb0e0", marginBottom: 6 }}>Waiting for you:</div>}
+      {incoming.map((t) => (
+        <div key={t.tradeId} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 12px", marginBottom: 8 }}>
+          <div style={{ fontSize: 14, color: "#fff", marginBottom: 6 }}><b>{t.fromName}</b> offers {String(t.giveCodes || "").split(",").filter(Boolean).map(chip)} for your {String(t.wantCodes || "").split(",").filter(Boolean).map(chip)}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => respond(t.tradeId, "accept")} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "6px 14px" }}>Accept</button>
+            <button onClick={() => respond(t.tradeId, "decline")} disabled={busy} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", fontWeight: 700, borderRadius: 8, padding: "6px 14px" }}>Decline</button>
+          </div>
+        </div>
+      ))}
+
+      {others.length > 0 ? (
+        <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 12px", marginTop: 6 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 8 }}>
+            <span style={{ color: "#dfe6ff", fontSize: 14 }}>Propose a trade with</span>
+            <select value={target ? target.id : ""} onChange={(e) => setWithId(e.target.value)} style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: "#16235a", background: "#f4b740", border: "none", borderRadius: 8, padding: "5px 8px" }}>
+              {others.map((o) => <option key={o.id} value={o.id}>{o.emoji} {o.name}</option>)}
+            </select>
+            <button onClick={propose} disabled={busy || (!match.iGive.length && !match.iWant.length)} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 8, padding: "6px 14px", opacity: (!match.iGive.length && !match.iWant.length) ? .5 : 1 }}>Send proposal</button>
+          </div>
+          <div style={{ fontSize: 13, color: "#dfe6ff" }}>You give: {match.iGive.length ? match.iGive.map(chip) : <span style={{ color: "#7e8cc0" }}>—</span>}</div>
+          <div style={{ fontSize: 13, color: "#dfe6ff", marginTop: 4 }}>You get: {match.iWant.length ? match.iWant.map(chip) : <span style={{ color: "#7e8cc0" }}>—</span>}</div>
+        </div>
+      ) : <div style={{ color: "#9fb0e0", fontSize: 14 }}>When others publish, you can propose trades here.</div>}
+
+      {mineOut.length > 0 && (
+        <div style={{ marginTop: 10, fontSize: 13, color: "#9fb0e0" }}>
+          Your proposals: {mineOut.map((t) => <span key={t.tradeId} style={{ marginRight: 8 }}>→ {t.toName}: <b style={{ color: t.status === "accepted" ? "#34c77b" : t.status === "declined" ? "#e2473b" : "#f4b740" }}>{t.status}</b></span>)}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function FamilyConnected({ map, players, activeId, sync, setSync }) {
   const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
