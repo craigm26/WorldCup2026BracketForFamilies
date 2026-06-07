@@ -150,6 +150,19 @@ test('dataset: every team page carries a group A..L', () => {
   });
 });
 
+test('enrich: every enriched code is a real sticker code with valid fields', () => {
+  const ENRICH = require('./worldcup/sticker-enrich.js');
+  const idx = L.buildIndex(DATA);
+  const POS = new Set(['GK', 'DF', 'MF', 'FW', '']);
+  Object.keys(ENRICH).forEach((code) => {
+    assert.ok(idx[code], `enrich references unknown code ${code}`);
+    const e = ENRICH[code];
+    assert.ok(POS.has(e.pos || ''), `bad pos ${e.pos} on ${code}`);
+    assert.equal(typeof (e.club || ''), 'string');
+    assert.equal(typeof (e.fact || ''), 'string');
+  });
+});
+
 test('guessFilled: high variance cell = filled, flat cell = empty', () => {
   // a flat (empty slot) cell: all pixels similar -> low variance
   const flat = new Array(64).fill(200);

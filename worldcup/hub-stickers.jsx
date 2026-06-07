@@ -1,5 +1,5 @@
 /* 🎟️ Stickers tab — Panini WC2026 collection tracker (manual-first). */
-function StickerSlot({ slot, count, onTap, onMinus }) {
+function StickerSlot({ slot, count, onTap, onMinus, onInfo }) {
   const have = count >= 1, dbl = count >= 2;
   const bg = dbl ? "rgba(244,183,64,.22)" : have ? "rgba(52,199,123,.22)" : "rgba(255,255,255,.05)";
   const border = dbl ? "2px solid #f4b740" : have ? "2px solid #34c77b" : "2px dashed rgba(255,255,255,.22)";
@@ -9,7 +9,11 @@ function StickerSlot({ slot, count, onTap, onMinus }) {
         padding: "8px 6px", minHeight: 64, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: have ? "#fff" : "#9fb0e0" }}>#{slot.n}</span>
-        <span style={{ fontSize: 11 }}>{slot.foil ? "✨" : ""}{slot.confirmed === false ? " ?" : ""}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+          <span style={{ fontSize: 11 }}>{slot.foil ? "✨" : ""}{slot.confirmed === false ? " ?" : ""}</span>
+          <button onClick={(e) => { e.stopPropagation(); onInfo(slot); }} title="Details"
+            style={{ border: "none", background: "transparent", cursor: "pointer", color: "#9fb0e0", fontSize: 12, padding: 0, lineHeight: 1 }}>ⓘ</button>
+        </span>
       </div>
       <div style={{ fontSize: 11.5, color: have ? "#dfe6ff" : "#7e8cc0", lineHeight: 1.15,
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{slot.name}</div>
@@ -24,7 +28,7 @@ function StickerSlot({ slot, count, onTap, onMinus }) {
   );
 }
 
-function StickerPage({ page, map, onTap, onMinus, setSticker, activeId }) {
+function StickerPage({ page, map, onTap, onMinus, onInfo, setSticker, activeId }) {
   const WC = window.WC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
   const fullPage = (WCSTK.pages.find((p) => p.page === page.page)) || page;
   // progress reflects the WHOLE page, not the filtered subset shown below
@@ -53,7 +57,7 @@ function StickerPage({ page, map, onTap, onMinus, setSticker, activeId }) {
       <div style={{ marginBottom: 10 }}><ScanPage page={fullPage} map={map} onApply={applyScan} /></div>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${page.cols}, 1fr)`, gap: 8 }}>
         {page.slots.map((s) => (
-          <StickerSlot key={s.n} slot={s} count={map[s.n] || 0} onTap={onTap} onMinus={onMinus} />
+          <StickerSlot key={s.n} slot={s} count={map[s.n] || 0} onTap={onTap} onMinus={onMinus} onInfo={onInfo} />
         ))}
       </div>
     </div>
@@ -186,12 +190,46 @@ function ScanPage({ page, map, onApply }) {
   );
 }
 
+function StickerDetail({ slot, count, onClose }) {
+  if (!slot) return null;
+  const e = (window.WCSTKENRICH || {})[slot.n] || {};
+  const POS = { GK: "Goalkeeper", DF: "Defender", MF: "Midfielder", FW: "Forward" };
+  const have = count >= 1, dbl = count >= 2;
+  const status = dbl ? `Have +${count - 1} spare` : have ? "Have" : "Need";
+  const typeLabel = slot.type === "badge" ? "Team emblem"
+    : slot.type === "legend" ? "World Cup history"
+    : (slot.type === "special" ? (slot.name === "Team Photo" ? "Team photo" : "Special") : null);
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(8,18,48,.72)", display: "grid", placeItems: "center", zIndex: 50, padding: 16 }}>
+      <div onClick={(ev) => ev.stopPropagation()} style={{ background: "#16235a", border: "2px solid rgba(255,255,255,.15)", borderRadius: 18, padding: 20, maxWidth: 360, width: "100%", color: "#fff", boxShadow: "0 20px 60px rgba(0,0,0,.5)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#9fb0e0" }}>#{slot.n}</span>
+          {slot.foil && <span style={{ fontSize: 13 }}>✨ foil</span>}
+          <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: dbl ? "#f4b740" : have ? "#34c77b" : "#9fb0e0" }}>{status}</span>
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 800, marginBottom: (e.pos || e.club) ? 4 : 10 }}>{slot.name}</div>
+        {(e.pos || e.club) && (
+          <div style={{ fontSize: 14, color: "#dfe6ff", marginBottom: 10 }}>
+            {e.pos ? (POS[e.pos] || e.pos) : ""}{e.pos && e.club ? " · " : ""}{e.club || ""}
+          </div>
+        )}
+        {typeLabel && !e.pos && !e.club && <div style={{ fontSize: 14, color: "#9fb0e0", marginBottom: 10 }}>{typeLabel}</div>}
+        {e.fact
+          ? <div style={{ fontSize: 15, lineHeight: 1.45, background: "rgba(255,255,255,.07)", borderRadius: 12, padding: "10px 12px" }}>💡 {e.fact}</div>
+          : (slot.type === "player" ? <div style={{ fontSize: 13.5, color: "#7e8cc0" }}>More details coming soon.</div> : null)}
+        <button onClick={onClose} style={{ marginTop: 16, width: "100%", border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 800, borderRadius: 12, padding: "10px 0", fontSize: 15 }}>Close</button>
+      </div>
+    </div>
+  );
+}
+
 function MyBookView({ map, setSticker, activeId }) {
   const WCSTK = window.WCSTK, L = window.WCSTKLOGIC;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
   const totals = L.playerTotals(map, idx);
   const [filter, setFilter] = React.useState("all"); // all | need | doubles
   const [q, setQ] = React.useState("");
+  const [info, setInfo] = React.useState(null); // slot shown in the detail modal
 
   const onTap = (n) => setSticker(activeId, n, L.cycleCount(map[n]));
   const onMinus = (n) => setSticker(activeId, n, Math.max(0, (map[n] || 0) - 1));
@@ -238,10 +276,11 @@ function MyBookView({ map, setSticker, activeId }) {
               <div style={{ fontSize: 18, fontWeight: 800, color: "#9fc0ff", margin: "6px 2px 10px",
                 borderBottom: "2px solid rgba(159,192,255,.3)", paddingBottom: 4 }}>Group {p.group}</div>
             )}
-            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} setSticker={setSticker} activeId={activeId} />
+            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} onInfo={setInfo} setSticker={setSticker} activeId={activeId} />
           </React.Fragment>
         );
       }) : <div style={{ color: "#9fb0e0", padding: 24, textAlign: "center" }}>No stickers match.</div>}
+      <StickerDetail slot={info} count={info ? (map[info.n] || 0) : 0} onClose={() => setInfo(null)} />
     </div>
   );
 }
