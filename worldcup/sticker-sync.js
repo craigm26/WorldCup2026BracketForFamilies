@@ -39,7 +39,10 @@
       let collection = {};
       try { collection = JSON.parse(r.collectionJSON || '{}') || {}; } catch (e) { collection = {}; }
       const t = totalsOf(collection);
-      return { id: r.memberId, name: r.name, emoji: r.emoji, updatedAt: r.updatedAt,
+      const bookId = r.bookId || r.memberId;
+      const bookLabel = r.bookLabel || 'My album';
+      return { id: r.memberId + '::' + bookId, memberId: r.memberId, bookId: bookId, bookLabel: bookLabel,
+               name: r.name, emoji: r.emoji, updatedAt: r.updatedAt,
                have: t.have, total: t.total, doubles: t.doubles, isMe: r.memberId === myId, collection: collection };
     });
   }

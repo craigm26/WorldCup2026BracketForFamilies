@@ -124,3 +124,29 @@ test('client round-trip: publish -> getFamily -> propose -> accept', async () =>
   const fam2 = await S.postAction(mia, 'getFamily', {}, fake);
   assert.equal(fam2.members.filter((m) => m.memberId === 'm_mia').length, 1);
 });
+
+test('summarizeFamily: one entry per (member, book), keyed by memberId+bookId, carries bookLabel', () => {
+  const rows = [
+    { memberId: 'm1', bookId: 'm1', bookLabel: 'My album', name: 'Jake', emoji: '🙂', collectionJSON: JSON.stringify({ MEX5: 2 }) },
+    { memberId: 'm1', bookId: 'b9', bookLabel: 'Swaps', name: 'Jake', emoji: '🙂', collectionJSON: JSON.stringify({ ARG1: 3 }) },
+    { memberId: 'm2', bookId: 'm2', bookLabel: 'My album', name: 'Mia', emoji: '👧', collectionJSON: JSON.stringify({ MEX5: 1 }) },
+  ];
+  const totalsOf = (m) => ({ have: Object.keys(m).length, total: 980, doubles: Object.values(m).filter((c) => c >= 2).length });
+  const fam = S.summarizeFamily(rows, 'm1', totalsOf);
+  assert.equal(fam.length, 3);
+  assert.equal(fam[0].id, 'm1::m1');
+  assert.equal(fam[1].id, 'm1::b9');
+  assert.equal(fam[1].bookLabel, 'Swaps');
+  assert.equal(fam[0].isMe, true);   // member-level identity
+  assert.equal(fam[2].isMe, false);
+});
+
+test('summarizeFamily: a legacy row without bookId resolves to one "My album" book (bookId = memberId)', () => {
+  const rows = [{ memberId: 'm1', name: 'Jake', emoji: '🙂', collectionJSON: JSON.stringify({ MEX5: 2 }) }];
+  const totalsOf = (m) => ({ have: Object.keys(m).length, total: 980, doubles: 0 });
+  const fam = S.summarizeFamily(rows, 'mX', totalsOf);
+  assert.equal(fam.length, 1);
+  assert.equal(fam[0].bookId, 'm1');
+  assert.equal(fam[0].id, 'm1::m1');
+  assert.equal(fam[0].bookLabel, 'My album');
+});

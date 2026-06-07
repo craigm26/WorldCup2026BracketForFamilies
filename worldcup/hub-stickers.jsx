@@ -432,7 +432,7 @@ function FamilyTrades({ data, fam, sync, idx, map, me, reload, setErr, setBusy, 
     if (!target) return;
     setErr(""); setBusy(true);
     try {
-      await SY.postAction(sync, "proposeTrade", { toId: target.id, toName: target.name, fromName: me.name,
+      await SY.postAction(sync, "proposeTrade", { toId: target.memberId, toName: target.name, fromName: me.name,
         giveCodes: match.iGive, wantCodes: match.iWant });
       await reload();
     } catch (e) { setErr(String(e.message || e)); setBusy(false); }
@@ -483,10 +483,13 @@ function FamilyTrades({ data, fam, sync, idx, map, me, reload, setErr, setBusy, 
   );
 }
 
-function FamilyConnected({ map, players, activeId, sync, setSync }) {
-  const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
+function FamilyConnected({ players, books, collections, activeId, sync, setSync }) {
+  const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK, B = window.WCSTKBOOKS;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
   const me = players.list.find((p) => p.id === activeId) || { name: "Me", emoji: "🙂" };
+  const reg = (books && books[activeId]) || (B ? B.defaultRegistry(activeId) : { list: [{ id: activeId, label: "My album" }], active: activeId });
+  const activeBook = reg.active;
+  const map = (collections && collections[activeBook]) || {};
   const [data, setData] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState("");
@@ -507,19 +510,23 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
   const publish = async () => {
     setErr(""); setBusy(true);
     try {
-      await SY.postAction(sync, "publishCollection",
-        { name: me.name, emoji: me.emoji, collection: SY.serializeCollection(map) });
+      for (const bk of reg.list) {
+        await SY.postAction(sync, "publishCollection",
+          { name: me.name, emoji: me.emoji, bookId: bk.id, bookLabel: bk.label,
+            collection: SY.serializeCollection(collections[bk.id] || {}) });
+      }
       await load();
     } catch (e) { setErr(String(e.message || e)); setBusy(false); }
   };
 
   const totalsOf = (m) => L.playerTotals(m, idx);
   const fam = data ? SY.summarizeFamily(data.members, sync.memberId, totalsOf) : [];
+  const famLabel = (f) => f.name + (f.bookLabel && f.bookLabel !== "My album" ? " · " + f.bookLabel : "");
 
   return (
     <div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
-        <button onClick={publish} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 16px", fontSize: 15, opacity: busy ? .6 : 1 }}>⬆️ Publish my collection</button>
+        <button onClick={publish} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 16px", fontSize: 15, opacity: busy ? .6 : 1 }}>⬆️ Publish my book{reg.list.length > 1 ? "s" : ""}</button>
         <button onClick={load} disabled={busy} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", fontWeight: 700, borderRadius: 10, padding: "9px 14px", fontSize: 14 }}>↻ Refresh</button>
         {lastSync && <span style={{ color: "#7e8cc0", fontSize: 12 }}>synced {lastSync}</span>}
         <button onClick={() => { if (!busy && window.confirm("Disconnect this device from family sync?")) setSync(null); }} disabled={busy} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "transparent", color: "#7e8cc0", fontSize: 13, textDecoration: "underline" }}>Disconnect</button>
@@ -533,7 +540,7 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
           return (
             <div key={f.id} onClick={() => setViewing(f)} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 14px", cursor: "pointer" }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#fff", marginBottom: 4 }}>
-                <span>{f.emoji} {f.name} {f.isMe ? "(you)" : ""}</span>
+                <span>{f.emoji} {famLabel(f)} {f.isMe ? "(you)" : ""}</span>
                 <span style={{ color: "#f4b740", fontWeight: 700 }}>{f.have}/{f.total} · {f.doubles} dbl</span>
               </div>
               {when && <div style={{ color: "#7e8cc0", fontSize: 12, marginBottom: 4 }}>updated {when}</div>}
@@ -551,7 +558,7 @@ function FamilyConnected({ map, players, activeId, sync, setSync }) {
   );
 }
 
-function FamilyView({ map, players, activeId, sync, setSync, goHelp }) {
+function FamilyView({ map, players, books, collections, activeId, sync, setSync, goHelp }) {
   const SY = window.WCSTKSYNC;
   const [link, setLink] = React.useState("");
   const [linkErr, setLinkErr] = React.useState("");
@@ -578,7 +585,7 @@ function FamilyView({ map, players, activeId, sync, setSync, goHelp }) {
       </div>
     );
   }
-  return <FamilyConnected map={map} players={players} activeId={activeId} sync={sync} setSync={setSync} />;
+  return <FamilyConnected players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} />;
 }
 
 function StickersTab({ collections, setSticker, players, books, addBook, renameBook, removeBook, switchBook, addPlayer, sync, setSync, goHelp }) {
