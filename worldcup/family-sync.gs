@@ -34,11 +34,11 @@ function rows(sh) {
 }
 
 function handle(b) {
-  var fc = b.familyCode || '';
+  var fc = String(b.familyCode || '');
   if (b.action === 'publishCollection') {
     var sh = sheet(MEMBERS, ['familyCode','memberId','name','emoji','updatedAt','collectionJSON']);
     var rs = rows(sh), now = new Date().toISOString();
-    var found = rs.filter(function (r) { return r.familyCode === fc && r.memberId === b.memberId; })[0];
+    var found = rs.filter(function (r) { return String(r.familyCode) === fc && r.memberId === b.memberId; })[0];
     var rec = [fc, b.memberId, b.name || '', b.emoji || '🙂', now, JSON.stringify(b.collection || {})];
     if (found) sh.getRange(found._row, 1, 1, rec.length).setValues([rec]);
     else sh.appendRow(rec);
@@ -46,10 +46,10 @@ function handle(b) {
   }
   if (b.action === 'getFamily') {
     var ms = rows(sheet(MEMBERS, ['familyCode','memberId','name','emoji','updatedAt','collectionJSON']))
-      .filter(function (r) { return r.familyCode === fc; })
+      .filter(function (r) { return String(r.familyCode) === fc; })
       .map(function (r) { return { memberId: r.memberId, name: r.name, emoji: r.emoji, updatedAt: r.updatedAt, collectionJSON: r.collectionJSON }; });
     var ts = rows(sheet(TRADES, ['tradeId','familyCode','fromId','fromName','toId','toName','giveCodes','wantCodes','status','createdAt','updatedAt']))
-      .filter(function (r) { return r.familyCode === fc; });
+      .filter(function (r) { return String(r.familyCode) === fc; });
     return { ok: true, members: ms, trades: ts };
   }
   if (b.action === 'proposeTrade') {
@@ -62,7 +62,7 @@ function handle(b) {
   if (b.action === 'respondTrade') {
     var sh3 = sheet(TRADES, ['tradeId','familyCode','fromId','fromName','toId','toName','giveCodes','wantCodes','status','createdAt','updatedAt']);
     var rs3 = rows(sh3);
-    var row = rs3.filter(function (r) { return r.tradeId === b.tradeId && r.familyCode === fc && r.toId === b.memberId; })[0];
+    var row = rs3.filter(function (r) { return r.tradeId === b.tradeId && String(r.familyCode) === fc && r.toId === b.memberId; })[0];
     if (!row || row.status !== 'pending') return { ok: false, error: 'not allowed' };
     sh3.getRange(row._row, 9).setValue(b.response === 'accept' ? 'accepted' : 'declined');
     sh3.getRange(row._row, 11).setValue(new Date().toISOString());

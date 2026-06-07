@@ -6,9 +6,7 @@
   if (typeof window !== 'undefined') window.WCSTKSYNC = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(this, function () {
-  let seq = 0;
-  function rand() { return Math.floor((1 + Math.sin(++seq) * 0.5 + Math.random()) * 1e9).toString(36); }
-  function genMemberId() { return 'm_' + (Math.random().toString(36).slice(2, 8) + rand().slice(0, 4)); }
+  function genMemberId() { return 'm_' + Math.random().toString(36).slice(2, 12); }
 
   function parseSetupLink(search) {
     try {
@@ -56,7 +54,12 @@
       body: JSON.stringify(buildPayload(action, cfg, extra)),
     });
     if (!res.ok) throw new Error('network error (' + res.status + ')');
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch (e) {
+      throw new Error('sync failed — check the Apps Script is deployed for "Anyone" (got a non-JSON response)');
+    }
     if (!data || data.ok === false) throw new Error((data && data.error) || 'request failed');
     return data;
   }

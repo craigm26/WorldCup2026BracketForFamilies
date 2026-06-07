@@ -97,6 +97,13 @@ test('postAction throws on ok:false', async () => {
     /bad code/);
 });
 
+test('postAction throws a friendly error on a non-JSON (login/HTML) response', async () => {
+  const fake = async () => ({ ok: true, json: async () => { throw new SyntaxError("Unexpected token '<'"); } });
+  await assert.rejects(
+    () => S.postAction({ url: 'u', code: 'c', memberId: 'm' }, 'getFamily', {}, fake),
+    /Anyone/);
+});
+
 test('client round-trip: publish -> getFamily -> propose -> accept', async () => {
   const fake = makeFakeServer();
   const dad = { url: 'u', code: 'fam', memberId: 'm_dad' };
@@ -111,4 +118,9 @@ test('client round-trip: publish -> getFamily -> propose -> accept', async () =>
   await S.postAction(mia, 'respondTrade', { tradeId: prop.tradeId, response: 'accept' }, fake);
   fam = await S.postAction(mia, 'getFamily', {}, fake);
   assert.equal(fam.trades[0].status, 'accepted');
+
+  // re-publish Mia (exercises the upsert UPDATE branch — must not duplicate her row)
+  await S.postAction(mia, 'publishCollection', { name: 'Mia', emoji: '👧', collection: { ARG17: 3 } }, fake);
+  const fam2 = await S.postAction(mia, 'getFamily', {}, fake);
+  assert.equal(fam2.members.filter((m) => m.memberId === 'm_mia').length, 1);
 });
