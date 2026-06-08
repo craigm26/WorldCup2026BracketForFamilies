@@ -495,16 +495,21 @@ function InviteRow({ label, hint, link }) {
     try { new window.QRCode(qrRef.current, { text: link, width: 132, height: 132 }); } catch (e) {}
   }, [link]);
   const copy = async () => {
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(link); }
-      else {
+    const fallback = () => {
+      try {
         const ta = document.createElement("textarea");
         ta.value = link; ta.style.position = "fixed"; ta.style.opacity = "0";
         document.body.appendChild(ta); ta.focus(); ta.select();
         document.execCommand("copy"); ta.remove();
-      }
-      setCopied(true); setTimeout(() => setCopied(false), 1800);
-    } catch (e) {}
+        return true;
+      } catch (e) { return false; }
+    };
+    let ok = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(link); ok = true; }
+      else { ok = fallback(); }
+    } catch (e) { ok = fallback(); } // clipboard API present but rejected (e.g. insecure context)
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1800); }
   };
   return (
     <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", background: "rgba(0,0,0,.18)", borderRadius: 10, padding: 10, marginTop: 10 }}>
