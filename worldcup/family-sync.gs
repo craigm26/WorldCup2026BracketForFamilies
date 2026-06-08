@@ -88,5 +88,25 @@ function handle(b) {
     sh3.getRange(row._row, 11).setValue(new Date().toISOString());
     return { ok: true };
   }
+  // Maintenance: purge every Members/Trades row for a code. RESTRICTED to test codes
+  // ('selftest-' prefix) so it can never delete real family data. No key needed; safe to expose.
+  if (b.action === 'clearByCode') {
+    var code = String(b.code || '');
+    if (code.indexOf('selftest-') !== 0) return { ok: false, error: 'clearByCode is restricted to selftest-* codes' };
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var removed = 0;
+    [MEMBERS, TRADES].forEach(function (name) {
+      var sh = ss.getSheetByName(name);
+      if (!sh) return;
+      var data = sh.getDataRange().getValues();
+      if (data.length < 2) return;
+      var fcCol = data[0].indexOf('familyCode');
+      if (fcCol === -1) return;
+      for (var i = data.length - 1; i >= 1; i--) {              // bottom-up keeps indices stable
+        if (String(data[i][fcCol]) === code) { sh.deleteRow(i + 1); removed++; }
+      }
+    });
+    return { ok: true, removed: removed };
+  }
   return { ok: false, error: 'unknown action' };
 }
