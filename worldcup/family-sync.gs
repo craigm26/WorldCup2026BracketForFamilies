@@ -6,6 +6,9 @@
  * Optional: set SECRET below to reject any other code. Empty SECRET = any code works and
  * simply namespaces its own data (the code is the shared "room key").
  *
+ * SHARED LIBRARY: rows are keyed by (familyCode, playerId, bookId) so every device can edit every
+ * book; `playerId`/`deleted` are additive (legacy callers default playerId = memberId). Writes are
+ * last-write-wins by `updatedAt` (a stored newer row is not overwritten). Re-deploy after updating.
  * MULTIPLE BOOKS: each member can publish several books; rows are keyed by memberId + bookId.
  * RE-DEPLOY this script BEFORE anyone adds a second book. The read path tolerates old rows
  * (no bookId => treated as one "My album" book); the write path auto-adds the bookId/bookLabel
@@ -50,24 +53,30 @@ function headerOf(sh) { return sh.getRange(1, 1, 1, sh.getLastColumn()).getValue
 function handle(b) {
   var fc = String(b.familyCode || '');
   if (b.action === 'publishCollection') {
-    var sh = sheet(MEMBERS, ['familyCode','memberId','bookId','bookLabel','name','emoji','updatedAt','collectionJSON']);
-    ensureHeaders(sh, ['bookId','bookLabel']); // upgrade an existing pre-books sheet in place
+    // Shared library: rows are keyed by (familyCode, playerId, bookId) so any device can edit any book.
+    // playerId/deleted are additive; legacy callers (no playerId) default playerId = memberId. Last-write-wins by updatedAt.
+    var sh = sheet(MEMBERS, ['familyCode','memberId','playerId','name','emoji','bookId','bookLabel','updatedAt','deleted','collectionJSON']);
+    ensureHeaders(sh, ['playerId','deleted','bookId','bookLabel']); // upgrade older sheets in place
     var header = headerOf(sh);
+    var playerId = String(b.playerId || b.memberId);
     var bookId = String(b.bookId || b.memberId);
-    var values = { familyCode: fc, memberId: b.memberId, bookId: bookId, bookLabel: String(b.bookLabel || 'My album'),
-                   name: b.name || '', emoji: b.emoji || '🙂', updatedAt: new Date().toISOString(),
-                   collectionJSON: JSON.stringify(b.collection || {}) };
+    var incomingUpdated = String(b.updatedAt || new Date().toISOString());
     var rs = rows(sh);
-    var found = rs.filter(function (r) { return String(r.familyCode) === fc && r.memberId === b.memberId && String(r.bookId || r.memberId) === bookId; })[0];
+    var found = rs.filter(function (r) { return String(r.familyCode) === fc && String(r.playerId || r.memberId) === playerId && String(r.bookId || r.memberId) === bookId; })[0];
+    if (found && String(found.updatedAt || '') > incomingUpdated) { return { ok: true, skipped: true }; } // stored row is newer — last-write-wins
+    var values = { familyCode: fc, memberId: b.memberId, playerId: playerId, name: b.name || '', emoji: b.emoji || '🙂',
+                   bookId: bookId, bookLabel: String(b.bookLabel || 'My album'), updatedAt: incomingUpdated,
+                   deleted: b.deleted ? '1' : '', collectionJSON: JSON.stringify(b.collection || {}) };
     var rec = header.map(function (name) { return values.hasOwnProperty(name) ? values[name] : ''; });
     if (found) sh.getRange(found._row, 1, 1, rec.length).setValues([rec]);
     else sh.appendRow(rec);
     return { ok: true };
   }
   if (b.action === 'getFamily') {
-    var ms = rows(sheet(MEMBERS, ['familyCode','memberId','bookId','bookLabel','name','emoji','updatedAt','collectionJSON']))
+    var ms = rows(sheet(MEMBERS, ['familyCode','memberId','playerId','name','emoji','bookId','bookLabel','updatedAt','deleted','collectionJSON']))
       .filter(function (r) { return String(r.familyCode) === fc; })
-      .map(function (r) { return { memberId: r.memberId, bookId: r.bookId || r.memberId, bookLabel: r.bookLabel || '', name: r.name, emoji: r.emoji, updatedAt: r.updatedAt, collectionJSON: r.collectionJSON }; });
+      .map(function (r) { return { memberId: r.memberId, playerId: r.playerId || r.memberId, name: r.name, emoji: r.emoji,
+        bookId: r.bookId || r.memberId, bookLabel: r.bookLabel || '', updatedAt: r.updatedAt || '', deleted: r.deleted || '', collectionJSON: r.collectionJSON }; });
     var ts = rows(sheet(TRADES, ['tradeId','familyCode','fromId','fromName','toId','toName','giveCodes','wantCodes','status','createdAt','updatedAt']))
       .filter(function (r) { return String(r.familyCode) === fc; });
     return { ok: true, members: ms, trades: ts };

@@ -456,7 +456,7 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
 }
 
 function HubApp() {
-  const { store, brackets, collections, setSticker, sync, setSync, setResult, setPick, reset, players, addPlayer, switchPlayer, removePlayer, importPlayer, books, addBook, renameBook, removeBook, switchBook } = useHubStore();
+  const { store, brackets, collections, setSticker, sync, setSync, setResult, setPick, reset, players, addPlayer, switchPlayer, removePlayer, importPlayer, books, addBook, renameBook, removeBook, switchBook, syncStatus } = useHubStore();
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const demo = params.get("demo") === "1";
   const demoData = React.useMemo(() => (demo && window.buildDemo ? window.buildDemo() : null), [demo]);
@@ -573,7 +573,7 @@ function HubApp() {
       )}
       <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
         {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} />}
-        {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} books={books} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} addPlayer={addPlayer} sync={sync} setSync={setSync} goHelp={goHelp} />}
+        {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} books={books} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} addPlayer={addPlayer} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} />}
         {tab === "help" && <HelpTab target={helpTarget} clearTarget={() => setHelpTarget(null)} />}
         {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} goHelp={goHelp} />}
         {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} />}

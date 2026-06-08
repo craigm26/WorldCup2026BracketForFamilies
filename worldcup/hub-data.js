@@ -145,17 +145,27 @@ window.useHubStore = function () {
   React.useEffect(() => { try { Object.keys(books).forEach((pid) => localStorage.setItem(bkkey(pid), JSON.stringify(books[pid]))); } catch (e) {} }, [books]);
   React.useEffect(() => { try { Object.keys(collections).forEach((id) => localStorage.setItem(skey(id), JSON.stringify(collections[id]))); } catch (e) {} }, [collections]);
 
+  // ---- Shared Family Library: per-book sync metadata (updatedAt + dirty). Drives the reconcile engine. ----
+  const FS = window.WCFAMSTORE;
+  const [meta, setMeta] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26sync_meta")) || {}; } catch (e) { return {}; } });
+  React.useEffect(() => { try { localStorage.setItem("wc26sync_meta", JSON.stringify(meta)); } catch (e) {} }, [meta]);
+  const [syncStatus, setSyncStatus] = React.useState("");
+  const touch = (bookId) => { if (FS && bookId) setMeta((m) => FS.markDirty(m, bookId, new Date().toISOString())); };
+
   const [sync, setSyncState] = React.useState(loadSync);
   React.useEffect(() => { try {
     if (sync) localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); else localStorage.removeItem(SYNC_KEY);
   } catch (e) {} }, [sync]);
   const setSync = (cfg) => setSyncState(cfg);
 
-  const setSticker = (bookId, n, count) => setCollections((c) => {
-    const cur = Object.assign({}, c[bookId] || {});
-    if (count <= 0) delete cur[String(n)]; else cur[String(n)] = count;
-    return Object.assign({}, c, { [bookId]: cur });
-  });
+  const setSticker = (bookId, n, count) => {
+    setCollections((c) => {
+      const cur = Object.assign({}, c[bookId] || {});
+      if (count <= 0) delete cur[String(n)]; else cur[String(n)] = count;
+      return Object.assign({}, c, { [bookId]: cur });
+    });
+    touch(bookId);
+  };
 
   const B = window.WCSTKBOOKS;
   const regOf = (pid) => (books[pid] || (B ? B.defaultRegistry(pid) : { list: [{ id: pid, label: "My album" }], active: pid }));
@@ -164,10 +174,12 @@ window.useHubStore = function () {
     const id = "b" + Date.now();
     setBooks((bk) => Object.assign({}, bk, { [playerId]: B.addBook(bk[playerId] || B.defaultRegistry(playerId), label, id) }));
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
+    touch(id);
   };
   const renameBook = (playerId, bookId, label) => {
     if (!B) return;
     setBooks((bk) => Object.assign({}, bk, { [playerId]: B.renameBook(bk[playerId] || B.defaultRegistry(playerId), bookId, label) }));
+    touch(bookId);
   };
   const switchBook = (playerId, bookId) => setBooks((bk) => {
     const r = bk[playerId]; if (!r) return bk;
@@ -196,6 +208,7 @@ window.useHubStore = function () {
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
     setBooks((bk) => Object.assign({}, bk, { [id]: B.defaultRegistry(id) }));
     setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "🙂" }]), active: id }));
+    touch(id);
   };
   const switchPlayer = (id) => setPlayers((p) => Object.assign({}, p, { active: id }));
   const removePlayer = (id) => setPlayers((p) => {
@@ -215,13 +228,61 @@ window.useHubStore = function () {
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
     setBooks((bk) => Object.assign({}, bk, { [id]: B.defaultRegistry(id) }));
     setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "📥" }]), active: id }));
+    touch(id);
   };
+
+  // ---- Sync driver: pull → reconcile → apply → push. Activates only when WCSYNC_DEFAULT.shared
+  //      (or localStorage wc26shared==="1"). Local-first: edits are never lost; rollback = turn the flag off. ----
+  const sref = React.useRef({});
+  sref.current = { players: players, books: books, collections: collections, meta: meta, sync: sync };
+  const syncingRef = React.useRef(false);
+  const sharedOn = () => {
+    try { if (window.WCSYNC_DEFAULT && window.WCSYNC_DEFAULT.shared) return true; } catch (e) {}
+    try { return localStorage.getItem("wc26shared") === "1"; } catch (e) { return false; }
+  };
+  const syncOnce = React.useCallback(async () => {
+    const st = sref.current, SY = window.WCSTKSYNC, FX = window.WCFAMSTORE;
+    if (!st.sync || !SY || !FX || syncingRef.current) return;
+    syncingRef.current = true;
+    try {
+      const data = await SY.postAction(st.sync, "getFamily", {});
+      const local = FX.toLocal(st.players, st.books, st.collections, st.meta);
+      const res = FX.reconcile(local, (data && data.members) || [], new Date().toISOString());
+      if (res.changed) {
+        const ap = FX.applyResult(res.roster, st.players, st.books);
+        setPlayers(ap.players); setBooks(ap.books); setCollections(ap.collections); setMeta(ap.meta);
+      }
+      for (let i = 0; i < res.toPush.length; i++) {
+        const r = res.toPush[i];
+        await SY.postAction(st.sync, "publishCollection", { playerId: r.playerId, name: r.name, emoji: r.emoji,
+          bookId: r.bookId, bookLabel: r.bookLabel, updatedAt: r.updatedAt, deleted: r.deleted,
+          collection: (function () { try { return JSON.parse(r.collectionJSON || "{}"); } catch (e) { return {}; } })() });
+      }
+      if (res.toPush.length) setMeta((m) => FX.clearDirty(m, res.toPush.map((r) => r.bookId)));
+      setSyncStatus("Synced " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
+    } catch (e) { setSyncStatus("Offline — will retry"); }
+    syncingRef.current = false;
+  }, []);
+  React.useEffect(() => {
+    if (!sync || !sharedOn()) return;
+    syncOnce();
+    const id = setInterval(syncOnce, 20000);
+    return () => clearInterval(id);
+  }, [sync, syncOnce]);
+  React.useEffect(() => {
+    if (!sync || !sharedOn()) return;
+    if (!Object.keys(meta).some((b) => meta[b] && meta[b].dirty)) return;
+    const t = setTimeout(syncOnce, 3000); // debounced push shortly after edits
+    return () => clearTimeout(t);
+  }, [meta, sync, syncOnce]);
+
   return { store: { results: results, bracket: bracket }, brackets: brackets,
            collections: collections, setSticker: setSticker, sync: sync, setSync: setSync,
            setResult: setResult, setPick: setPick, reset: reset,
            players: players, addPlayer: addPlayer, switchPlayer: switchPlayer,
            removePlayer: removePlayer, importPlayer: importPlayer,
-           books: books, addBook: addBook, renameBook: renameBook, removeBook: removeBook, switchBook: switchBook };
+           books: books, addBook: addBook, renameBook: renameBook, removeBook: removeBook, switchBook: switchBook,
+           syncStatus: syncStatus };
 };
 
 /* ---- Share a bracket as a compact URL (no backend): one char per slot ---- */

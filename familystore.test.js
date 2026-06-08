@@ -95,6 +95,32 @@ test('reconcile is idempotent: re-running with the same remote makes no further 
   assert.deepEqual(r2.roster.collections, r1.roster.collections);
 });
 
+test('toLocal converts store shape to reconcile shape', () => {
+  const players = { list: [{ id: 'p1', name: 'Jake', emoji: '🙂' }], active: 'p1' };
+  const books = { p1: { list: [{ id: 'p1', label: 'My album' }, { id: 'b2', label: 'Swaps' }], active: 'b2' } };
+  const local = F.toLocal(players, books, { p1: { MEX5: 1 } }, { p1: { updatedAt: T1, dirty: false } });
+  assert.deepEqual(local.players, [{ id: 'p1', name: 'Jake', emoji: '🙂' }]);
+  assert.deepEqual(local.books.p1, [{ id: 'p1', label: 'My album' }, { id: 'b2', label: 'Swaps' }]);
+  assert.deepEqual(local.collections, { p1: { MEX5: 1 } });
+});
+
+test('applyResult restores store shape and preserves active player/book when still present', () => {
+  const roster = { players: [{ id: 'p1', name: 'Jake', emoji: '🙂' }, { id: 'p2', name: 'Mia', emoji: '👧' }],
+    books: { p1: [{ id: 'p1', label: 'My album' }, { id: 'b2', label: 'Swaps' }], p2: [{ id: 'p2', label: 'My album' }] },
+    collections: { p1: { MEX5: 1 } }, meta: {} };
+  const out = F.applyResult(roster, { list: [], active: 'p1' }, { p1: { active: 'b2' } });
+  assert.equal(out.players.active, 'p1');         // preserved (still present)
+  assert.equal(out.books.p1.active, 'b2');        // preserved (still present)
+  assert.equal(out.books.p2.active, 'p2');        // default to first when no prior
+  assert.equal(out.players.list.length, 2);
+});
+
+test('applyResult falls back when the active player no longer exists', () => {
+  const roster = { players: [{ id: 'p2', name: 'Mia', emoji: '👧' }], books: { p2: [{ id: 'p2', label: 'My album' }] }, collections: {}, meta: {} };
+  const out = F.applyResult(roster, { list: [], active: 'p1' }, {});
+  assert.equal(out.players.active, 'p2'); // p1 gone -> first remaining
+});
+
 test('rowsFromLocal(dirtyOnly) emits only dirty books with the right fields', () => {
   const local = { players: [{ id: 'p1', name: 'Jake', emoji: '🙂' }], books: { p1: [{ id: 'p1', label: 'My album' }, { id: 'b2', label: 'Swaps' }] },
     collections: { p1: { MEX5: 1 }, b2: { BRA9: 2 } }, meta: { p1: { updatedAt: T1, dirty: false }, b2: { updatedAt: T3, dirty: true } } };

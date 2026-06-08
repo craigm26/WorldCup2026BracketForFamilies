@@ -589,7 +589,7 @@ function InviteCard({ sync }) {
   );
 }
 
-function FamilyConnected({ players, books, collections, activeId, sync, setSync }) {
+function FamilyConnected({ players, books, collections, activeId, sync, setSync, syncStatus }) {
   const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK, B = window.WCSTKBOOKS;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
   const me = players.list.find((p) => p.id === activeId) || { name: "Me", emoji: "🙂" };
@@ -641,6 +641,7 @@ function FamilyConnected({ players, books, collections, activeId, sync, setSync 
         <button onClick={() => { if (!busy && window.confirm("Disconnect this device from family sync?")) setSync(null); }} disabled={busy} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "transparent", color: "#7e8cc0", fontSize: 13, textDecoration: "underline" }}>Disconnect</button>
       </div>
       <InviteCard sync={sync} />
+      {syncStatus && <div style={{ fontSize: 12.5, color: "#7e8cc0", marginBottom: 10 }}>🔁 Shared library: {syncStatus}</div>}
       {err && <div style={{ background: "rgba(226,71,59,.18)", border: "2px solid rgba(226,71,59,.5)", borderRadius: 12, padding: "10px 12px", color: "#ffd7d2", fontSize: 14, marginBottom: 12 }}>⚠️ {err}</div>}
       {busy && !data && <div style={{ color: "#9fb0e0", padding: 12 }}>Loading family…</div>}
       <div style={{ display: "grid", gap: 10 }}>
@@ -668,7 +669,7 @@ function FamilyConnected({ players, books, collections, activeId, sync, setSync 
   );
 }
 
-function FamilyView({ map, players, books, collections, activeId, sync, setSync, goHelp }) {
+function FamilyView({ map, players, books, collections, activeId, sync, setSync, goHelp, syncStatus }) {
   const SY = window.WCSTKSYNC;
   const [link, setLink] = React.useState("");
   const [linkErr, setLinkErr] = React.useState("");
@@ -695,10 +696,10 @@ function FamilyView({ map, players, books, collections, activeId, sync, setSync,
       </div>
     );
   }
-  return <FamilyConnected players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} />;
+  return <FamilyConnected players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} syncStatus={syncStatus} />;
 }
 
-function StickersTab({ collections, setSticker, players, books, addBook, renameBook, removeBook, switchBook, addPlayer, sync, setSync, goHelp }) {
+function StickersTab({ collections, setSticker, players, books, addBook, renameBook, removeBook, switchBook, addPlayer, sync, setSync, goHelp, syncStatus }) {
   const [view, setView] = React.useState("book"); // book | trade | overview | family
   const B = window.WCSTKBOOKS;
   const activeId = players.active;
@@ -721,7 +722,7 @@ function StickersTab({ collections, setSticker, players, books, addBook, renameB
       {view === "book" && <MyBookView map={map} setSticker={setSticker} activeBook={activeBook} reg={reg} playerId={activeId} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} />}
       {view === "trade" && <TradeMatcherView collections={collections} players={players} books={books} activeId={activeId} addPlayer={addPlayer} />}
       {view === "overview" && <OverviewView collections={collections} players={players} books={books} addPlayer={addPlayer} />}
-      {view === "family" && <FamilyView map={map} players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} goHelp={goHelp} />}
+      {view === "family" && <FamilyView map={map} players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} />}
     </div>
   );
 }
