@@ -17,8 +17,8 @@
 - [ ] **Step 1 — failing tests.** Append to `setuptest.js` (after the `buildShareLink` tests):
 ```js
 test('buildInviteLink builds hub?sync=&code= with encoding', () => {
-  const u = S.buildInviteLink('https://x.io/wc/worldcup/', 'https://e/exec', 'merry-fan');
-  assert.equal(u, 'https://x.io/wc/worldcup/?sync=' + encodeURIComponent('https://e/exec') + '&code=merry-fan');
+  const u = S.buildInviteLink('https://x.io/wc/worldcup/', 'https://e/exec', 'yourcode');
+  assert.equal(u, 'https://x.io/wc/worldcup/?sync=' + encodeURIComponent('https://e/exec') + '&code=yourcode');
 });
 test('buildInviteLink adds a trailing slash to hubBase and encodes the code', () => {
   const u = S.buildInviteLink('https://x.io/worldcup', 'https://e/exec', 'a b');
@@ -68,7 +68,7 @@ Change the return to `return { buildShareLink: buildShareLink, buildInviteLink: 
 ```bash
 cd /home/craigm26/kiosk-work/repo/worldcup && python3 -m http.server 8088 >/tmp/inv.log 2>&1 &
 SRV=$!; sleep 1.5; cd /home/craigm26/kiosk-work/repo
-node -e "const p=require('puppeteer-core');(async()=>{const b=await p.launch({executablePath:'/usr/bin/chromium',headless:'new',args:['--no-sandbox','--disable-gpu']});const pg=await b.newPage();await pg.evaluateOnNewDocument(()=>{window.WCSYNC_DEFAULT={url:'https://e/exec',code:'merry-fan',hub:'https://h/worldcup/'}});const errs=[];pg.on('pageerror',e=>errs.push(e.message));pg.on('console',m=>{if(m.type()==='error'&&!/favicon/i.test(m.text()+m.location().url))errs.push(m.text())});await pg.goto('http://localhost:8088/?tab=stickers',{waitUntil:'networkidle2',timeout:35000});await new Promise(r=>setTimeout(r,2500));const s=await pg.evaluate(()=>JSON.parse(localStorage.getItem('wc26sync')||'null'));console.log('auto-connected:', !!s && s.url==='https://e/exec' && s.code==='merry-fan' && /^m_/.test(s.memberId||''));console.log('errors:',errs.length);await b.close();})();" 2>&1 | tail -3
+node -e "const p=require('puppeteer-core');(async()=>{const b=await p.launch({executablePath:'/usr/bin/chromium',headless:'new',args:['--no-sandbox','--disable-gpu']});const pg=await b.newPage();await pg.evaluateOnNewDocument(()=>{window.WCSYNC_DEFAULT={url:'https://e/exec',code:'yourcode',hub:'https://h/worldcup/'}});const errs=[];pg.on('pageerror',e=>errs.push(e.message));pg.on('console',m=>{if(m.type()==='error'&&!/favicon/i.test(m.text()+m.location().url))errs.push(m.text())});await pg.goto('http://localhost:8088/?tab=stickers',{waitUntil:'networkidle2',timeout:35000});await new Promise(r=>setTimeout(r,2500));const s=await pg.evaluate(()=>JSON.parse(localStorage.getItem('wc26sync')||'null'));console.log('auto-connected:', !!s && s.url==='https://e/exec' && s.code==='yourcode' && /^m_/.test(s.memberId||''));console.log('errors:',errs.length);await b.close();})();" 2>&1 | tail -3
 kill $SRV 2>/dev/null; true
 ```
 Expected: `auto-connected: true`, `errors: 0`.
@@ -142,7 +142,7 @@ function InviteCard({ sync }) {
 cd /home/craigm26/kiosk-work/repo/worldcup && python3 -m http.server 8088 >/tmp/inv.log 2>&1 &
 SRV=$!; sleep 1.5; cd /home/craigm26/kiosk-work/repo
 node -e "const p=require('puppeteer-core');(async()=>{const b=await p.launch({executablePath:'/usr/bin/chromium',headless:'new',args:['--no-sandbox','--disable-gpu']});
-async function check(setDefault){const pg=await b.newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));pg.on('console',m=>{if(m.type()==='error'&&!/favicon/i.test(m.text()+m.location().url))errs.push(m.text())});if(setDefault)await pg.evaluateOnNewDocument(()=>{window.WCSYNC_DEFAULT={url:'https://e/exec',code:'merry-fan',tailscaleHub:'http://100.64.76.122/worldcup/',publicHub:'https://h/worldcup/'}});await pg.goto('http://localhost:8088/?tab=stickers',{waitUntil:'networkidle2',timeout:35000});await pg.evaluate(()=>localStorage.setItem('wc26sync',JSON.stringify({url:'https://e/exec',code:'merry-fan',memberId:'m_x'})));await pg.reload({waitUntil:'networkidle2',timeout:35000});await new Promise(r=>setTimeout(r,2200));await pg.evaluate(()=>{const el=[...document.querySelectorAll('button')].find(x=>x.textContent.includes('Family'));if(el)el.click()});await new Promise(r=>setTimeout(r,1500));const r=await pg.evaluate(()=>({invite:/Invite your family/.test(document.body.innerText),ts:/100\\.64\\.76\\.122\\/worldcup\\//.test(document.body.innerText),pub:/code=merry-fan/.test(document.body.innerText),copy:[...document.querySelectorAll('button')].some(b=>/Copy/.test(b.textContent)),qr:document.querySelectorAll('canvas, img[src^=\"data:image\"]').length}));await pg.close();return {r,errs:errs.length};}
+async function check(setDefault){const pg=await b.newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));pg.on('console',m=>{if(m.type()==='error'&&!/favicon/i.test(m.text()+m.location().url))errs.push(m.text())});if(setDefault)await pg.evaluateOnNewDocument(()=>{window.WCSYNC_DEFAULT={url:'https://e/exec',code:'yourcode',tailscaleHub:'http://100.64.76.122/worldcup/',publicHub:'https://h/worldcup/'}});await pg.goto('http://localhost:8088/?tab=stickers',{waitUntil:'networkidle2',timeout:35000});await pg.evaluate(()=>localStorage.setItem('wc26sync',JSON.stringify({url:'https://e/exec',code:'yourcode',memberId:'m_x'})));await pg.reload({waitUntil:'networkidle2',timeout:35000});await new Promise(r=>setTimeout(r,2200));await pg.evaluate(()=>{const el=[...document.querySelectorAll('button')].find(x=>x.textContent.includes('Family'));if(el)el.click()});await new Promise(r=>setTimeout(r,1500));const r=await pg.evaluate(()=>({invite:/Invite your family/.test(document.body.innerText),ts:/100\\.64\\.76\\.122\\/worldcup\\//.test(document.body.innerText),pub:/code=yourcode/.test(document.body.innerText),copy:[...document.querySelectorAll('button')].some(b=>/Copy/.test(b.textContent)),qr:document.querySelectorAll('canvas, img[src^=\"data:image\"]').length}));await pg.close();return {r,errs:errs.length};}
 const a=await check(false);console.log('PUBLIC-ONLY  invite:',a.r.invite,'| public link:',a.r.pub,'| copy:',a.r.copy,'| QRs:',a.r.qr,'| errors:',a.errs);
 const c=await check(true);console.log('TS+PUBLIC    invite:',c.r.invite,'| ts link:',c.r.ts,'| public link:',c.r.pub,'| QRs:',c.r.qr,'| errors:',c.errs);
 await b.close();})().catch(e=>{console.error('FAIL',e.message);process.exit(1)});" 2>&1 | tail -3
@@ -179,7 +179,7 @@ worldcup/sync-config.js
 ## Post-merge (operator-gated kiosk deploy — NOT a repo change)
 1. Write `worldcup/sync-config.js` on the Pi (git-ignored):
    ```js
-   window.WCSYNC_DEFAULT = { url:"<exec>", code:"merry-fan",
+   window.WCSYNC_DEFAULT = { url:"<exec>", code:"yourcode",
      tailscaleHub:"http://100.64.76.122/worldcup/",
      publicHub:"https://craigm26.github.io/WorldCup2026BracketForFamilies/worldcup/" };
    ```
@@ -189,5 +189,5 @@ worldcup/sync-config.js
 
 ## Final verification
 - `setuptest.js` green; full suite green; smokes green.
-- Repo grep for the real `/exec` URL / `merry-fan` returns nothing (secret containment).
+- Repo grep for the real `/exec` URL / `yourcode` returns nothing (secret containment).
 - Then finishing-a-development-branch.

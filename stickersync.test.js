@@ -30,8 +30,8 @@ test('buildPayload merges action + familyCode + memberId', () => {
 });
 
 test('buildInviteLink builds hub?sync=&code= with encoding, normalizes trailing slash', () => {
-  assert.equal(S.buildInviteLink('https://x.io/wc/worldcup/', 'https://e/exec', 'merry-fan'),
-    'https://x.io/wc/worldcup/?sync=' + encodeURIComponent('https://e/exec') + '&code=merry-fan');
+  assert.equal(S.buildInviteLink('https://x.io/wc/worldcup/', 'https://e/exec', 'fam1'),
+    'https://x.io/wc/worldcup/?sync=' + encodeURIComponent('https://e/exec') + '&code=fam1');
   const u = S.buildInviteLink('https://x.io/worldcup', 'https://e/exec', 'a b'); // no trailing slash
   assert.ok(u.startsWith('https://x.io/worldcup/?sync='));
   assert.ok(u.endsWith('&code=a%20b'));
