@@ -78,6 +78,14 @@ works fully without this — it's opt-in.
 4. Each person opens the link once on their phone, creates their player, taps **Publish my
    collection**, and can propose trades on the **🎟️ Stickers → 👨‍👩‍👧 Family** tab.
 
+> **Inviting more family is one tap.** Once a device is connected, the **👨‍👩‍👧 Family** tab shows an
+> **Invite your family** card with a copy-link + QR. If you self-host the Hub (e.g. on a home server)
+> and put a git-ignored `worldcup/sync-config.js` next to it
+> (`window.WCSYNC_DEFAULT = { url, code, tailscaleHub, publicHub }`), every screen on that host
+> **auto-joins** the same sticker system on first load — no link to paste — and the card also offers a
+> **Tailscale** link that carries **no key** (relatives on your tailnet just open it). The public
+> Pages build ships no such file, so your write-key never goes on the public web.
+
 > Each device publishes its **active** player's books — one shared entry per book — if several people share one device, switch player (🏠 Home) before publishing.
 
 > Security: the endpoint is gated only by the family code — anyone with the link can read/write

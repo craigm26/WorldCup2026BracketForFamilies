@@ -76,6 +76,17 @@ function loadSync() {
       try { localStorage.setItem(SYNC_KEY, JSON.stringify(cur)); } catch (e) {}
     }
   } catch (e) {}
+  // device default (e.g. the kiosk's git-ignored sync-config.js sets window.WCSYNC_DEFAULT) —
+  // a fresh device auto-joins the family system without anyone pasting a setup link.
+  if (!cur) {
+    try {
+      const d = window.WCSYNC_DEFAULT;
+      if (d && d.url && d.code && window.WCSTKSYNC) {
+        cur = { url: d.url, code: d.code, memberId: window.WCSTKSYNC.genMemberId() };
+        try { localStorage.setItem(SYNC_KEY, JSON.stringify(cur)); } catch (e) {}
+      }
+    } catch (e) {}
+  }
   return cur || null;
 }
 function loadPlayers() {

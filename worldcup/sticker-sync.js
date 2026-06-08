@@ -27,6 +27,15 @@
     return Object.assign({ action: action, familyCode: cfg.code, memberId: cfg.memberId }, extra || {});
   }
 
+  // Invite link from a full hub base (…/worldcup/) + the sync exec URL + family code.
+  function buildInviteLink(hubBase, exec, code) {
+    exec = (exec || '').trim(); code = (code || '').trim();
+    if (!exec || !code) return null;
+    var hb = String(hubBase || '');
+    if (hb.charAt(hb.length - 1) !== '/') hb = hb + '/';
+    return hb + '?sync=' + encodeURIComponent(exec) + '&code=' + encodeURIComponent(code);
+  }
+
   function tradeTransition(trade, response) {
     if (!trade || trade.status !== 'pending') return null;
     if (response === 'accept') return 'accepted';
@@ -68,6 +77,6 @@
   }
 
   return { genMemberId: genMemberId, parseSetupLink: parseSetupLink, serializeCollection: serializeCollection,
-           buildPayload: buildPayload, tradeTransition: tradeTransition, summarizeFamily: summarizeFamily,
-           postAction: postAction };
+           buildPayload: buildPayload, buildInviteLink: buildInviteLink, tradeTransition: tradeTransition,
+           summarizeFamily: summarizeFamily, postAction: postAction };
 });

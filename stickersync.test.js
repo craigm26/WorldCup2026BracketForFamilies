@@ -29,6 +29,19 @@ test('buildPayload merges action + familyCode + memberId', () => {
     { action: 'proposeTrade', familyCode: 'fam1', memberId: 'm_a', toId: 'm_b', giveCodes: ['MEX2'] });
 });
 
+test('buildInviteLink builds hub?sync=&code= with encoding, normalizes trailing slash', () => {
+  assert.equal(S.buildInviteLink('https://x.io/wc/worldcup/', 'https://e/exec', 'fam1'),
+    'https://x.io/wc/worldcup/?sync=' + encodeURIComponent('https://e/exec') + '&code=fam1');
+  const u = S.buildInviteLink('https://x.io/worldcup', 'https://e/exec', 'a b'); // no trailing slash
+  assert.ok(u.startsWith('https://x.io/worldcup/?sync='));
+  assert.ok(u.endsWith('&code=a%20b'));
+});
+
+test('buildInviteLink returns null without exec or code', () => {
+  assert.equal(S.buildInviteLink('https://x/', '', 'c'), null);
+  assert.equal(S.buildInviteLink('https://x/', 'https://e/exec', '  '), null);
+});
+
 test('tradeTransition only acts on pending trades', () => {
   assert.equal(S.tradeTransition({ status: 'pending' }, 'accept'), 'accepted');
   assert.equal(S.tradeTransition({ status: 'pending' }, 'decline'), 'declined');
