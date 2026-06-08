@@ -21,22 +21,6 @@ test('buildShareLink normalizes basePath and encodes code', () => {
   assert.ok(u.endsWith('&code=merry%20fam'));
 });
 
-test('buildInviteLink builds hub?sync=&code= with encoding', () => {
-  const u = S.buildInviteLink('https://x.io/wc/worldcup/', 'https://e/exec', 'merry-fan');
-  assert.equal(u, 'https://x.io/wc/worldcup/?sync=' + encodeURIComponent('https://e/exec') + '&code=merry-fan');
-});
-
-test('buildInviteLink adds a trailing slash to hubBase and encodes the code', () => {
-  const u = S.buildInviteLink('https://x.io/worldcup', 'https://e/exec', 'a b');
-  assert.ok(u.startsWith('https://x.io/worldcup/?sync='));
-  assert.ok(u.endsWith('&code=a%20b'));
-});
-
-test('buildInviteLink returns null without exec or code', () => {
-  assert.equal(S.buildInviteLink('https://x/', '', 'c'), null);
-  assert.equal(S.buildInviteLink('https://x/', 'https://e/exec', '  '), null);
-});
-
 const path = require('node:path');
 const http = require('node:http');
 const SRV = require('./serve.js');

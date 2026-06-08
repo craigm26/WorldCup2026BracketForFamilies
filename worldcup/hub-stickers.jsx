@@ -486,6 +486,57 @@ function FamilyTrades({ data, fam, sync, idx, map, me, reload, setErr, setBusy, 
   );
 }
 
+function InviteRow({ label, hint, link }) {
+  const [copied, setCopied] = React.useState(false);
+  const qrRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!qrRef.current || !link || typeof window.QRCode === "undefined") return;
+    qrRef.current.innerHTML = "";
+    try { new window.QRCode(qrRef.current, { text: link, width: 132, height: 132 }); } catch (e) {}
+  }, [link]);
+  const copy = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(link); }
+      else {
+        const ta = document.createElement("textarea");
+        ta.value = link; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand("copy"); ta.remove();
+      }
+      setCopied(true); setTimeout(() => setCopied(false), 1800);
+    } catch (e) {}
+  };
+  return (
+    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", background: "rgba(0,0,0,.18)", borderRadius: 10, padding: 10, marginTop: 10 }}>
+      <div ref={qrRef} style={{ background: "#fff", padding: 5, borderRadius: 6, lineHeight: 0 }} />
+      <div style={{ flex: "1 1 220px", minWidth: 190 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: "#bdf0d3" }}>{label}</div>
+        {hint && <div style={{ fontSize: 11.5, color: "#9fb0e0", margin: "2px 0 6px" }}>{hint}</div>}
+        <div style={{ fontSize: 11.5, color: "#9fb0e0", wordBreak: "break-all", marginBottom: 6, userSelect: "all" }}>{link}</div>
+        <button onClick={copy} style={{ border: "none", cursor: "pointer", background: copied ? "#2a9d63" : "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "8px 14px", fontSize: 13.5 }}>{copied ? "✓ Copied!" : "📋 Copy"}</button>
+      </div>
+    </div>
+  );
+}
+
+function InviteCard({ sync }) {
+  const D = window.WCSYNC_DEFAULT || {};
+  const SY = window.WCSTKSYNC;
+  const fallbackHub = location.origin + location.pathname.replace(/[^/]*$/, "");
+  const tsLink = D.tailscaleHub || null; // secret-free; opening it auto-joins via sync-config.js
+  const publicHub = D.publicHub || (D.tailscaleHub ? null : fallbackHub);
+  const publicLink = (SY && SY.buildInviteLink && publicHub) ? SY.buildInviteLink(publicHub, sync.url, sync.code) : null;
+  if (!tsLink && !publicLink) return null;
+  return (
+    <div style={{ background: "rgba(52,199,123,.12)", border: "2px solid rgba(52,199,123,.45)", borderRadius: 14, padding: 14, marginBottom: 14 }}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: "#bdf0d3" }}>📨 Invite your family</div>
+      <div style={{ fontSize: 12.5, color: "#dfe6ff", marginTop: 4 }}>They join the same sticker system — scan a code or send a link.</div>
+      {tsLink && <InviteRow label="🏠 On our network (Tailscale)" hint="Family on your Tailscale network: open this — it auto-joins, no key shared." link={tsLink} />}
+      {publicLink && <InviteRow label="🌍 Anywhere (private link)" hint="Works on any device. This link includes your family key — send it privately." link={publicLink} />}
+    </div>
+  );
+}
+
 function FamilyConnected({ players, books, collections, activeId, sync, setSync }) {
   const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK, B = window.WCSTKBOOKS;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
@@ -537,6 +588,7 @@ function FamilyConnected({ players, books, collections, activeId, sync, setSync 
         {lastSync && <span style={{ color: "#7e8cc0", fontSize: 12 }}>synced {lastSync}</span>}
         <button onClick={() => { if (!busy && window.confirm("Disconnect this device from family sync?")) setSync(null); }} disabled={busy} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "transparent", color: "#7e8cc0", fontSize: 13, textDecoration: "underline" }}>Disconnect</button>
       </div>
+      <InviteCard sync={sync} />
       {err && <div style={{ background: "rgba(226,71,59,.18)", border: "2px solid rgba(226,71,59,.5)", borderRadius: 12, padding: "10px 12px", color: "#ffd7d2", fontSize: 14, marginBottom: 12 }}>⚠️ {err}</div>}
       {busy && !data && <div style={{ color: "#9fb0e0", padding: 12 }}>Loading family…</div>}
       <div style={{ display: "grid", gap: 10 }}>
