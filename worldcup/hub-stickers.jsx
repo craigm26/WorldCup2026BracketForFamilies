@@ -231,6 +231,28 @@ function BookBar({ reg, playerId, addBook, renameBook, removeBook, switchBook })
   );
 }
 
+function GroupHeader({ sec, have, total, expanded, onToggle, onFlag }) {
+  const WC = window.WC;
+  const pct = total ? Math.round((have / total) * 100) : 0;
+  const flags = sec.isSpecials ? [] : sec.pages.map((p) => ({ code: p.team, iso: p.flag || (p.team && WC.T[p.team] ? WC.T[p.team].c : null) }));
+  return (
+    <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 10, margin: "10px 2px 8px", padding: "8px 10px",
+      background: "rgba(159,192,255,.10)", border: "1px solid rgba(159,192,255,.25)", borderRadius: 10, cursor: "pointer", flexWrap: "wrap" }}>
+      <span style={{ fontSize: 14, color: "#9fc0ff", width: 14, textAlign: "center" }}>{expanded ? "▾" : "▸"}</span>
+      <span style={{ fontSize: 17, fontWeight: 800, color: "#9fc0ff" }}>{sec.isSpecials ? "⭐ Specials" : sec.label}</span>
+      <span style={{ display: "flex", gap: 5, alignItems: "center" }}>
+        {flags.map((f) => f.iso ? (
+          <button key={f.code} aria-label={"Jump to " + f.code} onClick={(e) => { e.stopPropagation(); onFlag(f.code); }}
+            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, lineHeight: 0 }}>
+            <Flag code={f.iso} w={22} style={{ border: "1px solid rgba(255,255,255,.5)", borderRadius: 2 }} />
+          </button>
+        ) : null)}
+      </span>
+      <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: pct === 100 ? "#34c77b" : "#f4b740" }}>{have}/{total}</span>
+    </div>
+  );
+}
+
 function MyBookView({ map, setSticker, activeBook, reg, playerId, addBook, renameBook, removeBook, switchBook }) {
   const WCSTK = window.WCSTK, L = window.WCSTKLOGIC;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
@@ -238,6 +260,23 @@ function MyBookView({ map, setSticker, activeBook, reg, playerId, addBook, renam
   const [filter, setFilter] = React.useState("all");
   const [q, setQ] = React.useState("");
   const [info, setInfo] = React.useState(null);
+  const [collapsed, setCollapsed] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26groups")) || {}; } catch (e) { return {}; } });
+  React.useEffect(() => { try { localStorage.setItem("wc26groups", JSON.stringify(collapsed)); } catch (e) {} }, [collapsed]);
+
+  const fullSections = React.useMemo(() => L.groupSections(WCSTK.pages), [WCSTK]);
+  const bookCollapsed = collapsed[activeBook] || {};
+  const toggleGroup = (key) => setCollapsed((c) => {
+    const bk = Object.assign({}, c[activeBook] || {});
+    if (bk[key]) delete bk[key]; else bk[key] = true;
+    return Object.assign({}, c, { [activeBook]: bk });
+  });
+  const expandGroup = (key) => setCollapsed((c) => {
+    const bk = c[activeBook] || {};
+    if (!bk[key]) return c;
+    const nbk = Object.assign({}, bk); delete nbk[key];
+    return Object.assign({}, c, { [activeBook]: nbk });
+  });
+  const jumpToTeam = (key, code) => { expandGroup(key); setTimeout(() => { const el = document.getElementById("stk-team-" + code); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); };
 
   const onTap = (n) => setSticker(activeBook, n, L.cycleCount(map[n]));
   const onMinus = (n) => setSticker(activeBook, n, Math.max(0, (map[n] || 0) - 1));
@@ -252,6 +291,9 @@ function MyBookView({ map, setSticker, activeBook, reg, playerId, addBook, renam
   const pages = WCSTK.pages
     .map((p) => Object.assign({}, p, { slots: p.slots.filter(matchSlot) }))
     .filter((p) => p.slots.length);
+  const filteredByKey = {};
+  pages.forEach((p) => { const k = p.group || "specials"; (filteredByKey[k] = filteredByKey[k] || []).push(p); });
+  const searchActive = q.trim() !== "";
 
   const chip = (id, label) => (
     <button onClick={() => setFilter(id)} style={{ border: "none", cursor: "pointer", borderRadius: 20,
@@ -276,16 +318,21 @@ function MyBookView({ map, setSticker, activeBook, reg, playerId, addBook, renam
             background: "rgba(255,255,255,.12)", color: "#fff", flex: "1 1 160px" }} />
         <ScanSwap onAdd={onTap} />
       </div>
-      {pages.length ? pages.map((p, i) => {
-        const prev = i ? pages[i - 1] : null;
-        const showGroup = p.group && (!prev || prev.group !== p.group);
+      {pages.length ? fullSections.map((sec) => {
+        const fp = filteredByKey[sec.key];
+        if (!fp || !fp.length) return null;
+        const expanded = searchActive || !bookCollapsed[sec.key];
+        let have = 0, total = 0;
+        sec.pages.forEach((full) => { const pr = L.sectionProgress(map, full); have += pr.have; total += pr.total; });
         return (
-          <React.Fragment key={p.page}>
-            {showGroup && (
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#9fc0ff", margin: "6px 2px 10px",
-                borderBottom: "2px solid rgba(159,192,255,.3)", paddingBottom: 4 }}>Group {p.group}</div>
-            )}
-            <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} onInfo={setInfo} setSticker={setSticker} activeId={activeBook} />
+          <React.Fragment key={sec.key}>
+            <GroupHeader sec={sec} have={have} total={total} expanded={expanded}
+              onToggle={() => toggleGroup(sec.key)} onFlag={(code) => jumpToTeam(sec.key, code)} />
+            {expanded && fp.map((p) => (
+              <div key={p.page} id={p.team ? ("stk-team-" + p.team) : undefined}>
+                <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} onInfo={setInfo} setSticker={setSticker} activeId={activeBook} />
+              </div>
+            ))}
           </React.Fragment>
         );
       }) : <div style={{ color: "#9fb0e0", padding: 24, textAlign: "center" }}>No stickers match.</div>}

@@ -61,7 +61,22 @@
     return Object.keys(index).filter((n) => !maps.some((m) => has(m, n)));
   }
 
+  // Group album pages into ordered sections for the collapsible My Book view.
+  // key = page.group (A..L) or 'specials'; preserves dataset order (Specials first, then A..L).
+  function groupSections(pages) {
+    var out = [], byKey = {};
+    (pages || []).forEach(function (p) {
+      var key = p.group || 'specials';
+      if (!byKey[key]) {
+        byKey[key] = { key: key, label: p.group ? ('Group ' + p.group) : 'Specials', isSpecials: !p.group, pages: [] };
+        out.push(byKey[key]);
+      }
+      byKey[key].pages.push(p);
+    });
+    return out;
+  }
+
   return { buildIndex: buildIndex, cycleCount: cycleCount,
            sectionProgress: sectionProgress, playerTotals: playerTotals,
-           tradeMatch: tradeMatch, rarestNeeded: rarestNeeded };
+           tradeMatch: tradeMatch, rarestNeeded: rarestNeeded, groupSections: groupSections };
 });

@@ -66,6 +66,26 @@ test('rarestNeeded lists numbers nobody owns', () => {
   assert.deepEqual(L.rarestNeeded(maps, idx).map(Number), [2]);
 });
 
+test('groupSections groups by group with a leading Specials section, preserving order', () => {
+  const pages = [
+    { page: 1, title: 'Intro' },                 // no group -> specials
+    { page: 2, title: 'Opening', group: '' },    // falsy group -> specials
+    { page: 3, group: 'A', team: 'MEX' },
+    { page: 4, group: 'A', team: 'RSA' },
+    { page: 5, group: 'B', team: 'CAN' },
+  ];
+  const secs = L.groupSections(pages);
+  assert.equal(secs.length, 3);
+  assert.equal(secs[0].isSpecials, true);
+  assert.equal(secs[0].label, 'Specials');
+  assert.equal(secs[0].pages.length, 2);
+  assert.equal(secs[1].key, 'A');
+  assert.equal(secs[1].label, 'Group A');
+  assert.equal(secs[1].isSpecials, false);
+  assert.deepEqual(secs[1].pages.map((p) => p.team), ['MEX', 'RSA']);
+  assert.equal(secs[2].key, 'B');
+});
+
 const DATA = require('./worldcup/sticker-data.js');
 
 test('dataset: every sticker number is unique', () => {
@@ -141,6 +161,16 @@ test('dataset: no placeholder names remain (a slot name never equals its country
   DATA.pages.filter((p) => p.team).forEach((p) => {
     p.slots.forEach((s) => assert.notEqual(s.name, p.title, `${s.n} still labelled with the country name`));
   });
+});
+
+test('dataset: groupSections yields 13 sections — Specials(2) + A..L(4 each) in order', () => {
+  const secs = L.groupSections(DATA.pages);
+  assert.equal(secs.length, 13);
+  assert.equal(secs[0].isSpecials, true);
+  assert.equal(secs[0].pages.length, 2);
+  const groups = secs.slice(1);
+  assert.deepEqual(groups.map((s) => s.key), ['A','B','C','D','E','F','G','H','I','J','K','L']);
+  groups.forEach((s) => { assert.equal(s.pages.length, 4, `${s.label} should have 4 team pages`); assert.equal(s.isSpecials, false); });
 });
 
 test('dataset: every team page carries a group A..L', () => {
