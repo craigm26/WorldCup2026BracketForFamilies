@@ -155,6 +155,17 @@ test('summarizeFamily: one entry per (member, book), keyed by memberId+bookId, c
   assert.equal(fam[2].isMe, false);
 });
 
+test('summarizeFamily: soft-deleted (tombstone) rows are excluded from the family roster', () => {
+  const rows = [
+    { memberId: 'm1', bookId: 'm1', bookLabel: 'My album', name: 'Jake', emoji: '🙂', collectionJSON: '{"MEX5":2}' },
+    { memberId: 'm1', bookId: 'b9', bookLabel: 'Swaps', name: 'Jake', emoji: '🙂', deleted: '1', collectionJSON: '{}' },
+  ];
+  const totalsOf = (m) => ({ have: Object.keys(m).length, total: 980, doubles: 0 });
+  const fam = S.summarizeFamily(rows, 'm1', totalsOf);
+  assert.equal(fam.length, 1);
+  assert.equal(fam[0].bookId, 'm1');
+});
+
 test('summarizeFamily: a legacy row without bookId resolves to one "My album" book (bookId = memberId)', () => {
   const rows = [{ memberId: 'm1', name: 'Jake', emoji: '🙂', collectionJSON: JSON.stringify({ MEX5: 2 }) }];
   const totalsOf = (m) => ({ have: Object.keys(m).length, total: 980, doubles: 0 });

@@ -44,7 +44,7 @@
   }
 
   function summarizeFamily(rows, myId, totalsOf) {
-    return (rows || []).map((r) => {
+    return (rows || []).filter((r) => !(r.deleted === '1' || r.deleted === 1 || r.deleted === true)).map((r) => {
       let collection = {};
       try { collection = JSON.parse(r.collectionJSON || '{}') || {}; } catch (e) { collection = {}; }
       const t = totalsOf(collection);
