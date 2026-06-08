@@ -49,6 +49,9 @@ function ensureHeaders(sh, names) {
   });
 }
 function headerOf(sh) { return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0]; }
+// Sheets may coerce an ISO string cell into a Date on write; normalize back to an ISO string on read
+// so last-write-wins compares strings consistently and clients always receive ISO timestamps.
+function isoOf(v) { return (v && typeof v.getTime === 'function') ? v.toISOString() : String(v || ''); }
 
 function handle(b) {
   var fc = String(b.familyCode || '');
@@ -63,7 +66,7 @@ function handle(b) {
     var incomingUpdated = String(b.updatedAt || new Date().toISOString());
     var rs = rows(sh);
     var found = rs.filter(function (r) { return String(r.familyCode) === fc && String(r.playerId || r.memberId) === playerId && String(r.bookId || r.memberId) === bookId; })[0];
-    if (found && String(found.updatedAt || '') > incomingUpdated) { return { ok: true, skipped: true }; } // stored row is newer — last-write-wins
+    if (found && isoOf(found.updatedAt) > incomingUpdated) { return { ok: true, skipped: true }; } // stored row is newer — last-write-wins
     var values = { familyCode: fc, memberId: b.memberId, playerId: playerId, name: b.name || '', emoji: b.emoji || '🙂',
                    bookId: bookId, bookLabel: String(b.bookLabel || 'My album'), updatedAt: incomingUpdated,
                    deleted: b.deleted ? '1' : '', collectionJSON: JSON.stringify(b.collection || {}) };
@@ -76,7 +79,7 @@ function handle(b) {
     var ms = rows(sheet(MEMBERS, ['familyCode','memberId','playerId','name','emoji','bookId','bookLabel','updatedAt','deleted','collectionJSON']))
       .filter(function (r) { return String(r.familyCode) === fc; })
       .map(function (r) { return { memberId: r.memberId, playerId: r.playerId || r.memberId, name: r.name, emoji: r.emoji,
-        bookId: r.bookId || r.memberId, bookLabel: r.bookLabel || '', updatedAt: r.updatedAt || '', deleted: r.deleted || '', collectionJSON: r.collectionJSON }; });
+        bookId: r.bookId || r.memberId, bookLabel: r.bookLabel || '', updatedAt: isoOf(r.updatedAt), deleted: r.deleted || '', collectionJSON: r.collectionJSON }; });
     var ts = rows(sheet(TRADES, ['tradeId','familyCode','fromId','fromName','toId','toName','giveCodes','wantCodes','status','createdAt','updatedAt']))
       .filter(function (r) { return String(r.familyCode) === fc; });
     return { ok: true, members: ms, trades: ts };

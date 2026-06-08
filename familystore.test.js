@@ -95,6 +95,23 @@ test('reconcile is idempotent: re-running with the same remote makes no further 
   assert.deepEqual(r2.roster.collections, r1.roster.collections);
 });
 
+test('reconcile: a local dirty tombstone is NOT resurrected by a still-present remote row', () => {
+  const local = { players: [{ id: 'p1', name: 'A', emoji: '🙂' }], books: { p1: [{ id: 'p1', label: 'My album' }] },
+    collections: { p1: {} }, meta: { b2: { updatedAt: T3, dirty: true, deleted: true, playerId: 'p1' } } };
+  const remote = [row({ playerId: 'p1', bookId: 'b2', bookLabel: 'Swaps', updatedAt: T1, collectionJSON: '{"BRA9":2}' })];
+  const r = F.reconcile(local, remote, NOW);
+  assert.ok(!r.roster.books.p1.find((b) => b.id === 'b2'), 'tombstoned book is not re-added');
+});
+
+test('tombstoneRows emits a deleted row for each dirty tombstone', () => {
+  const meta = { p1: { updatedAt: T1, dirty: false }, b2: { updatedAt: T3, dirty: true, deleted: true, playerId: 'p1' } };
+  const rows = F.tombstoneRows(meta);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].bookId, 'b2');
+  assert.equal(rows[0].playerId, 'p1');
+  assert.equal(rows[0].deleted, '1');
+});
+
 test('toLocal converts store shape to reconcile shape', () => {
   const players = { list: [{ id: 'p1', name: 'Jake', emoji: '🙂' }], active: 'p1' };
   const books = { p1: { list: [{ id: 'p1', label: 'My album' }, { id: 'b2', label: 'Swaps' }], active: 'b2' } };

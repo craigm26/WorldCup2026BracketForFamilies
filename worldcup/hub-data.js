@@ -151,6 +151,8 @@ window.useHubStore = function () {
   React.useEffect(() => { try { localStorage.setItem("wc26sync_meta", JSON.stringify(meta)); } catch (e) {} }, [meta]);
   const [syncStatus, setSyncStatus] = React.useState("");
   const touch = (bookId) => { if (FS && bookId) setMeta((m) => FS.markDirty(m, bookId, new Date().toISOString())); };
+  // Mark a book as a pending deletion (tombstone) so the delete propagates instead of resurrecting.
+  const tomb = (playerId, bookId) => { if (FS && bookId) setMeta((m) => Object.assign({}, m, { [bookId]: { updatedAt: new Date().toISOString(), dirty: true, deleted: true, playerId: playerId } })); };
 
   const [sync, setSyncState] = React.useState(loadSync);
   React.useEffect(() => { try {
@@ -169,9 +171,10 @@ window.useHubStore = function () {
 
   const B = window.WCSTKBOOKS;
   const regOf = (pid) => (books[pid] || (B ? B.defaultRegistry(pid) : { list: [{ id: pid, label: "My album" }], active: pid }));
+  const idPrefix = () => ((sync && sync.memberId) || "d");
   const addBook = (playerId, label) => {
     if (!B) return;
-    const id = "b" + Date.now();
+    const id = idPrefix() + ":b" + Date.now();
     setBooks((bk) => Object.assign({}, bk, { [playerId]: B.addBook(bk[playerId] || B.defaultRegistry(playerId), label, id) }));
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
     touch(id);
@@ -187,14 +190,12 @@ window.useHubStore = function () {
   });
   const removeBook = (playerId, bookId) => {
     if (!B) return;
-    setBooks((bk) => {
-      const r = bk[playerId] || B.defaultRegistry(playerId);
-      const res = B.removeBook(r, bookId);
-      if (!res.removed) return bk;
-      try { localStorage.removeItem(skey(bookId)); } catch (e) {}
-      setCollections((c) => { const n = Object.assign({}, c); delete n[bookId]; return n; });
-      return Object.assign({}, bk, { [playerId]: res.reg });
-    });
+    const res0 = B.removeBook(books[playerId] || B.defaultRegistry(playerId), bookId);
+    if (!res0.removed) return;
+    try { localStorage.removeItem(skey(bookId)); } catch (e) {}
+    setBooks((bk) => Object.assign({}, bk, { [playerId]: B.removeBook(bk[playerId] || B.defaultRegistry(playerId), bookId).reg }));
+    setCollections((c) => { const n = Object.assign({}, c); delete n[bookId]; return n; });
+    tomb(playerId, bookId); // propagate the deletion (shared mode) instead of letting it resurrect
   };
 
   const bracket = brackets[players.active] || {};
@@ -203,7 +204,7 @@ window.useHubStore = function () {
   const reset = () => { setResults({}); setBrackets((b) => Object.assign({}, b, { [players.active]: {} })); };
   const addPlayer = (name, emoji) => {
     if (!B) return;
-    const id = "p" + Date.now();
+    const id = idPrefix() + ":p" + Date.now();
     setBrackets((b) => Object.assign({}, b, { [id]: {} }));
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
     setBooks((bk) => Object.assign({}, bk, { [id]: B.defaultRegistry(id) }));
@@ -218,12 +219,13 @@ window.useHubStore = function () {
     try { localStorage.removeItem(bkkey(id)); localStorage.removeItem(bkey(id)); reg.list.forEach((bk) => localStorage.removeItem(skey(bk.id))); } catch (e) {}
     setBooks((bk) => { const n = Object.assign({}, bk); delete n[id]; return n; });
     setCollections((c) => { const n = Object.assign({}, c); reg.list.forEach((bk) => delete n[bk.id]); return n; });
+    reg.list.forEach((bk) => tomb(id, bk.id)); // propagate the deletion in shared mode
     const list = p.list.filter((x) => x.id !== id);
     return { list: list, active: p.active === id ? list[0].id : p.active };
   });
   const importPlayer = (name, emoji, bracketObj) => {
     if (!B) return;
-    const id = "p" + Date.now();
+    const id = idPrefix() + ":p" + Date.now();
     setBrackets((b) => Object.assign({}, b, { [id]: bracketObj || {} }));
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
     setBooks((bk) => Object.assign({}, bk, { [id]: B.defaultRegistry(id) }));
@@ -241,24 +243,37 @@ window.useHubStore = function () {
     try { return localStorage.getItem("wc26shared") === "1"; } catch (e) { return false; }
   };
   const syncOnce = React.useCallback(async () => {
-    const st = sref.current, SY = window.WCSTKSYNC, FX = window.WCFAMSTORE;
-    if (!st.sync || !SY || !FX || syncingRef.current) return;
+    const SY = window.WCSTKSYNC, FX = window.WCFAMSTORE, cfg = sref.current.sync;
+    if (!cfg || !SY || !FX || syncingRef.current) return;
     syncingRef.current = true;
     try {
-      const data = await SY.postAction(st.sync, "getFamily", {});
-      const local = FX.toLocal(st.players, st.books, st.collections, st.meta);
-      const res = FX.reconcile(local, (data && data.members) || [], new Date().toISOString());
+      const data = await SY.postAction(cfg, "getFamily", {});
+      // Re-read state AFTER the network round-trip so edits made during the await are included
+      // (and applied/pushed), never clobbered. Reconcile + setState below run synchronously.
+      const st = sref.current;
+      const res = FX.reconcile(FX.toLocal(st.players, st.books, st.collections, st.meta), (data && data.members) || [], new Date().toISOString());
       if (res.changed) {
         const ap = FX.applyResult(res.roster, st.players, st.books);
         setPlayers(ap.players); setBooks(ap.books); setCollections(ap.collections); setMeta(ap.meta);
       }
-      for (let i = 0; i < res.toPush.length; i++) {
-        const r = res.toPush[i];
-        await SY.postAction(st.sync, "publishCollection", { playerId: r.playerId, name: r.name, emoji: r.emoji,
+      const pushRows = res.toPush.concat(FX.tombstoneRows(st.meta));
+      const pushed = {};
+      for (let i = 0; i < pushRows.length; i++) {
+        const r = pushRows[i];
+        await SY.postAction(cfg, "publishCollection", { playerId: r.playerId, name: r.name, emoji: r.emoji,
           bookId: r.bookId, bookLabel: r.bookLabel, updatedAt: r.updatedAt, deleted: r.deleted,
           collection: (function () { try { return JSON.parse(r.collectionJSON || "{}"); } catch (e) { return {}; } })() });
+        pushed[r.bookId] = r.updatedAt;
       }
-      if (res.toPush.length) setMeta((m) => FX.clearDirty(m, res.toPush.map((r) => r.bookId)));
+      if (Object.keys(pushed).length) setMeta((m) => {
+        const out = {};
+        Object.keys(m).forEach((b) => {
+          if (pushed[b] !== undefined && m[b] && m[b].updatedAt === pushed[b]) {
+            if (!m[b].deleted) out[b] = Object.assign({}, m[b], { dirty: false }); // clear dirty; drop pushed tombstones
+          } else { out[b] = m[b]; } // re-edited during the push (different updatedAt) → keep dirty for next cycle
+        });
+        return out;
+      });
       setSyncStatus("Synced " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
     } catch (e) { setSyncStatus("Offline — will retry"); }
     syncingRef.current = false;
