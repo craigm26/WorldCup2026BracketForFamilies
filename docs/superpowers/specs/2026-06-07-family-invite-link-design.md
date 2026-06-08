@@ -14,7 +14,7 @@ Two parts:
 1. **In-app invite card** (🎟️ Stickers → 👨‍👩‍👧 Family, when connected): up to **two** invite
    options, each with a one-tap **Copy** (with an `http://`-kiosk clipboard fallback) and a **QR**:
    - **🏠 Tailscale link** — the kiosk's own URL over the user's tailnet
-     (`http://100.64.76.122/worldcup/`). **No key in the link**: family on the tailnet open it,
+     (`http://100.x.y.z/worldcup/`). **No key in the link**: family on the tailnet open it,
      load the app from the kiosk, and the kiosk's `sync-config.js` auto-joins them. The `/exec`
      write-key never leaves the private network.
    - **🌍 Public link** — the public hub (GitHub Pages `…/worldcup/`) with `?sync=…&code=…` embedded,
@@ -102,7 +102,7 @@ Dual-export stays (`window.WCSETUP` + `module.exports`).
   ```js
   window.WCSYNC_DEFAULT = {
     url: "<exec>", code: "<family code>",
-    tailscaleHub: "http://100.64.76.122/worldcup/",          // secret-free, auto-joins on the tailnet
+    tailscaleHub: "http://100.x.y.z/worldcup/",          // secret-free, auto-joins on the tailnet
     publicHub: "https://<public-pages>/worldcup/"             // for the public link (key embedded)
   };
   ```
