@@ -145,29 +145,44 @@ window.useHubStore = function () {
   React.useEffect(() => { try { Object.keys(books).forEach((pid) => localStorage.setItem(bkkey(pid), JSON.stringify(books[pid]))); } catch (e) {} }, [books]);
   React.useEffect(() => { try { Object.keys(collections).forEach((id) => localStorage.setItem(skey(id), JSON.stringify(collections[id]))); } catch (e) {} }, [collections]);
 
+  // ---- Shared Family Library: per-book sync metadata (updatedAt + dirty). Drives the reconcile engine. ----
+  const FS = window.WCFAMSTORE;
+  const [meta, setMeta] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26sync_meta")) || {}; } catch (e) { return {}; } });
+  React.useEffect(() => { try { localStorage.setItem("wc26sync_meta", JSON.stringify(meta)); } catch (e) {} }, [meta]);
+  const [syncStatus, setSyncStatus] = React.useState("");
+  const touch = (bookId) => { if (FS && bookId) setMeta((m) => FS.markDirty(m, bookId, new Date().toISOString())); };
+  // Mark a book as a pending deletion (tombstone) so the delete propagates instead of resurrecting.
+  const tomb = (playerId, bookId) => { if (FS && bookId) setMeta((m) => Object.assign({}, m, { [bookId]: { updatedAt: new Date().toISOString(), dirty: true, deleted: true, playerId: playerId } })); };
+
   const [sync, setSyncState] = React.useState(loadSync);
   React.useEffect(() => { try {
     if (sync) localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); else localStorage.removeItem(SYNC_KEY);
   } catch (e) {} }, [sync]);
   const setSync = (cfg) => setSyncState(cfg);
 
-  const setSticker = (bookId, n, count) => setCollections((c) => {
-    const cur = Object.assign({}, c[bookId] || {});
-    if (count <= 0) delete cur[String(n)]; else cur[String(n)] = count;
-    return Object.assign({}, c, { [bookId]: cur });
-  });
+  const setSticker = (bookId, n, count) => {
+    setCollections((c) => {
+      const cur = Object.assign({}, c[bookId] || {});
+      if (count <= 0) delete cur[String(n)]; else cur[String(n)] = count;
+      return Object.assign({}, c, { [bookId]: cur });
+    });
+    touch(bookId);
+  };
 
   const B = window.WCSTKBOOKS;
   const regOf = (pid) => (books[pid] || (B ? B.defaultRegistry(pid) : { list: [{ id: pid, label: "My album" }], active: pid }));
+  const idPrefix = () => ((sync && sync.memberId) || "d");
   const addBook = (playerId, label) => {
     if (!B) return;
-    const id = "b" + Date.now();
+    const id = idPrefix() + ":b" + Date.now();
     setBooks((bk) => Object.assign({}, bk, { [playerId]: B.addBook(bk[playerId] || B.defaultRegistry(playerId), label, id) }));
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
+    touch(id);
   };
   const renameBook = (playerId, bookId, label) => {
     if (!B) return;
     setBooks((bk) => Object.assign({}, bk, { [playerId]: B.renameBook(bk[playerId] || B.defaultRegistry(playerId), bookId, label) }));
+    touch(bookId);
   };
   const switchBook = (playerId, bookId) => setBooks((bk) => {
     const r = bk[playerId]; if (!r) return bk;
@@ -175,14 +190,12 @@ window.useHubStore = function () {
   });
   const removeBook = (playerId, bookId) => {
     if (!B) return;
-    setBooks((bk) => {
-      const r = bk[playerId] || B.defaultRegistry(playerId);
-      const res = B.removeBook(r, bookId);
-      if (!res.removed) return bk;
-      try { localStorage.removeItem(skey(bookId)); } catch (e) {}
-      setCollections((c) => { const n = Object.assign({}, c); delete n[bookId]; return n; });
-      return Object.assign({}, bk, { [playerId]: res.reg });
-    });
+    const res0 = B.removeBook(books[playerId] || B.defaultRegistry(playerId), bookId);
+    if (!res0.removed) return;
+    try { localStorage.removeItem(skey(bookId)); } catch (e) {}
+    setBooks((bk) => Object.assign({}, bk, { [playerId]: B.removeBook(bk[playerId] || B.defaultRegistry(playerId), bookId).reg }));
+    setCollections((c) => { const n = Object.assign({}, c); delete n[bookId]; return n; });
+    tomb(playerId, bookId); // propagate the deletion (shared mode) instead of letting it resurrect
   };
 
   const bracket = brackets[players.active] || {};
@@ -191,11 +204,12 @@ window.useHubStore = function () {
   const reset = () => { setResults({}); setBrackets((b) => Object.assign({}, b, { [players.active]: {} })); };
   const addPlayer = (name, emoji) => {
     if (!B) return;
-    const id = "p" + Date.now();
+    const id = idPrefix() + ":p" + Date.now();
     setBrackets((b) => Object.assign({}, b, { [id]: {} }));
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
     setBooks((bk) => Object.assign({}, bk, { [id]: B.defaultRegistry(id) }));
     setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "🙂" }]), active: id }));
+    touch(id);
   };
   const switchPlayer = (id) => setPlayers((p) => Object.assign({}, p, { active: id }));
   const removePlayer = (id) => setPlayers((p) => {
@@ -205,23 +219,85 @@ window.useHubStore = function () {
     try { localStorage.removeItem(bkkey(id)); localStorage.removeItem(bkey(id)); reg.list.forEach((bk) => localStorage.removeItem(skey(bk.id))); } catch (e) {}
     setBooks((bk) => { const n = Object.assign({}, bk); delete n[id]; return n; });
     setCollections((c) => { const n = Object.assign({}, c); reg.list.forEach((bk) => delete n[bk.id]); return n; });
+    reg.list.forEach((bk) => tomb(id, bk.id)); // propagate the deletion in shared mode
     const list = p.list.filter((x) => x.id !== id);
     return { list: list, active: p.active === id ? list[0].id : p.active };
   });
   const importPlayer = (name, emoji, bracketObj) => {
     if (!B) return;
-    const id = "p" + Date.now();
+    const id = idPrefix() + ":p" + Date.now();
     setBrackets((b) => Object.assign({}, b, { [id]: bracketObj || {} }));
     setCollections((c) => Object.assign({}, c, { [id]: {} }));
     setBooks((bk) => Object.assign({}, bk, { [id]: B.defaultRegistry(id) }));
     setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "📥" }]), active: id }));
+    touch(id);
   };
+
+  // ---- Sync driver: pull → reconcile → apply → push. Activates only when WCSYNC_DEFAULT.shared
+  //      (or localStorage wc26shared==="1"). Local-first: edits are never lost; rollback = turn the flag off. ----
+  const sref = React.useRef({});
+  sref.current = { players: players, books: books, collections: collections, meta: meta, sync: sync };
+  const syncingRef = React.useRef(false);
+  const sharedOn = () => {
+    try { if (window.WCSYNC_DEFAULT && window.WCSYNC_DEFAULT.shared) return true; } catch (e) {}
+    try { return localStorage.getItem("wc26shared") === "1"; } catch (e) { return false; }
+  };
+  const syncOnce = React.useCallback(async () => {
+    const SY = window.WCSTKSYNC, FX = window.WCFAMSTORE, cfg = sref.current.sync;
+    if (!cfg || !SY || !FX || syncingRef.current) return;
+    syncingRef.current = true;
+    try {
+      const data = await SY.postAction(cfg, "getFamily", {});
+      // Re-read state AFTER the network round-trip so edits made during the await are included
+      // (and applied/pushed), never clobbered. Reconcile + setState below run synchronously.
+      const st = sref.current;
+      const res = FX.reconcile(FX.toLocal(st.players, st.books, st.collections, st.meta), (data && data.members) || [], new Date().toISOString());
+      if (res.changed) {
+        const ap = FX.applyResult(res.roster, st.players, st.books);
+        setPlayers(ap.players); setBooks(ap.books); setCollections(ap.collections); setMeta(ap.meta);
+      }
+      const pushRows = res.toPush.concat(FX.tombstoneRows(st.meta));
+      const pushed = {};
+      for (let i = 0; i < pushRows.length; i++) {
+        const r = pushRows[i];
+        await SY.postAction(cfg, "publishCollection", { playerId: r.playerId, name: r.name, emoji: r.emoji,
+          bookId: r.bookId, bookLabel: r.bookLabel, updatedAt: r.updatedAt, deleted: r.deleted,
+          collection: (function () { try { return JSON.parse(r.collectionJSON || "{}"); } catch (e) { return {}; } })() });
+        pushed[r.bookId] = r.updatedAt;
+      }
+      if (Object.keys(pushed).length) setMeta((m) => {
+        const out = {};
+        Object.keys(m).forEach((b) => {
+          if (pushed[b] !== undefined && m[b] && m[b].updatedAt === pushed[b]) {
+            if (!m[b].deleted) out[b] = Object.assign({}, m[b], { dirty: false }); // clear dirty; drop pushed tombstones
+          } else { out[b] = m[b]; } // re-edited during the push (different updatedAt) → keep dirty for next cycle
+        });
+        return out;
+      });
+      setSyncStatus("Synced " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
+    } catch (e) { setSyncStatus("Offline — will retry"); }
+    syncingRef.current = false;
+  }, []);
+  React.useEffect(() => {
+    if (!sync || !sharedOn()) return;
+    syncOnce();
+    const id = setInterval(syncOnce, 20000);
+    return () => clearInterval(id);
+  }, [sync, syncOnce]);
+  React.useEffect(() => {
+    if (!sync || !sharedOn()) return;
+    if (!Object.keys(meta).some((b) => meta[b] && meta[b].dirty)) return;
+    const t = setTimeout(syncOnce, 3000); // debounced push shortly after edits
+    return () => clearTimeout(t);
+  }, [meta, sync, syncOnce]);
+
   return { store: { results: results, bracket: bracket }, brackets: brackets,
            collections: collections, setSticker: setSticker, sync: sync, setSync: setSync,
            setResult: setResult, setPick: setPick, reset: reset,
            players: players, addPlayer: addPlayer, switchPlayer: switchPlayer,
            removePlayer: removePlayer, importPlayer: importPlayer,
-           books: books, addBook: addBook, renameBook: renameBook, removeBook: removeBook, switchBook: switchBook };
+           books: books, addBook: addBook, renameBook: renameBook, removeBook: removeBook, switchBook: switchBook,
+           syncStatus: syncStatus };
 };
 
 /* ---- Share a bracket as a compact URL (no backend): one char per slot ---- */
