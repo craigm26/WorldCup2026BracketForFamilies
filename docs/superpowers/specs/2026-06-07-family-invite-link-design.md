@@ -11,13 +11,19 @@ the connection **sticky across every screen** — without ever putting the secre
 the public web.
 
 Two parts:
-1. **In-app invite card** (🎟️ Stickers → 👨‍👩‍👧 Family, when connected): the full invite link,
-   a one-tap **Copy** button (with an `http://`-kiosk clipboard fallback), and a **QR code**.
-   The link targets the **public hub** (GitHub Pages `…/worldcup/`) so remote family can open it.
+1. **In-app invite card** (🎟️ Stickers → 👨‍👩‍👧 Family, when connected): up to **two** invite
+   options, each with a one-tap **Copy** (with an `http://`-kiosk clipboard fallback) and a **QR**:
+   - **🏠 Tailscale link** — the kiosk's own URL over the user's tailnet
+     (`http://100.64.76.122/worldcup/`). **No key in the link**: family on the tailnet open it,
+     load the app from the kiosk, and the kiosk's `sync-config.js` auto-joins them. The `/exec`
+     write-key never leaves the private network.
+   - **🌍 Public link** — the public hub (GitHub Pages `…/worldcup/`) with `?sync=…&code=…` embedded,
+     for family **not** on the tailnet. Carries the key, so it's shared privately.
 2. **Sticky default config**: `loadSync()` falls back to an optional `window.WCSYNC_DEFAULT`
-   (url + code + public-hub) when a device has no saved sync. On the **kiosk only**, a
-   **git-ignored** `sync-config.js` supplies that default, so every screen there auto-joins the
-   same family system and survives cache wipes. The public build ships no such file.
+   (url + code, plus `tailscaleHub`/`publicHub` for the card) when a device has no saved sync. On the
+   **kiosk only**, a **git-ignored** `sync-config.js` supplies that default, so every screen there
+   (LAN *and* tailnet visitors) auto-joins the same family system and survives cache wipes. The
+   public build ships no such file.
 
 ## 2. Goals & non-goals
 
@@ -56,14 +62,17 @@ Two parts:
 | Git hygiene | `.gitignore` | ignore `worldcup/sync-config.js` so the secret is never committed | — |
 | Tests | `setuptest.js` | `buildInviteLink` cases | `setup-link.js` |
 
-### 4.1 Hub-base resolution (for the invite link)
-```
-hubBase = (window.WCSYNC_DEFAULT && window.WCSYNC_DEFAULT.hub)
-        || (location.origin + location.pathname.replace(/[^/]*$/, ''))   // strip filename → .../worldcup/
-```
-- On the **kiosk** (LAN origin), `WCSYNC_DEFAULT.hub` provides the **public** hub so the shared
-  link is openable by remote family.
-- On a device loaded **from the public hub**, `location` already is the public `…/worldcup/` → correct.
+### 4.1 Which links the card shows
+Let `D = window.WCSYNC_DEFAULT || {}` and `fallbackHub = location.origin + location.pathname.replace(/[^/]*$/, '')` (strip filename → `.../worldcup/`).
+- **Tailscale link** = `D.tailscaleHub` (shown only if set). It is the bare hub URL — **no** `?sync`/`code`
+  params — because opening it loads the kiosk's `sync-config.js`, which auto-joins the visitor.
+- **Public link** = `buildInviteLink(publicHub, sync.url, sync.code)` where
+  `publicHub = D.publicHub || (D.tailscaleHub ? null : fallbackHub)`:
+  - Kiosk config provides `publicHub` → use it.
+  - Device loaded **from the public hub** (no `WCSYNC_DEFAULT` at all) → `fallbackHub` is its own
+    public `…/worldcup/` → correct.
+  - Kiosk with only `tailscaleHub` set → no public link (don't guess one).
+- If neither link resolves, the card renders nothing.
 
 ### 4.2 `loadSync()` fallback (data flow)
 1. Read `wc26sync` from localStorage (existing).
@@ -73,11 +82,12 @@ hubBase = (window.WCSYNC_DEFAULT && window.WCSYNC_DEFAULT.hub)
 4. Return the config (or null).
 
 ### 4.3 Invite card (when `sync` is set)
-- `link = WCSETUP.buildInviteLink(hubBase, sync.url, sync.code)`.
-- Render: the link (selectable, word-break), a **📋 Copy invite link** button, and a QR `<div>`.
+- Renders an `InviteRow` for each available link (Tailscale and/or public). Each row: a QR, a
+  label + hint, the link text (selectable, word-break), and a **📋 Copy** button.
 - **Copy:** `navigator.clipboard.writeText(link)` when available (secure context); otherwise select a
   hidden `<textarea>` holding the link and `document.execCommand('copy')`. Show a transient "Copied!".
-- **QR:** on mount (and when `link` changes), clear the QR container and `new window.QRCode(el, {text: link, width: 168, height: 168})`; guard if `window.QRCode` is undefined (skip QR, keep link+copy).
+- **QR:** per row, on mount/`link` change, clear the container and `new window.QRCode(el, {text: link, width, height})`;
+  guard if `window.QRCode` is undefined (skip QR, keep link+copy).
 
 ## 5. `setup-link.js` — `buildInviteLink`
 ```js
@@ -90,7 +100,11 @@ Dual-export stays (`window.WCSETUP` + `module.exports`).
 ## 6. Kiosk deploy (out of repo)
 - Write `worldcup/sync-config.js` **on the Pi only**:
   ```js
-  window.WCSYNC_DEFAULT = { url: "<exec>", code: "<family code>", hub: "https://<public-pages>/worldcup/" };
+  window.WCSYNC_DEFAULT = {
+    url: "<exec>", code: "<family code>",
+    tailscaleHub: "http://100.64.76.122/worldcup/",          // secret-free, auto-joins on the tailnet
+    publicHub: "https://<public-pages>/worldcup/"             // for the public link (key embedded)
+  };
   ```
 - Add `<script src="sync-config.js"></script>` to the **kiosk's** `index.html` (before `hub-data.js`),
   the same idempotent patch pattern used for `sticker-books.js`. The **repo** `index.html` is NOT
@@ -114,8 +128,10 @@ Dual-export stays (`window.WCSETUP` + `module.exports`).
 - Smoke (Puppeteer, `stickersmoke.js` or a focused script):
   - **Default fallback:** with `window.WCSYNC_DEFAULT` injected before load (and no saved sync),
     the device auto-connects (`wc26sync` gets set with url/code + a memberId).
-  - **Invite card:** on a connected device, the Family tab shows the invite link, a Copy button, and
-    a QR element; **0 JS errors**. (Clipboard itself isn't asserted headless.)
+  - **Invite card (public):** a connected device with no `WCSYNC_DEFAULT` shows a public invite link
+    (with `?sync=&code=`), a Copy button, and a QR; **0 JS errors**.
+  - **Invite card (Tailscale + public):** with `WCSYNC_DEFAULT.tailscaleHub`+`publicHub` injected, the
+    card shows BOTH a secret-free Tailscale link and the public link. (Clipboard isn't asserted headless.)
 
 ## 9. Build order (for the plan)
 
