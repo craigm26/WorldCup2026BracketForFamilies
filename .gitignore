@@ -5,6 +5,9 @@ worldcup/fonts/fredoka-*.woff2
 worldcup/fonts/fredoka.css
 worldcup/offline-config.js
 worldcup/live-scores.json
+
+# Kiosk-only Family Sync default — contains the /exec URL + family code. NEVER commit.
+worldcup/sync-config.js
 *.html.bak
 *.bak
 .DS_Store
