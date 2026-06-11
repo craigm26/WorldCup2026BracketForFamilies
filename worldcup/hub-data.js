@@ -381,8 +381,8 @@ window.wcQualifiers = function (results) {
 /* ---- Time-zone helper: educate kids + show kick-offs in any family's zone ----
    Base kick-off times are US Eastern (EDT = UTC-4 during Jun-Jul 2026). We convert
    to the chosen zone with the browser's Intl API and tag each with a day/night icon.
-   Per-match times use the tournament's typical Eastern windows (12/3/6/9 PM ET) — the
-   value here is the time-zone math + day/night, not a claim of exact per-match minutes. */
+   Per-match times are from the official FIFA schedule (stored in FIXTURES[g][idx][4] as
+   ET strings) and converted to the chosen zone with the browser's Intl API. */
 window.WCTZ = (function () {
   const ZONES = [
     { id: "device", label: "📍 My device's time", tz: null },
@@ -415,9 +415,9 @@ window.WCTZ = (function () {
     return new Date(Date.UTC(2026, mon, day, hh + 4, mm || 0));   // ET = UTC-4 in summer
   }
   function kickoffET(g, idx) {
-    const SLOTS = [[12, 0], [15, 0], [18, 0], [21, 0]];
-    const k = (((g.charCodeAt(0) - 65) + idx * 3) % 4 + 4) % 4;
-    return SLOTS[k];
+    const f = window.WC.FIXTURES[g] && window.WC.FIXTURES[g][idx];
+    if (f && f[4]) { const p = parseET(f[4]); if (p) return p; }
+    return [15, 0];
   }
   function dayNight(h) {
     if (h >= 6 && h < 11) return { icon: "🌅", word: "morning" };
@@ -450,7 +450,7 @@ window.WCTZ = (function () {
   function matches() {
     const WC = window.WC; const out = [];
     Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f, idx) => {
-      const k = kickoffET(g, idx);
+      const k = f[4] ? parseET(f[4]) || [15, 0] : [15, 0];
       out.push({ type: "group", g: g, idx: idx, home: f[0], away: f[1], date: f[2], city: f[3], et: { h: k[0], m: k[1] }, dt: etToDate(f[2], k[0], k[1]) });
     }));
     const KM = WC.KO_M || {};

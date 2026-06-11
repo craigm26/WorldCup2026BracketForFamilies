@@ -96,7 +96,7 @@ function ScheduleTab({ results, tz, setTz }) {
           ))}
         </div>
       </div>
-      <div style={{ fontSize: 12, color: "#7e8cc0", marginTop: 12, lineHeight: 1.5 }}>⏰ Times use the tournament's typical Eastern kick-off windows (12, 3, 6 &amp; 9 PM ET), converted to your zone — confirm exact kick-offs with your local listings closer to the date.</div>
+      <div style={{ fontSize: 12, color: "#7e8cc0", marginTop: 12, lineHeight: 1.5 }}>⏰ Kick-off times are from the official FIFA schedule (ET), converted to your chosen time zone.</div>
     </div>
   );
 }
