@@ -530,6 +530,14 @@ function HubApp() {
     wake();
     return () => { clearTimeout(t); evs.forEach((e) => window.removeEventListener(e, wake)); };
   }, [settings.screensaver]);
+  // Always-on kiosk screens never re-fetch JS, so deploys (schedule fixes, new
+  // features) only land after a reload. Reload after 4h of continuous idle —
+  // the screensaver remounts on the fresh code and nobody is mid-interaction.
+  React.useEffect(() => {
+    if (!idle && !forceSaver) return;
+    const r = setTimeout(() => { try { window.location.reload(); } catch (e) {} }, 4 * 3600 * 1000);
+    return () => clearTimeout(r);
+  }, [idle, forceSaver]);
   React.useEffect(() => {
     const h = (e) => {
       if (e.target && /^(SELECT|INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
