@@ -1,559 +1,638 @@
-/* Extra data for the interactive Hub: where-to-watch + simple helpers.
-   Broadcasters reflect the official 2026 rights holders in the three host nations. */
-window.HUB = {
-  channels: [
-    { region: "United States", flag: "us", tv: ["FOX", "FS1", "Telemundo (Spanish)", "Universo (Spanish)"], stream: ["Tubi", "Peacock", "Fubo", "FOX One", "FOX Sports app", "Telemundo app"], free: ["FOX over the air with an antenna (English, includes the Final)", "Telemundo over the air with an antenna (Spanish, all 104 matches across Telemundo/Universo)", "Tubi free in 4K for select marquee matches, no subscription"], note: "Grab an antenna and you can catch the big games in English on FOX and in Spanish on Telemundo for free, plus a few standouts free in 4K on Tubi." },
-    { region: "Canada", flag: "ca", tv: ["TSN (English)", "CTV (English, select matches)", "RDS (French)"], stream: ["Crave", "TSN+", "RDS app"], free: ["CTV over the air for select matches (Canada national-team games, the opening match, and the Final)"], note: "Cheer on Canada for free on CTV over the air, including the opener and the Final; the full 104-match slate lives on TSN and RDS." },
-    { region: "Mexico", flag: "mx", tv: ["Las Estrellas", "Canal 5", "Nu9ve / Canal 9", "TUDN", "Azteca Uno", "Azteca 7"], stream: ["ViX", "TV Azteca En Vivo"], free: ["Canal 5, Las Estrellas and Nu9ve over the air (TelevisaUnivision free-to-air matches)", "Azteca Uno and Azteca 7 over the air (includes Mexico national-team games)", "TV Azteca En Vivo free app and website for the Azteca matches"], note: "Every Mexico match and the Final are free over the air on both TV Azteca and Las Estrellas/Canal 5, so the whole family can gather around without a subscription." },
-    { region: "Rest of the World (UK shown)", flag: "gb", tv: ["BBC", "ITV"], stream: ["BBC iPlayer", "ITVX"], free: ["All 104 matches free in the UK across BBC and ITV (broadcast and free streaming on BBC iPlayer / ITVX)", "Many countries have a national free-to-air broadcaster carrying the World Cup", "YouTube carries the first 10 minutes of every match free, plus select full matches in some regions"], note: "In the UK the whole tournament is free on BBC and ITV; elsewhere, look up your country's free-to-air channel and lean on YouTube for free highlights of every match." }
-  ],
-  kickoffWindows: [
-    { region: "United States & Canada (Eastern Time)", text: "Most games kick off in friendly afternoon-to-evening windows, roughly around midday, mid-afternoon, early evening and prime time Eastern. No middle-of-the-night alarms for North American families." },
-    { region: "Mexico (local time)", text: "Kickoffs land about an hour earlier than Eastern, filling late-morning through evening slots, easy to fit around a family day." },
-    { region: "UK & Europe (BST / local)", text: "Because the games are in North America, kickoffs land in the evening and into the late night in the UK and Europe (BST is about 5 hours ahead of Eastern), great for an after-dinner watch." }
-  ],
-  watchNote: "The 2026 World Cup runs June 11 to July 19 across the USA, Canada and Mexico, so for North American families the games fall in comfortable daytime and evening hours, no late nights needed. Pick your language and your screen, settle in together, and enjoy the world's biggest party.",
-  globalNote: "Outside the host nations, the easiest free path is your own country's free-to-air broadcaster, in the UK that's BBC and ITV (with free streaming on BBC iPlayer and ITVX) showing all 104 matches at no cost. Wherever you are, YouTube is an official partner streaming the first 10 minutes of every match for free, plus a selection of full matches in some regions, so you can always catch a taste of the action even without a subscription.",
-};
+/* World Cup 2026 Hub — interactive TV/phone app served from the family Pi-NAS. */
+const TABS = [
+  { id: "home",      label: "🏠 Home" },
+  { id: "bracket",   label: "🗂️ Bracket" },
+  { id: "standings", label: "📊 Standings" },
+  { id: "schedule",  label: "📅 Schedule" },
+  { id: "watch",     label: "📺 Watch" },
+  { id: "facts",     label: "🌍 Map & Facts" },
+  { id: "play",      label: "🎮 Play" },
+  { id: "stickers",  label: "🎟️ Stickers" },
+  { id: "help",      label: "❓ Help" },
+  { id: "settings",  label: "⚙️ Settings" },
+];
 
-/* ---- live scores ----
-   The Hub fetches a same-origin ./live-scores.json (written by update_scores.py on
-   the Pi). Schema: { updated:"ISO", matches:[{home:"MEX",away:"RSA",hg:2,ag:1,status:"FT"}] }
-   home/away are our 3-letter codes. liveToResults maps it onto the standings. */
-window.liveToResults = function (live) {
-  const WC = window.WC, out = {}, status = {};
-  if (!live || !Array.isArray(live.matches)) return { out, status };
-  live.matches.forEach((m) => {
-    Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f, i) => {
-      const key = g + "-" + i;
-      if (f[0] === m.home && f[1] === m.away) {
-        if (m.hg != null && m.ag != null) out[key] = [m.hg, m.ag];
-        if (m.status) status[key] = m.status; // FT / LIVE / etc.
-      } else if (f[0] === m.away && f[1] === m.home) {
-        // The feed reported this fixture with home/away reversed (the venue's "home"
-        // side differs from our schedule order) — flip the goals so they line up.
-        if (m.hg != null && m.ag != null) out[key] = [m.ag, m.hg];
-        if (m.status) status[key] = m.status;
-      }
-    }));
-  });
-  return { out, status };
-};
-
-/* ---- standings computation ---- */
-window.computeStandings = function (letter, results) {
-  const WC = window.WC;
-  const teams = WC.GROUPS[letter];
-  const fixtures = WC.FIXTURES[letter];
-  const st = {};
-  teams.forEach((k) => (st[k] = { k, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }));
-  fixtures.forEach((f, i) => {
-    const r = results[letter + "-" + i];
-    if (!r || r[0] === "" || r[1] === "" || r[0] == null || r[1] == null) return;
-    const h = +r[0], a = +r[1];
-    if (Number.isNaN(h) || Number.isNaN(a)) return;
-    const H = st[f[0]], A = st[f[1]];
-    H.p++; A.p++; H.gf += h; H.ga += a; A.gf += a; A.ga += h;
-    if (h > a) { H.w++; A.l++; H.pts += 3; }
-    else if (h < a) { A.w++; H.l++; A.pts += 3; }
-    else { H.d++; A.d++; H.pts++; A.pts++; }
-  });
-  const arr = Object.values(st).map((s) => ({ ...s, gd: s.gf - s.ga }));
-  arr.sort((x, y) => y.pts - x.pts || y.gd - x.gd || y.gf - x.gf || WC.T[x.k].r - WC.T[y.k].r);
-  return arr;
-};
-
-/* ---- localStorage-backed store: SHARED results + PER-PLAYER brackets ----
-   Results (the objective scores) are shared by the whole family; each player keeps
-   their own bracket prediction. Migrates the old single `wc26hub` store once. */
-const bkey = (id) => "wc26bracket:" + id;
-const skey = (id) => "wc26stickers:" + id;     // keyed by bookId (default book's id == playerId)
-const bkkey = (id) => "wc26books:" + id;        // per-player book registry
-const SYNC_KEY = "wc26sync";
-function loadSync() {
-  let cur = null;
-  try { cur = JSON.parse(localStorage.getItem(SYNC_KEY)); } catch (e) { cur = null; }
-  try {
-    // a one-tap setup link (?sync=&code=) configures/updates this device
-    const link = window.WCSTKSYNC && window.WCSTKSYNC.parseSetupLink(window.location.search);
-    if (link) {
-      const memberId = (cur && cur.memberId) || window.WCSTKSYNC.genMemberId();
-      cur = { url: link.url, code: link.code, memberId: memberId };
-      try { localStorage.setItem(SYNC_KEY, JSON.stringify(cur)); } catch (e) {}
-    }
-  } catch (e) {}
-  // device default (e.g. the kiosk's git-ignored sync-config.js sets window.WCSYNC_DEFAULT) —
-  // a fresh device auto-joins the family system without anyone pasting a setup link.
-  if (!cur) {
-    try {
-      const d = window.WCSYNC_DEFAULT;
-      if (d && d.url && d.code && window.WCSTKSYNC) {
-        cur = { url: d.url, code: d.code, memberId: window.WCSTKSYNC.genMemberId() };
-        try { localStorage.setItem(SYNC_KEY, JSON.stringify(cur)); } catch (e) {}
-      }
-    } catch (e) {}
-  }
-  return cur || null;
+function useIsPhone() {
+  const [p, setP] = React.useState(() => (typeof window !== "undefined" ? window.innerWidth < 680 : false));
+  React.useEffect(() => { const h = () => setP(window.innerWidth < 680); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
+  return p;
 }
-function loadPlayers() {
-  try { const p = JSON.parse(localStorage.getItem("wc26players")); if (p && p.list && p.list.length) return p; } catch (e) {}
-  return { list: [{ id: "family", name: "Family", emoji: "👪" }], active: "family" };
+
+/* ---- shared time-zone picker (drives the schedule + watch tabs) ---- */
+function TimeZoneSelect({ tz, setTz, compact }) {
+  const ZONES = window.WCTZ.ZONES;
+  return (
+    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,.08)", borderRadius: 12, padding: compact ? "5px 10px" : "7px 12px", whiteSpace: "nowrap" }}>
+      <span style={{ fontSize: 14, color: "#9fb0e0", fontWeight: 600 }}>🕓 Your time zone</span>
+      <select value={tz} onChange={(e) => setTz(e.target.value)} style={{ fontFamily: "inherit", fontSize: 14, fontWeight: 600, color: "#16235a", background: "#f4b740", border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer" }}>
+        {ZONES.map((z) => <option key={z.id} value={z.id}>{z.label}</option>)}
+      </select>
+    </label>
+  );
 }
-// Per-player book registries; migrates (and persists) a default book for any player missing one.
-// Metadata-only: never reads or writes wc26stickers:* — the default book's id == playerId, so the
-// existing per-player collection already IS that book.
-function loadBooks(players) {
-  const B = window.WCSTKBOOKS;
-  const out = {};
-  (players.list || []).forEach((pl) => {
-    let existing = null;
-    try { existing = JSON.parse(localStorage.getItem(bkkey(pl.id))); } catch (e) { existing = null; }
-    const reg = B ? B.migrateRegistry(existing, pl.id)
-                  : (existing && existing.list && existing.list.length ? existing
-                     : { list: [{ id: pl.id, label: "My album" }], active: pl.id });
-    out[pl.id] = reg;
-    try { localStorage.setItem(bkkey(pl.id), JSON.stringify(reg)); } catch (e) {}
-  });
-  return out;
-}
-// Collections keyed by bookId, read across every book of every player.
-function loadCollections(books) {
-  const out = {};
-  Object.keys(books).forEach((pid) => {
-    (books[pid].list || []).forEach((bk) => {
-      try { out[bk.id] = JSON.parse(localStorage.getItem(skey(bk.id))) || {}; }
-      catch (e) { out[bk.id] = {}; }
-    });
-  });
-  return out;
-}
-if (!window.__wc26migrated) {
-  window.__wc26migrated = true;
-  try {
-    const old = JSON.parse(localStorage.getItem("wc26hub"));
-    if (old) {
-      if (old.results && localStorage.getItem("wc26results") === null) localStorage.setItem("wc26results", JSON.stringify(old.results));
-      if (old.bracket && localStorage.getItem(bkey("family")) === null) localStorage.setItem(bkey("family"), JSON.stringify(old.bracket));
-    }
-  } catch (e) {}
-}
-window.useHubStore = function () {
-  const [players, setPlayers] = React.useState(loadPlayers);
-  const [results, setResults] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26results")) || {}; } catch (e) { return {}; } });
-  // knockout scores, hand-entered or filled from the live feed: { [matchNo]: [topGoals, botGoals] }
-  const [koResults, setKoResults] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26ko")) || {}; } catch (e) { return {}; } });
-  const [brackets, setBrackets] = React.useState(() => {
-    const out = {}; loadPlayers().list.forEach((pl) => { try { out[pl.id] = JSON.parse(localStorage.getItem(bkey(pl.id))) || {}; } catch (e) { out[pl.id] = {}; } }); return out;
-  });
-  const [books, setBooks] = React.useState(() => loadBooks(loadPlayers()));
-  const [collections, setCollections] = React.useState(() => loadCollections(loadBooks(loadPlayers())));
-  React.useEffect(() => { try { localStorage.setItem("wc26players", JSON.stringify(players)); } catch (e) {} }, [players]);
-  React.useEffect(() => { try { localStorage.setItem("wc26results", JSON.stringify(results)); } catch (e) {} }, [results]);
-  React.useEffect(() => { try { localStorage.setItem("wc26ko", JSON.stringify(koResults)); } catch (e) {} }, [koResults]);
-  React.useEffect(() => { try { Object.keys(brackets).forEach((id) => localStorage.setItem(bkey(id), JSON.stringify(brackets[id]))); } catch (e) {} }, [brackets]);
-  React.useEffect(() => { try { Object.keys(books).forEach((pid) => localStorage.setItem(bkkey(pid), JSON.stringify(books[pid]))); } catch (e) {} }, [books]);
-  React.useEffect(() => { try { Object.keys(collections).forEach((id) => localStorage.setItem(skey(id), JSON.stringify(collections[id]))); } catch (e) {} }, [collections]);
 
-  // ---- Shared Family Library: per-book sync metadata (updatedAt + dirty). Drives the reconcile engine. ----
-  const FS = window.WCFAMSTORE;
-  const [meta, setMeta] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26sync_meta")) || {}; } catch (e) { return {}; } });
-  React.useEffect(() => { try { localStorage.setItem("wc26sync_meta", JSON.stringify(meta)); } catch (e) {} }, [meta]);
-  const [syncStatus, setSyncStatus] = React.useState("");
-  const touch = (bookId) => { if (FS && bookId) setMeta((m) => FS.markDirty(m, bookId, new Date().toISOString())); };
-  // Mark a book as a pending deletion (tombstone) so the delete propagates instead of resurrecting.
-  const tomb = (playerId, bookId) => { if (FS && bookId) setMeta((m) => Object.assign({}, m, { [bookId]: { updatedAt: new Date().toISOString(), dirty: true, deleted: true, playerId: playerId } })); };
-
-  const [sync, setSyncState] = React.useState(loadSync);
-  React.useEffect(() => { try {
-    if (sync) localStorage.setItem(SYNC_KEY, JSON.stringify(sync)); else localStorage.removeItem(SYNC_KEY);
-  } catch (e) {} }, [sync]);
-  const setSync = (cfg) => setSyncState(cfg);
-
-  const setSticker = (bookId, n, count) => {
-    setCollections((c) => {
-      const cur = Object.assign({}, c[bookId] || {});
-      if (count <= 0) delete cur[String(n)]; else cur[String(n)] = count;
-      return Object.assign({}, c, { [bookId]: cur });
-    });
-    touch(bookId);
-  };
-
-  const B = window.WCSTKBOOKS;
-  const regOf = (pid) => (books[pid] || (B ? B.defaultRegistry(pid) : { list: [{ id: pid, label: "My album" }], active: pid }));
-  const idPrefix = () => ((sync && sync.memberId) || "d");
-  const addBook = (playerId, label) => {
-    if (!B) return;
-    const id = idPrefix() + ":b" + Date.now();
-    setBooks((bk) => Object.assign({}, bk, { [playerId]: B.addBook(bk[playerId] || B.defaultRegistry(playerId), label, id) }));
-    setCollections((c) => Object.assign({}, c, { [id]: {} }));
-    touch(id);
-  };
-  const renameBook = (playerId, bookId, label) => {
-    if (!B) return;
-    setBooks((bk) => Object.assign({}, bk, { [playerId]: B.renameBook(bk[playerId] || B.defaultRegistry(playerId), bookId, label) }));
-    touch(bookId);
-  };
-  const switchBook = (playerId, bookId) => setBooks((bk) => {
-    const r = bk[playerId]; if (!r) return bk;
-    return Object.assign({}, bk, { [playerId]: { list: r.list, active: bookId } });
-  });
-  const removeBook = (playerId, bookId) => {
-    if (!B) return;
-    const res0 = B.removeBook(books[playerId] || B.defaultRegistry(playerId), bookId);
-    if (!res0.removed) return;
-    try { localStorage.removeItem(skey(bookId)); } catch (e) {}
-    setBooks((bk) => Object.assign({}, bk, { [playerId]: B.removeBook(bk[playerId] || B.defaultRegistry(playerId), bookId).reg }));
-    setCollections((c) => { const n = Object.assign({}, c); delete n[bookId]; return n; });
-    tomb(playerId, bookId); // propagate the deletion (shared mode) instead of letting it resurrect
-  };
-
-  const bracket = brackets[players.active] || {};
-  const setResult = (gKey, side, val) => setResults((p) => { const cur = p[gKey] || ["", ""]; const nx = side === 0 ? [val, cur[1]] : [cur[0], val]; return Object.assign({}, p, { [gKey]: nx }); });
-  const setKoResult = (no, side, val) => setKoResults((p) => { const cur = p[no] || ["", ""]; const nx = side === 0 ? [val, cur[1]] : [cur[0], val]; return Object.assign({}, p, { [no]: nx }); });
-  const setPick = (slot, team) => setBrackets((b) => { const cur = b[players.active] || {}; return Object.assign({}, b, { [players.active]: Object.assign({}, cur, { [slot]: team }) }); });
-  const reset = () => { setResults({}); setKoResults({}); setBrackets((b) => Object.assign({}, b, { [players.active]: {} })); };
-  const addPlayer = (name, emoji) => {
-    if (!B) return;
-    const id = idPrefix() + ":p" + Date.now();
-    setBrackets((b) => Object.assign({}, b, { [id]: {} }));
-    setCollections((c) => Object.assign({}, c, { [id]: {} }));
-    setBooks((bk) => Object.assign({}, bk, { [id]: B.defaultRegistry(id) }));
-    setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "🙂" }]), active: id }));
-    touch(id);
-  };
-  const switchPlayer = (id) => setPlayers((p) => Object.assign({}, p, { active: id }));
-  const removePlayer = (id) => setPlayers((p) => {
-    if (!B) return p;
-    if (p.list.length <= 1) return p;
-    const reg = books[id] || B.defaultRegistry(id);
-    try { localStorage.removeItem(bkkey(id)); localStorage.removeItem(bkey(id)); reg.list.forEach((bk) => localStorage.removeItem(skey(bk.id))); } catch (e) {}
-    setBooks((bk) => { const n = Object.assign({}, bk); delete n[id]; return n; });
-    setCollections((c) => { const n = Object.assign({}, c); reg.list.forEach((bk) => delete n[bk.id]); return n; });
-    reg.list.forEach((bk) => tomb(id, bk.id)); // propagate the deletion in shared mode
-    const list = p.list.filter((x) => x.id !== id);
-    return { list: list, active: p.active === id ? list[0].id : p.active };
-  });
-  const importPlayer = (name, emoji, bracketObj) => {
-    if (!B) return;
-    const id = idPrefix() + ":p" + Date.now();
-    setBrackets((b) => Object.assign({}, b, { [id]: bracketObj || {} }));
-    setCollections((c) => Object.assign({}, c, { [id]: {} }));
-    setBooks((bk) => Object.assign({}, bk, { [id]: B.defaultRegistry(id) }));
-    setPlayers((p) => ({ list: p.list.concat([{ id: id, name: (name || "Player").slice(0, 14), emoji: emoji || "📥" }]), active: id }));
-    touch(id);
-  };
-
-  // ---- Sync driver: pull → reconcile → apply → push. Activates only when WCSYNC_DEFAULT.shared
-  //      (or localStorage wc26shared==="1"). Local-first: edits are never lost; rollback = turn the flag off. ----
-  const sref = React.useRef({});
-  sref.current = { players: players, books: books, collections: collections, meta: meta, sync: sync };
-  const syncingRef = React.useRef(false);
-  const sharedOn = () => {
-    try { if (window.WCSYNC_DEFAULT && window.WCSYNC_DEFAULT.shared) return true; } catch (e) {}
-    try { return localStorage.getItem("wc26shared") === "1"; } catch (e) { return false; }
-  };
-  const syncOnce = React.useCallback(async () => {
-    const SY = window.WCSTKSYNC, FX = window.WCFAMSTORE, cfg = sref.current.sync;
-    if (!cfg || !SY || !FX || syncingRef.current) return;
-    syncingRef.current = true;
-    try {
-      const data = await SY.postAction(cfg, "getFamily", {});
-      // Re-read state AFTER the network round-trip so edits made during the await are included
-      // (and applied/pushed), never clobbered. Reconcile + setState below run synchronously.
-      const st = sref.current;
-      const res = FX.reconcile(FX.toLocal(st.players, st.books, st.collections, st.meta), (data && data.members) || [], new Date().toISOString());
-      if (res.changed) {
-        const ap = FX.applyResult(res.roster, st.players, st.books);
-        setPlayers(ap.players); setBooks(ap.books); setCollections(ap.collections); setMeta(ap.meta);
-      }
-      const pushRows = res.toPush.concat(FX.tombstoneRows(st.meta));
-      const pushed = {};
-      for (let i = 0; i < pushRows.length; i++) {
-        const r = pushRows[i];
-        await SY.postAction(cfg, "publishCollection", { playerId: r.playerId, name: r.name, emoji: r.emoji,
-          bookId: r.bookId, bookLabel: r.bookLabel, updatedAt: r.updatedAt, deleted: r.deleted,
-          collection: (function () { try { return JSON.parse(r.collectionJSON || "{}"); } catch (e) { return {}; } })() });
-        pushed[r.bookId] = r.updatedAt;
-      }
-      if (Object.keys(pushed).length) setMeta((m) => {
-        const out = {};
-        Object.keys(m).forEach((b) => {
-          if (pushed[b] !== undefined && m[b] && m[b].updatedAt === pushed[b]) {
-            if (!m[b].deleted) out[b] = Object.assign({}, m[b], { dirty: false }); // clear dirty; drop pushed tombstones
-          } else { out[b] = m[b]; } // re-edited during the push (different updatedAt) → keep dirty for next cycle
-        });
-        return out;
-      });
-      setSyncStatus("Synced " + new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
-    } catch (e) { setSyncStatus("Offline — will retry"); }
-    syncingRef.current = false;
-  }, []);
-  React.useEffect(() => {
-    if (!sync || !sharedOn()) return;
-    syncOnce();
-    const id = setInterval(syncOnce, 20000);
-    return () => clearInterval(id);
-  }, [sync, syncOnce]);
-  React.useEffect(() => {
-    if (!sync || !sharedOn()) return;
-    if (!Object.keys(meta).some((b) => meta[b] && meta[b].dirty)) return;
-    const t = setTimeout(syncOnce, 3000); // debounced push shortly after edits
-    return () => clearTimeout(t);
-  }, [meta, sync, syncOnce]);
-
-  return { store: { results: results, bracket: bracket }, brackets: brackets, koResults: koResults,
-           collections: collections, setSticker: setSticker, sync: sync, setSync: setSync,
-           setResult: setResult, setKoResult: setKoResult, setPick: setPick, reset: reset,
-           players: players, addPlayer: addPlayer, switchPlayer: switchPlayer,
-           removePlayer: removePlayer, importPlayer: importPlayer,
-           books: books, addBook: addBook, renameBook: renameBook, removeBook: removeBook, switchBook: switchBook,
-           syncStatus: syncStatus };
-};
-
-/* ---- Share a bracket as a compact URL (no backend): one char per slot ---- */
-window.wcShare = (function () {
-  const ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
-  function slots() {
-    const out = [];
-    ["L", "R"].forEach((side) => { [["R32", 8], ["R16", 4], ["QF", 2], ["SF", 1]].forEach((rn) => { for (let i = 0; i < rn[1]; i++) { out.push(side + rn[0] + "-" + i + "-0"); out.push(side + rn[0] + "-" + i + "-1"); } }); });
-    out.push("CHAMP");
-    return out;
-  }
-  function encode(bracket) {
-    const codes = Object.keys(window.WC.T); const idx = {}; codes.forEach((c, i) => { idx[c] = i; });
-    return slots().map((s) => { const t = bracket && bracket[s]; return (t != null && idx[t] != null) ? ALPHA[idx[t]] : "_"; }).join("");
-  }
-  function decode(str) {
-    const SL = slots(); if (!str || str.length !== SL.length) return null;
-    const codes = Object.keys(window.WC.T); const out = {};
-    for (let i = 0; i < str.length; i++) { const ch = str[i]; if (ch !== "_") { const k = ALPHA.indexOf(ch); if (k >= 0 && codes[k]) out[SL[i]] = codes[k]; } }
-    return out;
-  }
-  return { encode: encode, decode: decode };
-})();
-
-/* ---- Download an .ics calendar (whole tournament, or one team's group games) ---- */
-window.wcICS = function (scope) {
+function ScheduleTab({ results, tz, setTz }) {
   const WC = window.WC, WCTZ = window.WCTZ;
-  const all = WCTZ.matches();
-  let evs = all, calname = "World Cup 2026";
-  if (scope && scope !== "all") { evs = all.filter((m) => m.type === "group" && (m.home === scope || m.away === scope)); calname = WC.T[scope].n + " · World Cup 2026"; }
-  const pad = (n) => (n < 10 ? "0" : "") + n;
-  const dt = (d) => d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + "T" + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + "00Z";
-  const esc = (s) => String(s).replace(/([,;\\])/g, "\\$1").replace(/\n/g, " ");
-  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//World Cup 2026 Family Hub//EN", "CALSCALE:GREGORIAN", "X-WR-CALNAME:" + esc(calname)];
-  evs.forEach((m) => {
-    const title = m.type === "group" ? WC.T[m.home].n + " v " + WC.T[m.away].n : "M" + m.no + " " + m.round + " — " + WC.feeder(m.top, true) + " v " + WC.feeder(m.bottom, true);
-    const end = new Date(m.dt.getTime() + 115 * 60000);
-    lines.push("BEGIN:VEVENT", "UID:wc2026-" + (m.type === "group" ? m.g + m.idx : "ko" + m.no) + "@familyhub", "DTSTAMP:" + dt(new Date()), "DTSTART:" + dt(m.dt), "DTEND:" + dt(end), "SUMMARY:" + esc("⚽ " + title), "LOCATION:" + esc(m.city), "DESCRIPTION:" + esc("World Cup 2026 · times shown are the typical Eastern kick-off windows — confirm locally."), "END:VEVENT");
-  });
-  lines.push("END:VCALENDAR");
-  try {
-    const blob = new Blob([lines.join("\r\n")], { type: "text/calendar" });
-    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-    a.download = (scope && scope !== "all" ? WC.T[scope].n.replace(/\W+/g, "") + "-" : "") + "worldcup2026.ics";
-    document.body.appendChild(a); a.click(); setTimeout(() => { a.remove(); URL.revokeObjectURL(a.href); }, 100);
-  } catch (e) {}
-};
+  results = results || {};
+  const all = [];
+  Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f, idx) => all.push({ g, idx, h: f[0], a: f[1], date: f[2], city: f[3] })));
+  const dayNum = (d) => parseInt(d.split(" ")[1], 10);
+  all.sort((x, y) => dayNum(x.date) - dayNum(y.date) || x.g.localeCompare(y.g));
+  const byDate = {};
+  all.forEach((m) => { (byDate[m.date] = byDate[m.date] || []).push(m); });
+  const cityObj = (n) => WC.CITIES.find((c) => c.city === n) || { pin: "?", nat: "US" };
+  const NATC = { CA: "#e2473b", US: "#2f6fe0", MX: "#1f9d57" };
+  const zoneLabel = WCTZ.labelOf(tz);
+  const ref = WCTZ.local("Jun 14", 18, 0, tz);   // a 6 PM ET evening kick-off, in your zone
+  return (
+    <div style={{ height: "100%", overflow: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        <div style={{ fontSize: 15, color: "#9fb0e0", flex: "1 1 320px" }}>Group stage · June 11–27 · all 72 matches, then the knockouts. Kick-off times below are shown in <b style={{ color: "#f4b740" }}>{zoneLabel}</b>.</div>
+        <TimeZoneSelect tz={tz} setTz={setTz} />
+      </div>
+      {/* time-zone classroom */}
+      <div style={{ background: "rgba(47,111,224,.14)", border: "2px solid rgba(47,111,224,.4)", borderRadius: 14, padding: "10px 14px", marginBottom: 14, fontSize: 14, color: "#dfe6ff", lineHeight: 1.45 }}>
+        🌍 <b style={{ color: "#9fc0ff" }}>Time-zone trick:</b> when a game kicks off at <b>6:00 PM in New York</b>, it's <b style={{ color: "#f4b740" }}>{ref.weekday} {ref.time} {ref.icon}</b> in {zoneLabel}. The Earth spins, so the same moment is a different time everywhere! {ref.h24 >= 23 || ref.h24 < 6 ? "Some families watch in their pyjamas. 😴" : ""}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 16 }}>
+        {Object.keys(byDate).map((d) => (
+          <div key={d} style={{ background: "rgba(255,255,255,.06)", borderRadius: 16, padding: 14 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 8 }}>{d}</div>
+            {byDate[d].map((m, i) => {
+              const o = cityObj(m.city);
+              const r = results[m.g + "-" + m.idx];
+              const played = r && r[0] !== "" && r[1] !== "";
+              const [eh, em] = WCTZ.kickoffET(m.g, m.idx);
+              const lk = WCTZ.local(m.date, eh, em, tz);
+              return (
+                <div key={i} style={{ padding: "7px 0", borderTop: "1px solid rgba(255,255,255,.08)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: "rgba(255,255,255,.12)", borderRadius: 6, padding: "1px 6px", flex: "none" }}>{m.g}</span>
+                    <Flag code={WC.T[m.h].c} w={26} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none" }} />
+                    <span style={{ fontSize: 14, color: "#fff", flex: 1, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[m.h].n}</span>
+                    <span style={{ color: played ? "#f4b740" : "#6f86c9", fontWeight: 700, fontSize: played ? 14 : 12, flex: "none", minWidth: 28, textAlign: "center" }}>{played ? `${r[0]}-${r[1]}` : "v"}</span>
+                    <span style={{ fontSize: 14, color: "#fff", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[m.a].n}</span>
+                    <Flag code={WC.T[m.a].c} w={26} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none" }} />
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, fontSize: 12.5, color: "#9fb0e0", paddingLeft: 2 }}>
+                    <span title="kick-off in your time zone" style={{ color: "#dfe6ff", fontWeight: 600 }}>{lk.icon} {lk.weekday} {lk.time}</span>
+                    <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ width: 16, height: 16, borderRadius: "50%", background: NATC[o.nat], color: "#fff", fontWeight: 700, fontSize: 9, display: "grid", placeItems: "center" }}>{o.pin}</span>
+                      {m.city}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+        <div style={{ background: "rgba(244,183,64,.14)", borderRadius: 16, padding: 14, border: "2px solid rgba(244,183,64,.4)" }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 8 }}>🏆 Knockouts</div>
+          {WC.KO.map((k, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderTop: "1px solid rgba(255,255,255,.08)" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{k.r}</span>
+              <span style={{ fontSize: 14, color: "#dfe6ff" }}>{k.d}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: "#7e8cc0", marginTop: 12, lineHeight: 1.5 }}>⏰ Kick-off times are from the official FIFA schedule (ET), converted to your chosen time zone.</div>
+    </div>
+  );
+}
 
-/* ---- Family Pick'em leaderboard: how many of the 32 actual qualifiers did each
-   player predict in their Round of 32? (+5 if their Champion pick is still alive). */
-window.wcLeaderboard = function (results, list, brackets) {
-  const q = window.wcQualifiers(results || {}).r32;
-  const qset = {}; q.forEach((k) => { qset[k] = true; });
-  const anyResults = Object.keys(results || {}).some((k) => { const r = results[k]; return r && r[0] !== "" && r[1] !== ""; });
-  return (list || []).map((pl) => {
-    const b = (brackets && brackets[pl.id]) || {};
-    const picks = []; Object.keys(b).forEach((slot) => { if (/R32-\d+-[01]$/.test(slot) && b[slot]) picks.push(b[slot]); });
-    const uniq = Array.from(new Set(picks));
-    const correct = uniq.filter((k) => qset[k]).length;
-    const champ = b["CHAMP"]; const champAlive = !!(champ && qset[champ]);
-    return { id: pl.id, name: pl.name, emoji: pl.emoji, filled: uniq.length, correct: correct, champ: champ, champAlive: champAlive, pts: correct + (champAlive ? 5 : 0), hasResults: anyResults };
-  }).sort((a, b) => b.pts - a.pts || b.filled - a.filled);
-};
+function WatchTab({ tz, setTz }) {
+  const HUB = window.HUB, WC = window.WC, WCTZ = window.WCTZ;
+  const zoneLabel = WCTZ.labelOf(tz);
+  const Pills = ({ items, bg, fg }) => (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 10 }}>
+      {items.map((t, j) => <span key={j} style={{ background: bg, color: fg, borderRadius: 20, padding: "5px 12px", fontSize: 14, fontWeight: 600 }}>{t}</span>)}
+    </div>
+  );
+  const SLOTS = [[12, 0], [15, 0], [18, 0], [21, 0]];
+  return (
+    <div style={{ height: "100%", overflow: "auto" }}>
+      <div style={{ fontSize: 15, color: "#9fb0e0", marginBottom: 16 }}>{HUB.watchNote}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 18 }}>
+        {HUB.channels.map((c, i) => (
+          <div key={i} style={{ background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <Flag code={c.flag} w={40} style={{ border: "2px solid #fff", borderRadius: 4 }} />
+              <span style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>{c.region}</span>
+            </div>
+            <div style={{ fontSize: 13, color: "#f4b740", fontWeight: 700, marginBottom: 5 }}>📺 ON TV</div>
+            <Pills items={c.tv} bg="rgba(255,255,255,.12)" fg="#fff" />
+            <div style={{ fontSize: 13, color: "#34c77b", fontWeight: 700, marginBottom: 5 }}>▶ STREAMING</div>
+            <Pills items={c.stream} bg="rgba(52,199,123,.16)" fg="#bdf0d3" />
+            {c.free && c.free.length > 0 && (
+              <React.Fragment>
+                <div style={{ fontSize: 13, color: "#ffd24a", fontWeight: 700, marginBottom: 5 }}>★ FREE WAYS TO WATCH</div>
+                <Pills items={c.free} bg="rgba(255,210,74,.16)" fg="#ffe8a8" />
+              </React.Fragment>
+            )}
+            {c.note && <div style={{ fontSize: 13.5, color: "#cdd9ff", lineHeight: 1.4, marginTop: 4 }}>💡 {c.note}</div>}
+          </div>
+        ))}
+      </div>
 
-/* ---- Round-of-32 qualifiers from current standings ----
-   Top 2 of every group + the 8 best 3rd-place teams (2026 format). Used by the
-   Settings "auto-advance bracket" helper. Falls back to FIFA rank for ties. */
-window.wcQualifiers = function (results) {
-  const WC = window.WC; results = results || {};
+      {/* kick-off windows, converted to the chosen zone */}
+      <div style={{ background: "rgba(244,183,64,.12)", border: "2px solid rgba(244,183,64,.35)", borderRadius: 18, padding: 18, marginTop: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", flex: "1 1 240px" }}>⏰ When do games kick off in {zoneLabel}?</div>
+          <TimeZoneSelect tz={tz} setTz={setTz} compact />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10 }}>
+          {SLOTS.map(([h, m], i) => {
+            const lk = WCTZ.local("Jun 14", h, m, tz);
+            const etLabel = (h > 12 ? h - 12 : h) + " " + (h >= 12 ? "PM" : "AM") + " ET";
+            return (
+              <div key={i} style={{ background: "rgba(255,255,255,.06)", borderRadius: 12, padding: "10px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 13, color: "#9fb0e0", fontWeight: 600 }}>{etLabel}</span>
+                <span style={{ color: "#6f86c9" }}>→</span>
+                <span style={{ fontSize: 15, color: "#fff", fontWeight: 700 }}>{lk.time}</span>
+                <span style={{ marginLeft: "auto", fontSize: 18 }} title={lk.word}>{lk.icon}</span>
+              </div>
+            );
+          })}
+        </div>
+        {HUB.kickoffWindows && HUB.kickoffWindows.length > 0 && (
+          <div style={{ marginTop: 12, display: "grid", gap: 4 }}>
+            {HUB.kickoffWindows.map((k, i) => (
+              <div key={i} style={{ fontSize: 13.5 }}><span style={{ fontWeight: 700, color: "#ffd24a" }}>{k.region}:</span> <span style={{ color: "#dfe6ff" }}>{k.text}</span></div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {HUB.globalNote && (
+        <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16, marginTop: 16, fontSize: 14.5, color: "#dfe6ff", lineHeight: 1.5 }}>
+          <span style={{ fontWeight: 700, color: "#9fb0e0" }}>🌍 Watching from somewhere else?</span> {HUB.globalNote}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CityPortal({ city, onClose }) {
+  const WC = window.WC;
+  const NATC = { CA: "#e2473b", US: "#2f6fe0", MX: "#1f9d57" };
+  const NATFLAG = { CA: "ca", US: "us", MX: "mx" };
+  const NATNAME = { CA: "Canada", US: "United States", MX: "Mexico" };
+  const matches = [];
+  Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f) => { if (f[3] === city.city) matches.push({ g, h: f[0], a: f[1], date: f[2] }); }));
+  const ko = WC.KO.filter((k) => k.d.includes(city.city));
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(8,16,40,.82)", zIndex: 100, display: "grid", placeItems: "center", padding: 30 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#16235a", borderRadius: 22, padding: 24, maxWidth: 620, width: "100%", maxHeight: "86vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,.5)", borderTop: `6px solid ${NATC[city.nat]}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+          <div style={{ width: 52, height: 52, borderRadius: "50%", background: NATC[city.nat], color: "#fff", fontWeight: 700, fontSize: 26, display: "grid", placeItems: "center", flex: "none" }}>{city.pin}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: "#fff", lineHeight: 1 }}>{city.city}</div>
+            <div style={{ fontSize: 15, color: "#9fb0e0", display: "flex", alignItems: "center", gap: 7, marginTop: 4 }}>
+              <Flag code={NATFLAG[city.nat]} w={22} style={{ borderRadius: 3, border: "1.5px solid #fff" }} /> {NATNAME[city.nat]}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ border: "none", background: "rgba(255,255,255,.15)", color: "#fff", fontWeight: 700, borderRadius: 10, padding: "8px 14px", cursor: "pointer", flex: "none" }}>✕</button>
+        </div>
+        <div style={{ background: "rgba(244,183,64,.16)", borderRadius: 12, padding: "10px 14px", marginBottom: 14 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#f4b740" }}>🏟️ {city.stadium}</div>
+          <div style={{ fontSize: 15, color: "#fff", lineHeight: 1.4, marginTop: 4 }}>{city.fact}</div>
+        </div>
+        {ko.length > 0 && (
+          <div style={{ marginBottom: 14 }}>
+            {ko.map((k, i) => (
+              <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(52,199,123,.2)", border: "2px solid rgba(52,199,123,.5)", borderRadius: 20, padding: "5px 14px", marginRight: 8, fontSize: 15, fontWeight: 700, color: "#bdf0d3" }}>🏆 {k.r} · {k.d}</div>
+            ))}
+          </div>
+        )}
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#9fb0e0", marginBottom: 8 }}>GROUP-STAGE GAMES HERE ({matches.length})</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          {matches.map((m, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,.06)", borderRadius: 10, padding: "8px 12px" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: "rgba(255,255,255,.12)", borderRadius: 6, padding: "1px 7px", flex: "none" }}>{m.g}</span>
+              <Flag code={WC.T[m.h].c} w={28} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none" }} />
+              <span style={{ fontSize: 15, color: "#fff", flex: 1, textAlign: "right" }}>{WC.T[m.h].n}</span>
+              <span style={{ color: "#6f86c9", fontWeight: 700, fontSize: 13 }}>v</span>
+              <span style={{ fontSize: 15, color: "#fff", flex: 1 }}>{WC.T[m.a].n}</span>
+              <Flag code={WC.T[m.a].c} w={28} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none" }} />
+              <span style={{ fontSize: 13, color: "#9fb0e0", flex: "none", width: 52, textAlign: "right" }}>{m.date}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FlagPicker({ sel, onSelect }) {
+  const WC = window.WC;
+  return (
+    <div style={{ flex: "1 1 360px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(46px,1fr))", gap: 7 }}>
+      {Object.keys(WC.T).map((k) => (
+        <button key={k} onClick={() => onSelect(k)} title={WC.T[k].n} style={{ border: sel === k ? "3px solid #f4b740" : "3px solid transparent", borderRadius: 6, padding: 0, cursor: "pointer", background: "none", lineHeight: 0 }}>
+          <Flag code={WC.T[k].c} w={46} style={{ borderRadius: 3, display: "block" }} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function FactsTab({ fav, toggleFav }) {
+  const WC = window.WC;
+  const [sel, setSel] = React.useState("BRA");
+  const [mapView, setMapView] = React.useState("globe"); // globe | cities
+  const [cityModal, setCityModal] = React.useState(null);
+  const [factIdx, setFactIdx] = React.useState(0);
+  const t = WC.T[sel];
+  const facts = (t.facts && t.facts.length) ? t.facts : [t.fact];
+  React.useEffect(() => { setFactIdx(0); }, [sel]);
+  React.useEffect(() => {
+    if (facts.length < 2) return;
+    const id = setInterval(() => setFactIdx((i) => (i + 1) % facts.length), 6500);
+    return () => clearInterval(id);
+  }, [sel, facts.length]);
+  const nextFact = () => setFactIdx((i) => (i + 1) % facts.length);
+  return (
+    <div style={{ height: "100%", overflow: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ flex: "2 1 360px", background: mapView === "globe" ? "rgba(255,255,255,.04)" : "#fff", borderRadius: 18, padding: 14, minHeight: 340, display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+            {["globe", "cities"].map((v) => (
+              <button key={v} onClick={() => setMapView(v)} style={{ border: "none", cursor: "pointer", borderRadius: 20, padding: "5px 12px", fontSize: 13, fontWeight: 700,
+                background: mapView === v ? "#f4b740" : "rgba(255,255,255,.12)", color: mapView === v ? "#16235a" : "#dfe6ff" }}>{v === "globe" ? "🌐 Globe" : "🗺️ Host cities"}</button>
+            ))}
+            <span style={{ fontSize: 12.5, color: mapView === "globe" ? "#9fb0e0" : "#16235a", marginLeft: 4 }}>
+              {mapView === "globe" ? "Spin it · tap a gold pin to explore a nation" : "Tap a pin for the city & stadium"}
+            </span>
+          </div>
+          <div style={{ flex: 1, minHeight: 280 }}>
+            {mapView === "globe"
+              ? <Globe3D sel={sel} onSelect={setSel} fallback={<div style={{ height: "100%", overflow: "auto" }}><div style={{ fontSize: 13.5, color: "#9fb0e0", marginBottom: 8 }}>Your device can't show the 3D globe — tap a flag to explore a nation.</div><FlagPicker sel={sel} onSelect={setSel} /></div>} />
+              : <StadiumMap onCityClick={setCityModal} />}
+          </div>
+        </div>
+        <div style={{ flex: "1 1 240px", background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 10 }}>⭐ Records</div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {WC.RECORDS.map((r, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, background: "rgba(255,255,255,.06)", borderRadius: 10, padding: "6px 10px" }}>
+                <span style={{ fontWeight: 700, fontSize: 20, color: "#f4b740", flex: "none" }}>{r.big}</span>
+                <span style={{ fontSize: 13, color: "#dfe6ff" }}>{r.small}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* country explorer */}
+      <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16 }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 10 }}>🌍 Tap a country</div>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          <FlagPicker sel={sel} onSelect={setSel} />
+          <div style={{ flex: "1 1 280px", background: "rgba(255,255,255,.06)", borderRadius: 14, padding: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+              <Flag code={t.c} w={64} style={{ border: "3px solid #fff", borderRadius: 5, flex: "none" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 24, fontWeight: 700, color: "#fff" }}>{t.n}</div>
+                <div style={{ fontSize: 13, color: "#9fb0e0" }}>FIFA rank #{t.r} · ⭐ {t.star}</div>
+              </div>
+              {toggleFav && (function () {
+                const on = (fav || []).indexOf(sel) >= 0;
+                return <button onClick={() => toggleFav(sel)} title={on ? "Following — tap to unfollow" : "Follow this team"} style={{ border: "none", cursor: "pointer", background: on ? "#f4b740" : "rgba(255,255,255,.1)", color: on ? "#16235a" : "#dfe6ff", borderRadius: 12, padding: "8px 12px", fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flex: "none" }}>{on ? "★ Following" : "☆ Follow"}</button>;
+              })()}
+            </div>
+            <div onClick={nextFact} title="Tap for another fact" style={{ cursor: "pointer", background: "rgba(244,183,64,.10)", border: "1px solid rgba(244,183,64,.28)", borderRadius: 12, padding: "12px 14px", marginBottom: 10, minHeight: 84, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <div key={sel + "-" + factIdx} style={{ fontSize: 16, color: "#fff", lineHeight: 1.4, animation: "factfade .45s ease" }}>{facts[factIdx]}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10 }}>
+                {facts.map((_, i) => (
+                  <span key={i} style={{ width: i === factIdx ? 16 : 7, height: 7, borderRadius: 4, background: i === factIdx ? "#f4b740" : "rgba(255,255,255,.25)", transition: "all .3s" }}></span>
+                ))}
+                <span style={{ marginLeft: "auto", fontSize: 11, color: "#9fb0e0", fontWeight: 600 }}>tap for another ›</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 13 }}>
+              <span style={{ background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 20, padding: "4px 12px" }}>🏛️ {t.cap}</span>
+              <span style={{ background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 20, padding: "4px 12px" }}>🍽️ {t.food}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      {cityModal && <CityPortal city={cityModal} onClose={() => setCityModal(null)} />}
+    </div>
+  );
+}
+
+/* ---- demo mode (?demo=1): auto-fill a complete, plausible example so families
+   can SEE a finished bracket + standings. Never persisted; the real Hub starts empty. */
+function buildDemo() {
+  const WC = window.WC;
+  const goalsFor = (myRank, oppRank) => {
+    const gap = oppRank - myRank;            // positive = I'm the favourite
+    if (gap > 25) return 3; if (gap > 8) return 2; if (gap < -25) return 0; return 1;
+  };
+  const results = {};
+  Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f, i) => {
+    const rh = WC.T[f[0]].r, ra = WC.T[f[1]].r;
+    results[g + "-" + i] = [goalsFor(rh, ra), goalsFor(ra, rh)];
+  }));
+  // qualifiers: top 2 of each group by rank + 8 best 3rd-place by rank
   const firsts = [], thirds = [];
   Object.keys(WC.GROUPS).forEach((g) => {
-    const s = window.computeStandings(g, results);
-    firsts.push(s[0].k, s[1].k);
-    thirds.push(s[2]);
+    const s = [...WC.GROUPS[g]].sort((a, b) => WC.T[a].r - WC.T[b].r);
+    firsts.push(s[0], s[1]); thirds.push(s[2]);
   });
-  thirds.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || WC.T[a.k].r - WC.T[b.k].r);
-  const r32 = firsts.concat(thirds.slice(0, 8).map((x) => x.k));
-  return { r32 };
-};
-
-/* ---- Resolve the WHOLE bracket from results + live knockout scores ----
-   R32 slots come from the group standings via each match's real feeders (1X = group
-   winner, 2X = runner-up, 3XXXX = one of the 8 best 3rd-place teams). Knockout slots
-   (R16 → Final) come from the live feed: a match is decided once both its teams are
-   known and the feed has a non-drawn score for that pairing; the winner flows into the
-   slot it feeds. Returns only the slots we can determine — never guesses a knockout
-   winner — so a half-played tournament fills in as far as the scores allow.
-   `live` is the raw feed object ({ matches:[{home,away,hg,ag,status}] }) or null.
-   `koResults` is hand-entered knockout scores ({ [matchNo]: [topGoals, botGoals] }),
-   used when the live feed has no score for a pairing (spoiler-free / manual families). */
-window.wcResolveBracket = function (results, live, koResults) {
-  const WC = window.WC, KO_M = WC.KO_M, KO_LAYOUT = WC.KO_LAYOUT;
-  results = results || {};
-  koResults = koResults || {};
-  const matches = (live && Array.isArray(live.matches)) ? live.matches : [];
-  const order = Object.keys(KO_M).map(Number).sort((a, b) => a - b);
-
-  // group standings + the 8 best third-place teams (same tiebreak as wcQualifiers)
-  const standings = {};
-  Object.keys(WC.GROUPS).forEach((g) => { standings[g] = window.computeStandings(g, results); });
-  const thirds = Object.keys(WC.GROUPS).map((g) => ({ g: g, k: standings[g][2].k, s: standings[g][2] }));
-  thirds.sort((a, b) => b.s.pts - a.s.pts || b.s.gd - a.s.gd || b.s.gf - a.s.gf || WC.T[a.k].r - WC.T[b.k].r);
-  const qThirds = thirds.slice(0, 8);
-  // assign the qualifying thirds to the eight "3XXXX" R32 feeders, honoring each
-  // slot's allowed groups where possible (greedy, deterministic by match order).
-  const thirdAssign = {}, usedThird = {};
-  order.forEach((no) => {
-    [KO_M[no].top, KO_M[no].bottom].forEach((code) => {
-      if (!/^3[A-L]+$/.test(code) || thirdAssign[code]) return;
-      const allowed = code.slice(1).split("");
-      let pick = qThirds.find((t) => !usedThird[t.k] && allowed.indexOf(t.g) >= 0);
-      if (!pick) pick = qThirds.find((t) => !usedThird[t.k]);
-      if (pick) { thirdAssign[code] = pick.k; usedThird[pick.k] = true; }
-    });
-  });
-
-  const teamOf = {}, winnerOf = {};
-  function winnerFromFeed(top, bot) {
-    for (let i = 0; i < matches.length; i++) {
-      const m = matches[i];
-      if (m.hg == null || m.ag == null) continue;
-      if (m.home === top && m.away === bot) return m.hg > m.ag ? top : m.hg < m.ag ? bot : null;
-      if (m.home === bot && m.away === top) return m.hg > m.ag ? bot : m.hg < m.ag ? top : null;
-    }
-    return null; // not played yet, or a draw we can't break (penalties) — leave open
-  }
-  function winnerFromManual(no, top, bot) {
-    const r = koResults[no];
-    if (!r) return null;
-    const tg = +r[0], bg = +r[1];
-    if (r[0] === "" || r[1] === "" || r[0] == null || r[1] == null || Number.isNaN(tg) || Number.isNaN(bg)) return null;
-    return tg > bg ? top : tg < bg ? bot : null;
-  }
-  function resolve(code) {
-    if (!code) return null;
-    let m;
-    if (m = code.match(/^1([A-L])$/)) return standings[m[1]][0].k;
-    if (m = code.match(/^2([A-L])$/)) return standings[m[1]][1].k;
-    if (/^3[A-L]+$/.test(code)) return thirdAssign[code] || null;
-    if (m = code.match(/^W(\d+)$/)) return winnerOf[+m[1]] || null;
-    if (m = code.match(/^L(\d+)$/)) {
-      const t = teamOf[+m[1]], w = winnerOf[+m[1]];
-      if (!t || !w) return null;
-      return t.top === w ? t.bot : t.top;
-    }
-    return null;
-  }
-  order.forEach((no) => {
-    const top = resolve(KO_M[no].top), bot = resolve(KO_M[no].bottom);
-    teamOf[no] = { top: top, bot: bot };
-    if (top && bot) { const w = winnerFromFeed(top, bot) || winnerFromManual(no, top, bot); if (w) winnerOf[no] = w; }
-  });
-
-  const slots = {};
-  ["L", "R"].forEach((side) => {
-    [["R32", 8], ["R16", 4], ["QF", 2], ["SF", 1]].forEach((rn) => {
-      const lay = KO_LAYOUT[side][rn[0]] || [];
-      for (let i = 0; i < rn[1]; i++) {
-        const t = teamOf[lay[i]] || {};
-        if (t.top) slots[side + rn[0] + "-" + i + "-0"] = t.top;
-        if (t.bot) slots[side + rn[0] + "-" + i + "-1"] = t.bot;
+  thirds.sort((a, b) => WC.T[a].r - WC.T[b].r);
+  const r32 = [...firsts, ...thirds.slice(0, 8)];   // 32 teams
+  const bracket = {};
+  for (let i = 0; i < 8; i++) { bracket["LR32-" + i + "-0"] = r32[i * 2]; bracket["LR32-" + i + "-1"] = r32[i * 2 + 1]; }
+  for (let i = 0; i < 8; i++) { bracket["RR32-" + i + "-0"] = r32[16 + i * 2]; bracket["RR32-" + i + "-1"] = r32[16 + i * 2 + 1]; }
+  const win = (a, b) => (!a ? b : !b ? a : (WC.T[a].r <= WC.T[b].r ? a : b));
+  const advance = (side) => {
+    const seq = [["R32", 8], ["R16", 4], ["QF", 2], ["SF", 1]];
+    for (let ri = 0; ri < seq.length - 1; ri++) {
+      const [rn, cnt] = seq[ri], nn = seq[ri + 1][0];
+      for (let i = 0; i < cnt; i++) {
+        const w = win(bracket[side + rn + "-" + i + "-0"], bracket[side + rn + "-" + i + "-1"]);
+        bracket[side + nn + "-" + Math.floor(i / 2) + "-" + (i % 2)] = w;
       }
-    });
-  });
-  return { slots: slots, CHAMP: winnerOf[104] || null, matchTeams: teamOf, winners: winnerOf };
-};
+    }
+    return win(bracket[side + "SF-0-0"], bracket[side + "SF-0-1"]);
+  };
+  bracket["CHAMP"] = win(advance("L"), advance("R"));
+  return { results, bracket };
+}
+window.buildDemo = buildDemo;
 
-/* ---- Time-zone helper: educate kids + show kick-offs in any family's zone ----
-   Base kick-off times are US Eastern (EDT = UTC-4 during Jun-Jul 2026). We convert
-   to the chosen zone with the browser's Intl API and tag each with a day/night icon.
-   Per-match times are from the official FIFA schedule (stored in FIXTURES[g][idx][4] as
-   ET strings) and converted to the chosen zone with the browser's Intl API. */
-window.WCTZ = (function () {
-  const ZONES = [
-    { id: "device", label: "📍 My device's time", tz: null },
-    { id: "et", label: "🇺🇸 New York (Eastern)", tz: "America/New_York" },
-    { id: "ct", label: "🇺🇸 Chicago (Central)", tz: "America/Chicago" },
-    { id: "pt", label: "🇺🇸 Los Angeles (Pacific)", tz: "America/Los_Angeles" },
-    { id: "mx", label: "🇲🇽 Mexico City", tz: "America/Mexico_City" },
-    { id: "br", label: "🇧🇷 Brazil (São Paulo)", tz: "America/Sao_Paulo" },
-    { id: "uk", label: "🇬🇧 UK (London)", tz: "Europe/London" },
-    { id: "eu", label: "🇪🇸 Europe (Madrid/Paris)", tz: "Europe/Madrid" },
-    { id: "ng", label: "🇳🇬 Nigeria (Lagos)", tz: "Africa/Lagos" },
-    { id: "za", label: "🇿🇦 South Africa", tz: "Africa/Johannesburg" },
-    { id: "ae", label: "🇦🇪 Dubai", tz: "Asia/Dubai" },
-    { id: "in", label: "🇮🇳 India", tz: "Asia/Kolkata" },
-    { id: "jp", label: "🇯🇵 Japan (Tokyo)", tz: "Asia/Tokyo" },
-    { id: "au", label: "🇦🇺 Sydney", tz: "Australia/Sydney" },
+function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liveActive, onAutofill, onReset, sync, players, books, collections, setSync, goHelp }) {
+  const WCTZ = window.WCTZ;
+  const modes = [
+    { id: "manual", icon: "✍️", title: "Manual — you type the scores", desc: "Best for kids! Watch the games, then type each score yourself on the Standings tab. Nothing changes on its own, so there are never any spoilers." },
+    { id: "semi", icon: "🔄", title: "Semi-auto — update when YOU say", desc: "Watch first, peek later. Real scores stay hidden until you press “Update scores now.” Great if you record games and don't want spoilers." },
+    { id: "full", icon: "⚡", title: "Auto — scores update by themselves", desc: "The Hub quietly checks for new scores every minute and fills in the Standings for you. (Needs live-scores.json set up on the Pi — see the README.)" },
   ];
-  const MON = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
-  function deviceTz() { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York"; } catch (e) { return "America/New_York"; } }
-  function zoneOf(id) { const z = ZONES.find((z) => z.id === id); if (!z) return deviceTz(); return z.tz || deviceTz(); }
-  function labelOf(id) {
-    const z = ZONES.find((z) => z.id === id);
-    if (!z) return "your time";
-    if (z.id === "device") return "your time (" + deviceTz().split("/").pop().replace(/_/g, " ") + ")";
-    return z.label.replace(/^\S+\s/, "");
-  }
-  function etToDate(dateStr, hh, mm) {
-    const p = String(dateStr).trim().split(/\s+/);
-    const mon = MON[p[0]]; const day = parseInt(p[1], 10);
-    return new Date(Date.UTC(2026, mon, day, hh + 4, mm || 0));   // ET = UTC-4 in summer
-  }
-  function kickoffET(g, idx) {
-    const f = window.WC.FIXTURES[g] && window.WC.FIXTURES[g][idx];
-    if (f && f[4]) { const p = parseET(f[4]); if (p) return p; }
-    return [15, 0];
-  }
-  function dayNight(h) {
-    if (h >= 6 && h < 11) return { icon: "🌅", word: "morning" };
-    if (h >= 11 && h < 17) return { icon: "🌞", word: "daytime" };
-    if (h >= 17 && h < 20) return { icon: "🌇", word: "evening" };
-    if (h >= 20 && h < 23) return { icon: "🌙", word: "night" };
-    return { icon: "😴", word: "past bedtime" };
-  }
-  function local(dateStr, etHH, etMM, id) {
-    const tz = zoneOf(id);
-    const d = etToDate(dateStr, etHH, etMM);
-    let time = etHH + ":" + (etMM < 10 ? "0" + etMM : etMM), weekday = "", h24 = etHH;
-    try {
-      const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", weekday: "short", hour12: true }).formatToParts(d);
-      const get = (t) => { const p = parts.find((p) => p.type === t); return p ? p.value : ""; };
-      time = get("hour") + ":" + get("minute") + " " + get("dayPeriod");
-      weekday = get("weekday");
-      h24 = parseInt(new Intl.DateTimeFormat("en-GB", { timeZone: tz, hour: "2-digit", hour12: false }).format(d), 10);
-    } catch (e) {}
-    const dn = dayNight(h24);
-    return { time: time, weekday: weekday, h24: h24, icon: dn.icon, word: dn.word, tz: tz };
-  }
-  function parseET(s) {
-    const m = /(\d+):(\d+)\s*(AM|PM)/i.exec(s || "");
-    if (!m) return null;
-    let h = parseInt(m[1], 10) % 12; if (/pm/i.test(m[3])) h += 12;
-    return [h, parseInt(m[2], 10)];
-  }
-  // Every match (group + knockout) with a real Date, sorted by kick-off.
-  function matches() {
-    const WC = window.WC; const out = [];
-    Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f, idx) => {
-      const k = f[4] ? parseET(f[4]) || [15, 0] : [15, 0];
-      out.push({ type: "group", g: g, idx: idx, home: f[0], away: f[1], date: f[2], city: f[3], et: { h: k[0], m: k[1] }, dt: etToDate(f[2], k[0], k[1]) });
-    }));
-    const KM = WC.KO_M || {};
-    Object.keys(KM).forEach((no) => { const x = KM[no]; const p = parseET(x.et); if (p) out.push({ type: "ko", no: x.no, round: x.round, top: x.top, bottom: x.bottom, date: x.date, city: x.city, et: { h: p[0], m: p[1] }, dt: etToDate(x.date, p[0], p[1]) }); });
-    out.sort((a, b) => a.dt - b.dt);
-    return out;
-  }
-  return { ZONES: ZONES, zoneOf: zoneOf, labelOf: labelOf, local: local, kickoffET: kickoffET, dayNight: dayNight, etToDate: etToDate, parseET: parseET, matches: matches };
-})();
+  const Toggle = ({ on, onClick }) => (
+    <button onClick={onClick} style={{ border: "none", cursor: "pointer", width: 52, height: 30, borderRadius: 20, padding: 3, background: on ? "#34c77b" : "rgba(255,255,255,.18)", transition: "background .2s", flex: "none" }}>
+      <span style={{ display: "block", width: 24, height: 24, borderRadius: "50%", background: "#fff", transform: on ? "translateX(22px)" : "translateX(0)", transition: "transform .2s" }}></span>
+    </button>
+  );
+  const card = { background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 18, marginBottom: 16 };
+  return (
+    <div style={{ height: "100%", overflow: "auto", maxWidth: 760 }}>
+      <div style={{ fontSize: 15, color: "#9fb0e0", marginBottom: 16 }}>Make the Hub work the way your family likes. Everything saves on this device.</div>
+
+      <div style={card}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 4 }}>🏆 How should scores update?</div>
+        <div style={{ fontSize: 13.5, color: "#9fb0e0", marginBottom: 12 }}>Pick one. You can switch any time.</div>
+        <div style={{ display: "grid", gap: 10 }}>
+          {modes.map((m) => {
+            const on = settings.scoreMode === m.id;
+            return (
+              <button key={m.id} onClick={() => setSetting("scoreMode", m.id)} style={{ textAlign: "left", cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start", background: on ? "rgba(244,183,64,.16)" : "rgba(255,255,255,.05)", border: on ? "2px solid #f4b740" : "2px solid transparent", borderRadius: 14, padding: "12px 14px", color: "#fff" }}>
+                <span style={{ fontSize: 26, flex: "none" }}>{m.icon}</span>
+                <span>
+                  <span style={{ display: "block", fontSize: 16, fontWeight: 700, marginBottom: 3 }}>{m.title}</span>
+                  <span style={{ display: "block", fontSize: 13.5, color: "#cdd9ff", lineHeight: 1.45 }}>{m.desc}</span>
+                </span>
+                <span style={{ marginLeft: "auto", flex: "none", width: 22, height: 22, borderRadius: "50%", border: on ? "7px solid #f4b740" : "2px solid #6f86c9", background: on ? "#16235a" : "transparent" }}></span>
+              </button>
+            );
+          })}
+        </div>
+        {settings.scoreMode !== "manual" && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
+            <button onClick={fetchNow} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>🔄 Update scores now</button>
+            <span style={{ fontSize: 13, color: "#9fb0e0" }}>{lastFetch ? "Last updated " + new Date(lastFetch).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : (liveActive ? "Live scores loaded." : "No live scores found yet — that's OK, you can still type your own.")}</span>
+          </div>
+        )}
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 12 }}>🗂️ Bracket helpers</div>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
+          <Toggle on={settings.autoBracket} onClick={() => setSetting("autoBracket", !settings.autoBracket)} />
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Auto-advance the bracket</div>
+            <div style={{ fontSize: 13.5, color: "#cdd9ff", lineHeight: 1.45 }}>When standings change, the computer drops the top 2 of each group (plus the 8 best 3rd-place teams) into the Round of 32 — and as the knockout games are played, the winners advance themselves all the way to the champion. (Knockout winners come from live scores.)</div>
+          </div>
+        </div>
+        <button onClick={onAutofill} style={{ border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>⚡ Fill my bracket now</button>
+        <div style={{ fontSize: 12.5, color: "#7e8cc0", marginTop: 8 }}>Tip: kids love filling the whole bracket by hand on the 🗂️ Bracket tab — leave this off for that. (This replaces hand picks with the real results.)</div>
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 12 }}>🕓 Time zone</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <TimeZoneSelect tz={tz} setTz={setTz} />
+          <span style={{ fontSize: 13.5, color: "#9fb0e0" }}>Used on the 📅 Schedule and 📺 Watch tabs so kick-off times show in <b style={{ color: "#dfe6ff" }}>{WCTZ.labelOf(tz)}</b>.</span>
+        </div>
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 12 }}>📅 Calendar &amp; screen</div>
+        <button onClick={() => window.wcICS && window.wcICS("all")} style={{ border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>📅 Add the whole schedule to my calendar (.ics)</button>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 16 }}>
+          <Toggle on={settings.screensaver !== false} onClick={() => setSetting("screensaver", settings.screensaver === false)} />
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Screensaver when idle</div>
+            <div style={{ fontSize: 13.5, color: "#cdd9ff", lineHeight: 1.45 }}>After a couple of minutes untouched, the TV cycles the countdown, fun facts and upcoming games. Touch anything to wake it.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 8 }}>🧹 Start over</div>
+        <div style={{ fontSize: 13.5, color: "#cdd9ff", marginBottom: 12 }}>Clears every score and bracket pick on this device. Your settings above stay.</div>
+        <button onClick={onReset} style={{ border: "none", cursor: "pointer", background: "#e2473b", color: "#fff", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>↺ Reset scores &amp; bracket</button>
+      </div>
+
+      <div style={card}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 4 }}>👨‍👩‍👧 Family Sync</div>
+        <div style={{ fontSize: 13.5, color: "#9fb0e0", marginBottom: 12 }}>Set up sharing so family in other homes can view collections and trade. This is the same setup as the 🎟️ Stickers → 👨‍👩‍👧 Family tab.</div>
+        <FamilyView players={players} books={books} collections={collections} activeId={players && players.active} sync={sync} setSync={setSync} goHelp={goHelp} />
+      </div>
+
+      <div style={{ fontSize: 12.5, color: "#7e8cc0", lineHeight: 1.6 }}>Published by Craig Merry · Designed with Anthropic Claude Design</div>
+    </div>
+  );
+}
+
+function HubApp() {
+  const { store, brackets, koResults, collections, setSticker, sync, setSync, setResult, setKoResult, setPick, reset, players, addPlayer, switchPlayer, removePlayer, importPlayer, books, addBook, renameBook, removeBook, switchBook, syncStatus } = useHubStore();
+  const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const demo = params.get("demo") === "1";
+  const demoData = React.useMemo(() => (demo && window.buildDemo ? window.buildDemo() : null), [demo]);
+  const tabParam = params.get("tab");
+  const helpParam = params.get("help");
+  const [helpTarget, setHelpTarget] = React.useState(helpParam || null);
+  const [tab, setTab] = React.useState(helpParam ? "help" : (TABS.some((t) => t.id === tabParam) ? tabParam : "home"));
+  const isPhone = useIsPhone();
+  const [tz, setTz] = React.useState(() => { try { return localStorage.getItem("wc26tz") || "device"; } catch (e) { return "device"; } });
+  React.useEffect(() => { try { localStorage.setItem("wc26tz", tz); } catch (e) {} }, [tz]);
+  const [fav, setFav] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26fav")) || []; } catch (e) { return []; } });
+  React.useEffect(() => { try { localStorage.setItem("wc26fav", JSON.stringify(fav)); } catch (e) {} }, [fav]);
+  const toggleFav = (code) => setFav((f) => (f.indexOf(code) >= 0 ? f.filter((x) => x !== code) : f.concat([code])));
+  const goHelp = (id) => { setHelpTarget(id); setTab("help"); };
+
+  const [settings, setSettings] = React.useState(() => {
+    try { return Object.assign({ scoreMode: "manual", autoBracket: false }, JSON.parse(localStorage.getItem("wc26settings")) || {}); }
+    catch (e) { return { scoreMode: "manual", autoBracket: false }; }
+  });
+  React.useEffect(() => { try { localStorage.setItem("wc26settings", JSON.stringify(settings)); } catch (e) {} }, [settings]);
+  const setSetting = (k, v) => setSettings((s) => Object.assign({}, s, { [k]: v }));
+  const forceMode = params.get("scoremode");   // ?scoremode=full lets a kiosk boot into auto
+  const scoreMode = demo ? "full" : (["manual", "semi", "full"].indexOf(forceMode) >= 0 ? forceMode : settings.scoreMode);
+
+  const [live, setLive] = React.useState(window.LIVE_SCORES && Array.isArray(window.LIVE_SCORES.matches) ? window.LIVE_SCORES : null);
+  const [lastFetch, setLastFetch] = React.useState(null);
+  const fetchLive = React.useCallback(() => fetch("live-scores.json", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((d) => { if (d && Array.isArray(d.matches)) { setLive(d); setLastFetch(Date.now()); } return d; })
+    .catch(() => null), []);
+  React.useEffect(() => {
+    if (scoreMode !== "full") return;
+    fetchLive();
+    const id = setInterval(fetchLive, 60000);
+    return () => clearInterval(id);
+  }, [scoreMode, fetchLive]);
+
+  // One-shot presence check in any mode (spoiler-free: it never displays scores,
+  // it only notices that a live feed exists). Lets a manual-mode family discover
+  // that real results are available and turn on Auto with a single tap.
+  const [liveAvailable, setLiveAvailable] = React.useState(false);
+  const [liveNudgeDismissed, setLiveNudgeDismissed] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("live-scores.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d || !Array.isArray(d.matches)) return;
+        const played = d.matches.some((m) => (m.hg != null && m.ag != null) || m.status === "LIVE" || m.status === "HT");
+        if (played) setLiveAvailable(true);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const applyLive = scoreMode !== "manual" && !!live;
+  const lr = applyLive ? window.liveToResults(live) : { out: null, status: {} };
+  const liveActive = applyLive;
+  const baseResults = lr.out ? Object.assign({}, store.results, lr.out) : store.results;
+  const results = demoData ? demoData.results : baseResults;
+  const bracketStore = demoData ? Object.assign({}, store, { bracket: demoData.bracket }) : store;
+
+  const autofillR32 = React.useCallback(() => {
+    if (!window.wcResolveBracket) return;
+    // R32 comes from the pool-play standings; the knockout rounds advance from the
+    // live feed's knockout scores (only when live data is actually in play). We only
+    // write slots we can resolve, so manual picks for not-yet-decided games survive.
+    const b = window.wcResolveBracket(results, applyLive ? live : null, koResults);
+    Object.keys(b.slots).forEach((slot) => setPick(slot, b.slots[slot]));
+    if (b.CHAMP) setPick("CHAMP", b.CHAMP);
+  }, [results, live, applyLive, koResults, setPick]);
+  const resultsKey = JSON.stringify(results);
+  const liveKey = live ? (live.updated || JSON.stringify(live.matches)) : "";
+  const koKey = JSON.stringify(koResults);
+  React.useEffect(() => {
+    // Auto-advance is an explicit, opt-in toggle — honor it in every score mode.
+    // (It used to bail out in "manual" mode, so turning the toggle on did nothing
+    // for the default-mode family: the bracket never followed the pool-play results.)
+    if (demo || !settings.autoBracket) return;
+    autofillR32();
+  }, [resultsKey, liveKey, koKey, settings.autoBracket, scoreMode, demo]);
+
+  // shared-bracket import (?b=...)
+  const shareParam = params.get("b");
+  const sharedBracket = React.useMemo(() => (shareParam && window.wcShare ? window.wcShare.decode(shareParam) : null), [shareParam]);
+  const [importDismissed, setImportDismissed] = React.useState(false);
+
+  // idle "attract mode" screensaver
+  const forceSaver = params.get("screensaver") === "show";
+  const [idle, setIdle] = React.useState(false);
+  React.useEffect(() => {
+    if (settings.screensaver === false) { setIdle(false); return; }
+    let t; const wake = () => { setIdle(false); clearTimeout(t); t = setTimeout(() => setIdle(true), 90000); };
+    const evs = ["mousemove", "keydown", "touchstart", "click", "wheel"];
+    evs.forEach((e) => window.addEventListener(e, wake, { passive: true }));
+    wake();
+    return () => { clearTimeout(t); evs.forEach((e) => window.removeEventListener(e, wake)); };
+  }, [settings.screensaver]);
+  // Always-on kiosk screens never re-fetch JS, so deploys (schedule fixes, new
+  // features) only land after a reload. Reload after 4h of continuous idle —
+  // the screensaver remounts on the fresh code and nobody is mid-interaction.
+  React.useEffect(() => {
+    if (!idle && !forceSaver) return;
+    const r = setTimeout(() => { try { window.location.reload(); } catch (e) {} }, 4 * 3600 * 1000);
+    return () => clearTimeout(r);
+  }, [idle, forceSaver]);
+  React.useEffect(() => {
+    const h = (e) => {
+      if (e.target && /^(SELECT|INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+      const ids = TABS.map((t) => t.id);
+      const i = ids.indexOf(tab);
+      if (e.key === "ArrowRight") setTab(ids[(i + 1) % ids.length]);
+      else if (e.key === "ArrowLeft") setTab(ids[(i - 1 + ids.length) % ids.length]);
+      else if (/^[1-8]$/.test(e.key)) setTab(ids[+e.key - 1]);
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [tab]);
+
+  return (
+    <div style={{ height: "100vh", display: "flex", flexDirection: "column", color: "#fff", fontFamily: "'Fredoka', sans-serif" }}>
+      <header style={{ display: "flex", alignItems: "center", gap: isPhone ? 8 : 18, padding: isPhone ? "10px 12px" : "16px 26px", borderBottom: "1px solid rgba(255,255,255,.12)", flexWrap: "wrap" }}>
+        <div style={{ fontWeight: 700, fontSize: isPhone ? 19 : 26, whiteSpace: "nowrap" }}>WORLD CUP <span style={{ color: "#f4b740" }}>2026</span></div>
+        <nav className="tabstrip" style={{ display: "flex", gap: 8, flexWrap: isPhone ? "nowrap" : "wrap", overflowX: isPhone ? "auto" : "visible", flex: isPhone ? "1 1 100%" : 1, order: isPhone ? 9 : 0, marginTop: isPhone ? 6 : 0, paddingBottom: isPhone ? 3 : 0, WebkitOverflowScrolling: "touch" }}>
+          {TABS.map((tb) => (
+            <button key={tb.id} onClick={() => setTab(tb.id)} style={{ border: "none", cursor: "pointer", borderRadius: 12, padding: isPhone ? "8px 13px" : "10px 18px", fontSize: isPhone ? 15 : 17, fontWeight: 600, whiteSpace: "nowrap", flex: "none",
+              background: tab === tb.id ? "#f4b740" : "rgba(255,255,255,.1)", color: tab === tb.id ? "#16235a" : "#dfe6ff" }}>{tb.label}</button>
+          ))}
+        </nav>
+        {demo && (
+          <span style={{ background: "rgba(52,199,123,.2)", border: "2px solid #34c77b", borderRadius: 20, padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "#bdf0d3", whiteSpace: "nowrap" }}>✨ DEMO{isPhone ? "" : " — example picks"}</span>
+        )}
+        {liveActive && (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(226,71,59,.22)", border: "2px solid #e2473b", borderRadius: 20, padding: "6px 12px", fontSize: 13, fontWeight: 700, color: "#ffb3ad", whiteSpace: "nowrap" }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#e2473b" }}></span>
+            LIVE{!isPhone && live.updated ? " · " + new Date(live.updated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""}
+          </span>
+        )}
+        <button onClick={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} style={{ marginLeft: isPhone ? "auto" : 0, border: "none", cursor: "pointer", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, background: "rgba(255,255,255,.08)", color: "#9fb0e0", whiteSpace: "nowrap" }}>↺{isPhone ? "" : " Reset"}</button>
+      </header>
+      {scoreMode === "manual" && liveAvailable && !liveNudgeDismissed && !demo && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 26px", background: "rgba(226,71,59,.18)", borderBottom: "2px solid #e2473b", flexWrap: "wrap" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, color: "#ffd2cd", fontWeight: 600 }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#e2473b" }}></span>
+            Real match scores are available — want the standings to fill in automatically?
+          </span>
+          <button onClick={() => { setSetting("scoreMode", "full"); setLiveNudgeDismissed(true); setTab("standings"); }} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "#e2473b", color: "#fff", fontWeight: 700, borderRadius: 10, padding: "8px 16px" }}>⚡ Turn on Auto</button>
+          <button onClick={() => setLiveNudgeDismissed(true)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 10, padding: "8px 12px" }}>Not now</button>
+        </div>
+      )}
+      {sharedBracket && !importDismissed && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 26px", background: "rgba(52,199,123,.18)", borderBottom: "2px solid #34c77b", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 14, color: "#bdf0d3", fontWeight: 600 }}>📥 Someone shared a bracket ({Object.keys(sharedBracket).length} picks).</span>
+          <button onClick={() => { importPlayer("Shared", "📥", sharedBracket); setTab("bracket"); setImportDismissed(true); }} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 10, padding: "8px 16px" }}>Save as a player</button>
+          <button onClick={() => setImportDismissed(true)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 10, padding: "8px 12px" }}>Dismiss</button>
+        </div>
+      )}
+      <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
+        {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} />}
+        {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} books={books} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} addPlayer={addPlayer} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} />}
+        {tab === "help" && <HelpTab target={helpTarget} clearTarget={() => setHelpTarget(null)} />}
+        {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} goHelp={goHelp} />}
+        {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} koResults={koResults} setKoResult={setKoResult} liveFeed={applyLive ? live : null} />}
+        {tab === "schedule" && <ScheduleTab results={results} status={lr.status} tz={tz} setTz={setTz} />}
+        {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
+        {tab === "facts" && <FactsTab fav={fav} toggleFav={toggleFav} />}
+        {tab === "play" && <PlayTab />}
+        {tab === "settings" && <SettingsTab settings={settings} setSetting={setSetting} tz={tz} setTz={setTz} fetchNow={fetchLive} lastFetch={lastFetch} liveActive={liveActive} onAutofill={autofillR32} onReset={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} sync={sync} players={players} books={books} collections={collections} setSync={setSync} goHelp={goHelp} />}
+      </main>
+      <footer style={{ padding: isPhone ? "8px 14px" : "8px 26px", borderTop: "1px solid rgba(255,255,255,.1)", fontSize: 12.5, color: "#7e8cc0", display: "flex", justifyContent: isPhone ? "center" : "space-between", gap: isPhone ? 6 : 12, flexWrap: "wrap", textAlign: "center" }}>
+        {!isPhone && <span>📺 Use ← → or keys 1–8 to switch tabs · saves on this device</span>}
+        <span style={{ color: "#8c9bd0" }}>Published by Craig Merry · Designed with Anthropic Claude Design</span>
+        {!isPhone && <span>pi-nas.local/worldcup</span>}
+      </footer>
+      {((idle && settings.screensaver !== false) || forceSaver) && <Screensaver tz={tz} onWake={() => setIdle(false)} />}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("hub")).render(<HubApp />);
