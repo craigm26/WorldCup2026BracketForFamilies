@@ -94,6 +94,16 @@ def _get(url, headers=None):
     except urllib.error.URLError as e:
         sys.exit("Network error reaching the scores API: %s" % e.reason)
 
+def _get_soft(url, headers=None):
+    """Best-effort GET for supplementary feeds: return {} on any error rather than
+    aborting the run. The primary feed still uses _get (which fails loudly)."""
+    try:
+        req = urllib.request.Request(url, headers=headers or {})
+        with urllib.request.urlopen(req, timeout=25) as r:
+            return json.load(r)
+    except Exception:
+        return {}
+
 # ---- providers return a normalized list: {home,away,hg,ag,status} (names, not codes) ----
 def fetch_footballdata():
     data = _get("https://api.football-data.org/v4/competitions/WC/matches", {"X-Auth-Token": FD_TOKEN})
@@ -106,9 +116,7 @@ def fetch_footballdata():
                     "hg": sc.get("home"), "ag": sc.get("away"), "status": status})
     return out
 
-def fetch_thesportsdb():
-    url = "https://www.thesportsdb.com/api/v1/json/%s/eventsseason.php?id=%s&s=%s" % (TSDB_KEY, TSDB_LEAGUE, SEASON)
-    data = _get(url)
+def _parse_tsdb_events(data):
     out = []
     for e in (data.get("events") or []):
         st = (e.get("strStatus") or e.get("strProgress") or "").upper()
@@ -126,8 +134,33 @@ def fetch_thesportsdb():
                     "ag": int(ag) if (ag not in (None, "")) else None, "status": status})
     return out
 
+def fetch_thesportsdb():
+    # TheSportsDB's per-season snapshot can lag badly (it has gone stale at the first
+    # handful of fixtures while newer results were already live), so we MERGE three
+    # feeds: the season list (primary, fails loudly) plus the league's recent-finished
+    # and upcoming/in-play feeds (best-effort) to catch results the season list misses.
+    base = "https://www.thesportsdb.com/api/v1/json/%s/" % TSDB_KEY
+    rows = _parse_tsdb_events(_get(base + "eventsseason.php?id=%s&s=%s" % (TSDB_LEAGUE, SEASON)))
+    for extra in ("eventspastleague.php?id=%s" % TSDB_LEAGUE,
+                  "eventsnextleague.php?id=%s" % TSDB_LEAGUE):
+        rows += _parse_tsdb_events(_get_soft(base + extra))
+    return rows
+
+def _rank(item):
+    # Prefer the richest record when the same fixture shows up in more than one feed:
+    # a final score beats an in-play status, which beats a bare/scheduled entry.
+    if "hg" in item:
+        return 3
+    if item.get("status") in ("LIVE", "HT"):
+        return 2
+    return 1
+
 def build(rows):
-    out = []
+    # Dedup by the unordered team pair — World Cup sides meet at most once, and a
+    # fixture can arrive from several feeds (sometimes home/away reversed). The Hub's
+    # liveToResults re-orients goals against its own schedule, so either orientation is
+    # fine; we just keep the most-complete record per pairing.
+    best = {}
     for r in rows:
         home, away = map_team(r["home"]), map_team(r["away"])
         if not home or not away:
@@ -135,8 +168,10 @@ def build(rows):
         item = {"home": home, "away": away, "status": r["status"]}
         if r["hg"] is not None and r["ag"] is not None:
             item["hg"], item["ag"] = r["hg"], r["ag"]
-        out.append(item)
-    return out
+        key = frozenset((home, away))
+        if key not in best or _rank(item) > _rank(best[key]):
+            best[key] = item
+    return list(best.values())
 
 SAMPLE = [{"home": "Mexico", "away": "South Africa", "hg": 2, "ag": 1, "status": "FT"},
           {"home": "Korea Republic", "away": "Czechia", "hg": 1, "ag": 1, "status": "LIVE"},
