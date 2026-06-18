@@ -1,0 +1,40 @@
+{
+  "updated": "2026-06-18T18:17:35.374397+00:00",
+  "matches": [
+    {
+      "home": "MEX",
+      "away": "RSA",
+      "status": "FT",
+      "hg": 2,
+      "ag": 0
+    },
+    {
+      "home": "KOR",
+      "away": "CZE",
+      "status": "FT",
+      "hg": 2,
+      "ag": 1
+    },
+    {
+      "home": "CAN",
+      "away": "BIH",
+      "status": "FT",
+      "hg": 1,
+      "ag": 1
+    },
+    {
+      "home": "USA",
+      "away": "PAR",
+      "status": "FT",
+      "hg": 4,
+      "ag": 1
+    },
+    {
+      "home": "BRA",
+      "away": "MAR",
+      "status": "FT",
+      "hg": 1,
+      "ag": 1
+    }
+  ]
+}
