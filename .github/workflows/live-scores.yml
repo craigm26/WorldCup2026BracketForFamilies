@@ -1,0 +1,41 @@
+name: Update live scores
+
+# Fetches real World Cup 2026 results and commits worldcup/live-scores.json so the
+# GitHub Pages hub (craigm26.github.io/WorldCup2026BracketForFamilies) auto-fills
+# standings + the bracket. Uses TheSportsDB's free public key — no secrets needed.
+# (The Pi kiosk runs its own cron; this only feeds the online Pages copy.)
+# To pause: disable this workflow in the repo's Actions tab, or delete this file.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # every ~10 min (GitHub best-effort, often delayed)
+  workflow_dispatch: {}       # lets you run it on demand from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-scores
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch latest scores
+        run: python3 worldcup/update_scores.py || true   # writes worldcup/live-scores.json only when games are played
+
+      - name: Commit when the match data changes
+        run: |
+          [ -f worldcup/live-scores.json ] || { echo "No live feed yet — nothing to commit."; exit 0; }
+          # Compare only the matches (ignore the 'updated' timestamp) so we don't spam commits.
+          new=$(jq -cS '.matches' worldcup/live-scores.json)
+          old=$(git show HEAD:worldcup/live-scores.json 2>/dev/null | jq -cS '.matches' 2>/dev/null || echo "null")
+          if [ "$new" = "$old" ]; then echo "Scores unchanged — no commit."; exit 0; fi
+          git config user.name "live-scores-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f worldcup/live-scores.json
+          git commit -m "data: refresh live-scores.json [skip ci]"
+          git push
