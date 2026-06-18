@@ -25,9 +25,15 @@ window.liveToResults = function (live) {
   if (!live || !Array.isArray(live.matches)) return { out, status };
   live.matches.forEach((m) => {
     Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f, i) => {
+      const key = g + "-" + i;
       if (f[0] === m.home && f[1] === m.away) {
-        if (m.hg != null && m.ag != null) out[g + "-" + i] = [m.hg, m.ag];
-        if (m.status) status[g + "-" + i] = m.status; // FT / LIVE / etc.
+        if (m.hg != null && m.ag != null) out[key] = [m.hg, m.ag];
+        if (m.status) status[key] = m.status; // FT / LIVE / etc.
+      } else if (f[0] === m.away && f[1] === m.home) {
+        // The feed reported this fixture with home/away reversed (the venue's "home"
+        // side differs from our schedule order) — flip the goals so they line up.
+        if (m.hg != null && m.ag != null) out[key] = [m.ag, m.hg];
+        if (m.status) status[key] = m.status;
       }
     }));
   });
@@ -134,6 +140,8 @@ if (!window.__wc26migrated) {
 window.useHubStore = function () {
   const [players, setPlayers] = React.useState(loadPlayers);
   const [results, setResults] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26results")) || {}; } catch (e) { return {}; } });
+  // knockout scores, hand-entered or filled from the live feed: { [matchNo]: [topGoals, botGoals] }
+  const [koResults, setKoResults] = React.useState(() => { try { return JSON.parse(localStorage.getItem("wc26ko")) || {}; } catch (e) { return {}; } });
   const [brackets, setBrackets] = React.useState(() => {
     const out = {}; loadPlayers().list.forEach((pl) => { try { out[pl.id] = JSON.parse(localStorage.getItem(bkey(pl.id))) || {}; } catch (e) { out[pl.id] = {}; } }); return out;
   });
@@ -141,6 +149,7 @@ window.useHubStore = function () {
   const [collections, setCollections] = React.useState(() => loadCollections(loadBooks(loadPlayers())));
   React.useEffect(() => { try { localStorage.setItem("wc26players", JSON.stringify(players)); } catch (e) {} }, [players]);
   React.useEffect(() => { try { localStorage.setItem("wc26results", JSON.stringify(results)); } catch (e) {} }, [results]);
+  React.useEffect(() => { try { localStorage.setItem("wc26ko", JSON.stringify(koResults)); } catch (e) {} }, [koResults]);
   React.useEffect(() => { try { Object.keys(brackets).forEach((id) => localStorage.setItem(bkey(id), JSON.stringify(brackets[id]))); } catch (e) {} }, [brackets]);
   React.useEffect(() => { try { Object.keys(books).forEach((pid) => localStorage.setItem(bkkey(pid), JSON.stringify(books[pid]))); } catch (e) {} }, [books]);
   React.useEffect(() => { try { Object.keys(collections).forEach((id) => localStorage.setItem(skey(id), JSON.stringify(collections[id]))); } catch (e) {} }, [collections]);
@@ -200,8 +209,9 @@ window.useHubStore = function () {
 
   const bracket = brackets[players.active] || {};
   const setResult = (gKey, side, val) => setResults((p) => { const cur = p[gKey] || ["", ""]; const nx = side === 0 ? [val, cur[1]] : [cur[0], val]; return Object.assign({}, p, { [gKey]: nx }); });
+  const setKoResult = (no, side, val) => setKoResults((p) => { const cur = p[no] || ["", ""]; const nx = side === 0 ? [val, cur[1]] : [cur[0], val]; return Object.assign({}, p, { [no]: nx }); });
   const setPick = (slot, team) => setBrackets((b) => { const cur = b[players.active] || {}; return Object.assign({}, b, { [players.active]: Object.assign({}, cur, { [slot]: team }) }); });
-  const reset = () => { setResults({}); setBrackets((b) => Object.assign({}, b, { [players.active]: {} })); };
+  const reset = () => { setResults({}); setKoResults({}); setBrackets((b) => Object.assign({}, b, { [players.active]: {} })); };
   const addPlayer = (name, emoji) => {
     if (!B) return;
     const id = idPrefix() + ":p" + Date.now();
@@ -291,9 +301,9 @@ window.useHubStore = function () {
     return () => clearTimeout(t);
   }, [meta, sync, syncOnce]);
 
-  return { store: { results: results, bracket: bracket }, brackets: brackets,
+  return { store: { results: results, bracket: bracket }, brackets: brackets, koResults: koResults,
            collections: collections, setSticker: setSticker, sync: sync, setSync: setSync,
-           setResult: setResult, setPick: setPick, reset: reset,
+           setResult: setResult, setKoResult: setKoResult, setPick: setPick, reset: reset,
            players: players, addPlayer: addPlayer, switchPlayer: switchPlayer,
            removePlayer: removePlayer, importPlayer: importPlayer,
            books: books, addBook: addBook, renameBook: renameBook, removeBook: removeBook, switchBook: switchBook,
@@ -376,6 +386,93 @@ window.wcQualifiers = function (results) {
   thirds.sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || WC.T[a.k].r - WC.T[b.k].r);
   const r32 = firsts.concat(thirds.slice(0, 8).map((x) => x.k));
   return { r32 };
+};
+
+/* ---- Resolve the WHOLE bracket from results + live knockout scores ----
+   R32 slots come from the group standings via each match's real feeders (1X = group
+   winner, 2X = runner-up, 3XXXX = one of the 8 best 3rd-place teams). Knockout slots
+   (R16 → Final) come from the live feed: a match is decided once both its teams are
+   known and the feed has a non-drawn score for that pairing; the winner flows into the
+   slot it feeds. Returns only the slots we can determine — never guesses a knockout
+   winner — so a half-played tournament fills in as far as the scores allow.
+   `live` is the raw feed object ({ matches:[{home,away,hg,ag,status}] }) or null.
+   `koResults` is hand-entered knockout scores ({ [matchNo]: [topGoals, botGoals] }),
+   used when the live feed has no score for a pairing (spoiler-free / manual families). */
+window.wcResolveBracket = function (results, live, koResults) {
+  const WC = window.WC, KO_M = WC.KO_M, KO_LAYOUT = WC.KO_LAYOUT;
+  results = results || {};
+  koResults = koResults || {};
+  const matches = (live && Array.isArray(live.matches)) ? live.matches : [];
+  const order = Object.keys(KO_M).map(Number).sort((a, b) => a - b);
+
+  // group standings + the 8 best third-place teams (same tiebreak as wcQualifiers)
+  const standings = {};
+  Object.keys(WC.GROUPS).forEach((g) => { standings[g] = window.computeStandings(g, results); });
+  const thirds = Object.keys(WC.GROUPS).map((g) => ({ g: g, k: standings[g][2].k, s: standings[g][2] }));
+  thirds.sort((a, b) => b.s.pts - a.s.pts || b.s.gd - a.s.gd || b.s.gf - a.s.gf || WC.T[a.k].r - WC.T[b.k].r);
+  const qThirds = thirds.slice(0, 8);
+  // assign the qualifying thirds to the eight "3XXXX" R32 feeders, honoring each
+  // slot's allowed groups where possible (greedy, deterministic by match order).
+  const thirdAssign = {}, usedThird = {};
+  order.forEach((no) => {
+    [KO_M[no].top, KO_M[no].bottom].forEach((code) => {
+      if (!/^3[A-L]+$/.test(code) || thirdAssign[code]) return;
+      const allowed = code.slice(1).split("");
+      let pick = qThirds.find((t) => !usedThird[t.k] && allowed.indexOf(t.g) >= 0);
+      if (!pick) pick = qThirds.find((t) => !usedThird[t.k]);
+      if (pick) { thirdAssign[code] = pick.k; usedThird[pick.k] = true; }
+    });
+  });
+
+  const teamOf = {}, winnerOf = {};
+  function winnerFromFeed(top, bot) {
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      if (m.hg == null || m.ag == null) continue;
+      if (m.home === top && m.away === bot) return m.hg > m.ag ? top : m.hg < m.ag ? bot : null;
+      if (m.home === bot && m.away === top) return m.hg > m.ag ? bot : m.hg < m.ag ? top : null;
+    }
+    return null; // not played yet, or a draw we can't break (penalties) — leave open
+  }
+  function winnerFromManual(no, top, bot) {
+    const r = koResults[no];
+    if (!r) return null;
+    const tg = +r[0], bg = +r[1];
+    if (r[0] === "" || r[1] === "" || r[0] == null || r[1] == null || Number.isNaN(tg) || Number.isNaN(bg)) return null;
+    return tg > bg ? top : tg < bg ? bot : null;
+  }
+  function resolve(code) {
+    if (!code) return null;
+    let m;
+    if (m = code.match(/^1([A-L])$/)) return standings[m[1]][0].k;
+    if (m = code.match(/^2([A-L])$/)) return standings[m[1]][1].k;
+    if (/^3[A-L]+$/.test(code)) return thirdAssign[code] || null;
+    if (m = code.match(/^W(\d+)$/)) return winnerOf[+m[1]] || null;
+    if (m = code.match(/^L(\d+)$/)) {
+      const t = teamOf[+m[1]], w = winnerOf[+m[1]];
+      if (!t || !w) return null;
+      return t.top === w ? t.bot : t.top;
+    }
+    return null;
+  }
+  order.forEach((no) => {
+    const top = resolve(KO_M[no].top), bot = resolve(KO_M[no].bottom);
+    teamOf[no] = { top: top, bot: bot };
+    if (top && bot) { const w = winnerFromFeed(top, bot) || winnerFromManual(no, top, bot); if (w) winnerOf[no] = w; }
+  });
+
+  const slots = {};
+  ["L", "R"].forEach((side) => {
+    [["R32", 8], ["R16", 4], ["QF", 2], ["SF", 1]].forEach((rn) => {
+      const lay = KO_LAYOUT[side][rn[0]] || [];
+      for (let i = 0; i < rn[1]; i++) {
+        const t = teamOf[lay[i]] || {};
+        if (t.top) slots[side + rn[0] + "-" + i + "-0"] = t.top;
+        if (t.bot) slots[side + rn[0] + "-" + i + "-1"] = t.bot;
+      }
+    });
+  });
+  return { slots: slots, CHAMP: winnerOf[104] || null, matchTeams: teamOf, winners: winnerOf };
 };
 
 /* ---- Time-zone helper: educate kids + show kick-offs in any family's zone ----

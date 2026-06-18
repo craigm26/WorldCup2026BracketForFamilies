@@ -13,14 +13,80 @@ function Stepper({ value, onChange }) {
   );
 }
 
-function StandingsTab({ results, live, status, setResult }) {
+/* Knockout score view — see who's playing each knockout game and (in spoiler-free /
+   manual mode) type the scores. Winners feed the bracket's auto-advance. In live mode
+   the scores come from the feed and are shown read-only. */
+function feedScoreOf(liveFeed, top, bot) {
+  if (!liveFeed || !top || !bot || !Array.isArray(liveFeed.matches)) return null;
+  for (const m of liveFeed.matches) {
+    if (m.hg == null || m.ag == null) continue;
+    if (m.home === top && m.away === bot) return { tg: m.hg, bg: m.ag, status: m.status };
+    if (m.home === bot && m.away === top) return { tg: m.ag, bg: m.hg, status: m.status };
+  }
+  return null;
+}
+function KnockoutPanel({ results, koResults, setKoResult, liveFeed }) {
+  const WC = window.WC, KO_M = WC.KO_M;
+  koResults = koResults || {};
+  const res = window.wcResolveBracket ? window.wcResolveBracket(results, liveFeed, koResults) : { matchTeams: {}, winners: {} };
+  const teams = res.matchTeams || {}, winners = res.winners || {};
+  const ROUNDS = [
+    { r: "R32", label: "Round of 32" }, { r: "R16", label: "Round of 16" },
+    { r: "QF", label: "Quarter-finals" }, { r: "SF", label: "Semi-finals" },
+    { r: "3RD", label: "3rd-place play-off" }, { r: "FINAL", label: "Final" },
+  ];
+  const TeamRow = ({ no, side, code, feeder, win, score, editable }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0" }}>
+      {code ? <Flag code={WC.T[code].c} w={30} style={{ border: "2px solid #fff", borderRadius: 3, flex: "none", opacity: win === false ? 0.45 : 1 }} />
+        : <span style={{ width: 30, flex: "none" }} />}
+      <span style={{ flex: 1, fontSize: 15, fontWeight: code ? 700 : 500, color: code ? (win === false ? "#9fb0e0" : "#fff") : "#8fa0d0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        {code ? WC.T[code].n : WC.feeder(feeder, false)}{win ? " ✓" : ""}
+      </span>
+      {editable ? <Stepper value={score} onChange={(v) => setKoResult(no, side, v)} />
+        : <span style={{ minWidth: 30, textAlign: "center", fontSize: 24, fontWeight: 700, color: "#fff" }}>{score === "" || score == null ? "–" : score}</span>}
+    </div>
+  );
+  return (
+    <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 18 }}>
+      <div style={{ fontSize: 20, fontWeight: 700, color: "#f4b740", marginBottom: 4 }}>🏆 Knockout games — {liveFeed ? "live scores 🔴" : "type the scores"}</div>
+      <div style={{ fontSize: 13, color: "#9fb0e0", marginBottom: 14 }}>Winners advance to the next round on your 🗂️ Bracket (with “Auto-advance the bracket” on). Penalty shoot-outs: pick the winner by hand on the Bracket.</div>
+      {ROUNDS.map((rd) => {
+        const ms = Object.keys(KO_M).map(Number).filter((no) => KO_M[no].round === rd.r).sort((a, b) => a - b);
+        return (
+          <div key={rd.r} style={{ marginBottom: 16 }}>
+            <div style={{ display: "inline-block", background: "#f4b740", color: "#16235a", fontWeight: 700, fontSize: 13, padding: "3px 12px", borderRadius: 20, marginBottom: 8 }}>{rd.label}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 10 }}>
+              {ms.map((no) => {
+                const m = KO_M[no], t = teams[no] || {}, w = winners[no];
+                const fs = feedScoreOf(liveFeed, t.top, t.bot);
+                const known = !!(t.top && t.bot), editable = known && !fs;
+                const er = koResults[no] || ["", ""];
+                const topScore = fs ? fs.tg : er[0], botScore = fs ? fs.bg : er[1];
+                return (
+                  <div key={no} style={{ background: "rgba(255,255,255,.05)", borderRadius: 12, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 11.5, color: "#9fb0e0", marginBottom: 4 }}><span style={{ color: "#f4b740", fontWeight: 700 }}>M{m.no}</span> · {m.date}{m.city ? " · 📍 " + m.city : ""}{fs && fs.status ? " · " + fs.status : ""}</div>
+                    <TeamRow no={no} side={0} code={t.top} feeder={m.top} win={w ? w === t.top : undefined} score={topScore} editable={editable} />
+                    <TeamRow no={no} side={1} code={t.bot} feeder={m.bottom} win={w ? w === t.bot : undefined} score={botScore} editable={editable} />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StandingsTab({ results, live, status, setResult, koResults, setKoResult, liveFeed }) {
   const WC = window.WC;
   results = results || {};
   status = status || {};
   const [g, setG] = React.useState("A");
   const groups = Object.keys(WC.GROUPS);
-  const fixtures = WC.FIXTURES[g];
-  const table = window.computeStandings(g, results);
+  const isKO = g === "KO";
+  const fixtures = WC.FIXTURES[g] || [];
+  const table = isKO ? [] : window.computeStandings(g, results);
   const GC = { A:"#e2473b",B:"#2f6fe0",C:"#1f9d57",D:"#f08a24",E:"#8a5cd1",F:"#13a8a8",G:"#e64f9b",H:"#d9a316",I:"#3f51c4",J:"#d8463c",K:"#1d77c9",L:"#2f9e4f" };
 
   return (
@@ -32,8 +98,14 @@ function StandingsTab({ results, live, status, setResult }) {
             style={{ width: 52, height: 52, borderRadius: 14, border: "none", cursor: "pointer", fontSize: 22, fontWeight: 700,
               background: x === g ? GC[x] : "rgba(255,255,255,.1)", color: "#fff", boxShadow: x === g ? "0 4px 0 rgba(0,0,0,.25)" : "none" }}>{x}</button>
         ))}
+        <button onClick={() => setG("KO")}
+          style={{ height: 52, padding: "0 16px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 16, fontWeight: 700,
+            background: g === "KO" ? "#f4b740" : "rgba(255,255,255,.1)", color: g === "KO" ? "#16235a" : "#fff", boxShadow: g === "KO" ? "0 4px 0 rgba(0,0,0,.25)" : "none" }}>🏆 Knockout</button>
       </div>
 
+      {g === "KO" ? (
+        <KnockoutPanel results={results} koResults={koResults} setKoResult={setKoResult} liveFeed={liveFeed} />
+      ) : (
       <div style={{ display: "flex", gap: 20, flex: 1, minHeight: 0 }}>
         {/* fixtures with score entry */}
         <div style={{ flex: "1 1 0", background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 18, overflow: "auto" }}>
@@ -101,6 +173,7 @@ function StandingsTab({ results, live, status, setResult }) {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

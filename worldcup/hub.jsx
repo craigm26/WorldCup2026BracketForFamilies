@@ -410,12 +410,12 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 14 }}>
           <Toggle on={settings.autoBracket} onClick={() => setSetting("autoBracket", !settings.autoBracket)} />
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Auto-advance the Round of 32</div>
-            <div style={{ fontSize: 13.5, color: "#cdd9ff", lineHeight: 1.45 }}>When standings change, the computer drops the top 2 of each group (plus the 8 best 3rd-place teams) straight into your bracket. Knock-out winners are still yours to pick!</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Auto-advance the bracket</div>
+            <div style={{ fontSize: 13.5, color: "#cdd9ff", lineHeight: 1.45 }}>When standings change, the computer drops the top 2 of each group (plus the 8 best 3rd-place teams) into the Round of 32 — and as the knockout games are played, the winners advance themselves all the way to the champion. (Knockout winners come from live scores.)</div>
           </div>
         </div>
-        <button onClick={onAutofill} style={{ border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>⚡ Fill my Round of 32 now</button>
-        <div style={{ fontSize: 12.5, color: "#7e8cc0", marginTop: 8 }}>Tip: kids love filling the whole bracket by hand on the 🗂️ Bracket tab — leave this off for that.</div>
+        <button onClick={onAutofill} style={{ border: "none", cursor: "pointer", background: "#f4b740", color: "#16235a", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>⚡ Fill my bracket now</button>
+        <div style={{ fontSize: 12.5, color: "#7e8cc0", marginTop: 8 }}>Tip: kids love filling the whole bracket by hand on the 🗂️ Bracket tab — leave this off for that. (This replaces hand picks with the real results.)</div>
       </div>
 
       <div style={card}>
@@ -456,7 +456,7 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
 }
 
 function HubApp() {
-  const { store, brackets, collections, setSticker, sync, setSync, setResult, setPick, reset, players, addPlayer, switchPlayer, removePlayer, importPlayer, books, addBook, renameBook, removeBook, switchBook, syncStatus } = useHubStore();
+  const { store, brackets, koResults, collections, setSticker, sync, setSync, setResult, setKoResult, setPick, reset, players, addPlayer, switchPlayer, removePlayer, importPlayer, books, addBook, renameBook, removeBook, switchBook, syncStatus } = useHubStore();
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const demo = params.get("demo") === "1";
   const demoData = React.useMemo(() => (demo && window.buildDemo ? window.buildDemo() : null), [demo]);
@@ -494,6 +494,24 @@ function HubApp() {
     return () => clearInterval(id);
   }, [scoreMode, fetchLive]);
 
+  // One-shot presence check in any mode (spoiler-free: it never displays scores,
+  // it only notices that a live feed exists). Lets a manual-mode family discover
+  // that real results are available and turn on Auto with a single tap.
+  const [liveAvailable, setLiveAvailable] = React.useState(false);
+  const [liveNudgeDismissed, setLiveNudgeDismissed] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("live-scores.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d || !Array.isArray(d.matches)) return;
+        const played = d.matches.some((m) => (m.hg != null && m.ag != null) || m.status === "LIVE" || m.status === "HT");
+        if (played) setLiveAvailable(true);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const applyLive = scoreMode !== "manual" && !!live;
   const lr = applyLive ? window.liveToResults(live) : { out: null, status: {} };
   const liveActive = applyLive;
@@ -502,17 +520,24 @@ function HubApp() {
   const bracketStore = demoData ? Object.assign({}, store, { bracket: demoData.bracket }) : store;
 
   const autofillR32 = React.useCallback(() => {
-    const q = window.wcQualifiers ? window.wcQualifiers(results) : null;
-    if (!q || !q.r32) return;
-    const t = q.r32;
-    for (let i = 0; i < 8; i++) { setPick("LR32-" + i + "-0", t[i * 2]); setPick("LR32-" + i + "-1", t[i * 2 + 1]); }
-    for (let i = 0; i < 8; i++) { setPick("RR32-" + i + "-0", t[16 + i * 2]); setPick("RR32-" + i + "-1", t[16 + i * 2 + 1]); }
-  }, [results, setPick]);
+    if (!window.wcResolveBracket) return;
+    // R32 comes from the pool-play standings; the knockout rounds advance from the
+    // live feed's knockout scores (only when live data is actually in play). We only
+    // write slots we can resolve, so manual picks for not-yet-decided games survive.
+    const b = window.wcResolveBracket(results, applyLive ? live : null, koResults);
+    Object.keys(b.slots).forEach((slot) => setPick(slot, b.slots[slot]));
+    if (b.CHAMP) setPick("CHAMP", b.CHAMP);
+  }, [results, live, applyLive, koResults, setPick]);
   const resultsKey = JSON.stringify(results);
+  const liveKey = live ? (live.updated || JSON.stringify(live.matches)) : "";
+  const koKey = JSON.stringify(koResults);
   React.useEffect(() => {
-    if (demo || !settings.autoBracket || scoreMode === "manual") return;
+    // Auto-advance is an explicit, opt-in toggle — honor it in every score mode.
+    // (It used to bail out in "manual" mode, so turning the toggle on did nothing
+    // for the default-mode family: the bracket never followed the pool-play results.)
+    if (demo || !settings.autoBracket) return;
     autofillR32();
-  }, [resultsKey, settings.autoBracket, scoreMode, demo]);
+  }, [resultsKey, liveKey, koKey, settings.autoBracket, scoreMode, demo]);
 
   // shared-bracket import (?b=...)
   const shareParam = params.get("b");
@@ -572,6 +597,16 @@ function HubApp() {
         )}
         <button onClick={() => { if (confirm("Clear all scores & bracket picks?")) reset(); }} style={{ marginLeft: isPhone ? "auto" : 0, border: "none", cursor: "pointer", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 600, background: "rgba(255,255,255,.08)", color: "#9fb0e0", whiteSpace: "nowrap" }}>↺{isPhone ? "" : " Reset"}</button>
       </header>
+      {scoreMode === "manual" && liveAvailable && !liveNudgeDismissed && !demo && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 26px", background: "rgba(226,71,59,.18)", borderBottom: "2px solid #e2473b", flexWrap: "wrap" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, color: "#ffd2cd", fontWeight: 600 }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#e2473b" }}></span>
+            Real match scores are available — want the standings to fill in automatically?
+          </span>
+          <button onClick={() => { setSetting("scoreMode", "full"); setLiveNudgeDismissed(true); setTab("standings"); }} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "#e2473b", color: "#fff", fontWeight: 700, borderRadius: 10, padding: "8px 16px" }}>⚡ Turn on Auto</button>
+          <button onClick={() => setLiveNudgeDismissed(true)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", borderRadius: 10, padding: "8px 12px" }}>Not now</button>
+        </div>
+      )}
       {sharedBracket && !importDismissed && (
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 26px", background: "rgba(52,199,123,.18)", borderBottom: "2px solid #34c77b", flexWrap: "wrap" }}>
           <span style={{ fontSize: 14, color: "#bdf0d3", fontWeight: 600 }}>📥 Someone shared a bracket ({Object.keys(sharedBracket).length} picks).</span>
@@ -584,7 +619,7 @@ function HubApp() {
         {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} books={books} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} addPlayer={addPlayer} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} />}
         {tab === "help" && <HelpTab target={helpTarget} clearTarget={() => setHelpTarget(null)} />}
         {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} goHelp={goHelp} />}
-        {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} />}
+        {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} koResults={koResults} setKoResult={setKoResult} liveFeed={applyLive ? live : null} />}
         {tab === "schedule" && <ScheduleTab results={results} status={lr.status} tz={tz} setTz={setTz} />}
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
         {tab === "facts" && <FactsTab fav={fav} toggleFav={toggleFav} />}
