@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-18T22:01:17.922400+00:00",
+  "updated": "2026-06-18T22:06:07.426047+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -35,6 +35,20 @@
       "status": "FT",
       "hg": 1,
       "ag": 1
+    },
+    {
+      "home": "SUI",
+      "away": "BIH",
+      "status": "FT",
+      "hg": 4,
+      "ag": 1
+    },
+    {
+      "home": "CAN",
+      "away": "QAT",
+      "status": "LIVE",
+      "hg": 0,
+      "ag": 0
     }
   ]
 }

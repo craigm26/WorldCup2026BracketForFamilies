@@ -147,13 +147,21 @@ def fetch_thesportsdb():
     return rows
 
 def _rank(item):
-    # Prefer the richest record when the same fixture shows up in more than one feed:
-    # a final score beats an in-play status, which beats a bare/scheduled entry.
-    if "hg" in item:
+    # Prefer the richest record when the same fixture shows up in more than one feed
+    # (or in a later run): a final score outranks an in-play score, then any score,
+    # then an in-play status, then a bare/scheduled entry. Used for both per-run dedup
+    # and the run-to-run accumulation merge, so a finished result is never downgraded.
+    has_score = ("hg" in item and "ag" in item)
+    st = item.get("status")
+    if has_score and st == "FT":
+        return 4
+    if has_score and st in ("LIVE", "HT"):
         return 3
-    if item.get("status") in ("LIVE", "HT"):
+    if has_score:
         return 2
-    return 1
+    if st in ("LIVE", "HT"):
+        return 1
+    return 0
 
 def build(rows):
     # Dedup by the unordered team pair — World Cup sides meet at most once, and a
@@ -177,6 +185,34 @@ SAMPLE = [{"home": "Mexico", "away": "South Africa", "hg": 2, "ag": 1, "status":
           {"home": "Korea Republic", "away": "Czechia", "hg": 1, "ag": 1, "status": "LIVE"},
           {"home": "Narnia", "away": "Atlantis", "hg": None, "ag": None, "status": ""}]
 
+def _pair_key(m):
+    # Group-stage sides meet once, so the unordered code pair identifies the fixture.
+    return frozenset((m.get("home"), m.get("away")))
+
+def load_existing():
+    """Already-published matches (kit codes). We accumulate onto these so a finished
+    result is never lost when the upstream feed drops it (TheSportsDB's free past/next
+    feeds rotate matches out within minutes, and the season feed lags for hours)."""
+    try:
+        with open(OUT, encoding="utf-8") as f:
+            return (json.load(f).get("matches") or [])
+    except Exception:
+        return []
+
+def merge_existing(existing, fresh):
+    # Union by fixture, keeping the richest record (a fresh row replaces a stored one
+    # only when it is at least as advanced — so FT scores stick, in-play scores update,
+    # and a momentarily-empty feed can't erase a known result). Insertion order is
+    # preserved (dict keeps first-seen position) so standings stay stable.
+    best = {}
+    for m in list(existing) + list(fresh):
+        k = _pair_key(m)
+        if None in k:
+            continue
+        if k not in best or _rank(m) >= _rank(best[k]):
+            best[k] = m
+    return list(best.values())
+
 def write(matches):
     data = {"updated": datetime.datetime.now(datetime.timezone.utc).isoformat(), "matches": matches}
     tmp = OUT + ".tmp"
@@ -194,10 +230,15 @@ def main():
         provider, rows = "TheSportsDB (free)", fetch_thesportsdb()
     matches = build(rows)
     played = [m for m in matches if ("hg" in m) or m.get("status") in ("LIVE", "HT")]
-    if not played:
+    # Accumulate onto what's already published so a transient gap in the upstream feed
+    # never wipes a known result (the freeze/flicker we kept seeing). New finished/live
+    # scores still upgrade their fixture in place.
+    merged = merge_existing(load_existing(), played)
+    if not merged:
         print("No played/live World Cup matches yet from %s (season %s) — nothing written; the Hub "
               "stays in manual mode until games kick off." % (provider, SEASON)); return
-    write(played)
+    print("This run saw %d played/live match(es); merged total now %d." % (len(played), len(merged)))
+    write(merged)
 
 if __name__ == "__main__":
     main()
