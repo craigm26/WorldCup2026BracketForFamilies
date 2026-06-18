@@ -151,10 +151,10 @@ The poster's QR defaults to `http://pi-nas.local/worldcup`. If your address is d
 ### 📺 Kiosk mode (TV boots straight into the Hub)
 
 ```bash
-chromium --kiosk --noerrdialogs --disable-infobars "http://<your-host>/worldcup/"
+chromium --kiosk --noerrdialogs --disable-infobars "http://<your-host>/worldcup/?scoremode=full"
 ```
 
-Navigate with **← →** arrow keys or number keys **1–6**, or any remote/air-mouse.
+The Hub now defaults to **Auto** (live scores) on every device; `?scoremode=full` pins the kiosk to Auto explicitly so the TV always shows scores regardless of any saved setting. (Add `?scoremode=manual` instead for a spoiler-free screen.) Navigate with **← →** arrow keys or number keys **1–6**, or any remote/air-mouse.
 
 ---
 

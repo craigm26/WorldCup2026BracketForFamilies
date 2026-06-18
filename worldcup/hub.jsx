@@ -473,8 +473,17 @@ function HubApp() {
   const goHelp = (id) => { setHelpTarget(id); setTab("help"); };
 
   const [settings, setSettings] = React.useState(() => {
-    try { return Object.assign({ scoreMode: "manual", autoBracket: false }, JSON.parse(localStorage.getItem("wc26settings")) || {}); }
-    catch (e) { return { scoreMode: "manual", autoBracket: false }; }
+    // Auto (live scores) is the default on every surface. Earlier builds defaulted to
+    // spoiler-free Manual and persisted it on first load, so existing devices are stuck
+    // on Manual — the modeV2 marker flips them to Auto exactly once, without clobbering a
+    // later explicit choice. (?scoremode=manual still forces Manual for that load.)
+    const base = { scoreMode: "full", autoBracket: false };
+    try {
+      const saved = JSON.parse(localStorage.getItem("wc26settings")) || {};
+      const s = Object.assign({}, base, saved);
+      if (!saved.modeV2) { s.scoreMode = "full"; s.modeV2 = true; }
+      return s;
+    } catch (e) { return Object.assign({}, base, { modeV2: true }); }
   });
   React.useEffect(() => { try { localStorage.setItem("wc26settings", JSON.stringify(settings)); } catch (e) {} }, [settings]);
   const setSetting = (k, v) => setSettings((s) => Object.assign({}, s, { [k]: v }));
