@@ -78,11 +78,12 @@ function KnockoutPanel({ results, koResults, setKoResult, liveFeed }) {
   );
 }
 
-function StandingsTab({ results, live, status, setResult, koResults, setKoResult, liveFeed }) {
+function StandingsTab({ results, live, status, setResult, koResults, setKoResult, liveFeed, initialView }) {
   const WC = window.WC;
   results = results || {};
   status = status || {};
   const [g, setG] = React.useState("A");
+  const [view, setView] = React.useState(initialView === "proj" ? "proj" : "table");
   const groups = Object.keys(WC.GROUPS);
   const isKO = g === "KO";
   const fixtures = WC.FIXTURES[g] || [];
@@ -101,10 +102,21 @@ function StandingsTab({ results, live, status, setResult, koResults, setKoResult
         <button onClick={() => setG("KO")}
           style={{ height: 52, padding: "0 16px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 16, fontWeight: 700,
             background: g === "KO" ? "#f4b740" : "rgba(255,255,255,.1)", color: g === "KO" ? "#16235a" : "#fff", boxShadow: g === "KO" ? "0 4px 0 rgba(0,0,0,.25)" : "none" }}>🏆 Knockout</button>
+        {!isKO && (
+          <span style={{ marginLeft: "auto", display: "inline-flex", background: "rgba(255,255,255,.08)", borderRadius: 14, padding: 4, alignSelf: "center" }}>
+            {[["table", "📊 Table"], ["proj", "🔮 Projections"]].map(([id, label]) => (
+              <button key={id} onClick={() => setView(id)}
+                style={{ height: 44, padding: "0 14px", borderRadius: 11, border: "none", cursor: "pointer", fontSize: 15, fontWeight: 700,
+                  background: view === id ? "#f4b740" : "transparent", color: view === id ? "#16235a" : "#dfe6ff" }}>{label}</button>
+            ))}
+          </span>
+        )}
       </div>
 
       {g === "KO" ? (
         <KnockoutPanel results={results} koResults={koResults} setKoResult={setKoResult} liveFeed={liveFeed} />
+      ) : view === "proj" ? (
+        <window.ProjectionsPanel group={g} results={results} />
       ) : (
       <div style={{ display: "flex", gap: 20, flex: 1, minHeight: 0 }}>
         {/* fixtures with score entry */}

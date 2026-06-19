@@ -461,6 +461,7 @@ function HubApp() {
   const demo = params.get("demo") === "1";
   const demoData = React.useMemo(() => (demo && window.buildDemo ? window.buildDemo() : null), [demo]);
   const tabParam = params.get("tab");
+  const viewParam = params.get("view");
   const helpParam = params.get("help");
   const [helpTarget, setHelpTarget] = React.useState(helpParam || null);
   const [tab, setTab] = React.useState(helpParam ? "help" : (TABS.some((t) => t.id === tabParam) ? tabParam : "home"));
@@ -628,7 +629,7 @@ function HubApp() {
         {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} books={books} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} addPlayer={addPlayer} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} />}
         {tab === "help" && <HelpTab target={helpTarget} clearTarget={() => setHelpTarget(null)} />}
         {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} goHelp={goHelp} />}
-        {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} koResults={koResults} setKoResult={setKoResult} liveFeed={applyLive ? live : null} />}
+        {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} koResults={koResults} setKoResult={setKoResult} liveFeed={applyLive ? live : null} initialView={viewParam === "proj" ? "proj" : "table"} />}
         {tab === "schedule" && <ScheduleTab results={results} status={lr.status} tz={tz} setTz={setTz} />}
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
         {tab === "facts" && <FactsTab fav={fav} toggleFav={toggleFav} />}
