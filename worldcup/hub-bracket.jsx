@@ -71,22 +71,29 @@ function PoolsPanel({ results }) {
   );
 }
 
-function ISlot({ id, store, onOpen, placeholder }) {
+function ISlot({ id, store, onOpen, placeholder, projected }) {
   const WC = window.WC;
   const team = store.bracket[id];
+  // when projection mode is on, fill an EMPTY slot with the projected team (a faint
+  // ghost the family can tap to keep or change — never overwrites a real pick).
+  const ghost = !team && projected ? projected[id] : null;
   return (
-    <button onClick={() => onOpen(id)} title={placeholder || "Pick a team"} style={{ width: 150, height: 34, display: "flex", alignItems: "center", gap: 7, padding: "0 8px",
-      border: team ? "2px solid #f4b740" : "2px dashed #6f86c9", borderRadius: 8, cursor: "pointer",
-      background: team ? "rgba(244,183,64,.16)" : "rgba(255,255,255,.06)", color: "#fff" }}>
+    <button onClick={() => onOpen(id)} title={ghost ? "Projected: " + WC.T[ghost].n + " — tap to keep or change" : (placeholder || "Pick a team")} style={{ width: 150, height: 34, display: "flex", alignItems: "center", gap: 7, padding: "0 8px",
+      border: team ? "2px solid #f4b740" : ghost ? "2px dashed #f4b740" : "2px dashed #6f86c9", borderRadius: 8, cursor: "pointer",
+      background: team ? "rgba(244,183,64,.16)" : ghost ? "rgba(244,183,64,.07)" : "rgba(255,255,255,.06)", color: "#fff" }}>
       {team ? <React.Fragment>
         <Flag code={WC.T[team].c} w={24} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none" }} />
         <span style={{ fontSize: 14, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[team].n}</span>
+      </React.Fragment> : ghost ? <React.Fragment>
+        <Flag code={WC.T[ghost].c} w={24} style={{ border: "1.5px solid rgba(255,255,255,.7)", borderRadius: 3, flex: "none", opacity: 0.8 }} />
+        <span style={{ fontSize: 13.5, fontWeight: 600, fontStyle: "italic", color: "#ffe8a8", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{WC.T[ghost].n}</span>
+        <span style={{ fontSize: 10, flex: "none", opacity: 0.85 }}>🔮</span>
       </React.Fragment> : <span style={{ fontSize: 11.5, color: "#8fa0d0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{placeholder || "+ add team"}</span>}
     </button>
   );
 }
 
-function HubColumn({ side, round, n, header, store, onOpen, alignRight }) {
+function HubColumn({ side, round, n, header, store, onOpen, alignRight, projected }) {
   const WC = window.WC;
   const lay = ((WC.KO_LAYOUT || {})[side] || {})[round] || [];
   return (
@@ -100,8 +107,8 @@ function HubColumn({ side, round, n, header, store, onOpen, alignRight }) {
           return (
             <div key={i} style={{ display: "flex", flexDirection: "column", gap: 4, background: "rgba(255,255,255,.05)", padding: 6, borderRadius: 9 }}>
               {m && <div style={{ fontSize: 9.5, color: "#9fb0e0", textAlign: "center", lineHeight: 1.15 }}><span style={{ color: "#f4b740", fontWeight: 700 }}>M{m.no}</span> · {m.date}{m.et ? " · " + m.et.replace(" ET", "ET") : ""}<br />📍 {m.city}</div>}
-              <ISlot id={`${side}${round}-${i}-0`} store={store} onOpen={onOpen} placeholder={m ? WC.feeder(m.top, true) : null} />
-              <ISlot id={`${side}${round}-${i}-1`} store={store} onOpen={onOpen} placeholder={m ? WC.feeder(m.bottom, true) : null} />
+              <ISlot id={`${side}${round}-${i}-0`} store={store} onOpen={onOpen} placeholder={m ? WC.feeder(m.top, true) : null} projected={projected} />
+              <ISlot id={`${side}${round}-${i}-1`} store={store} onOpen={onOpen} placeholder={m ? WC.feeder(m.bottom, true) : null} projected={projected} />
             </div>
           );
         })}
@@ -125,6 +132,13 @@ function BracketTab({ store, setPick, results, goHelp }) {
     { href: "Bracket%20-%20Print%20at%20Home.html", label: "🏠 Print-at-home (11 pages)" },
     { href: "Flag%20Cutouts.html", label: "✂ Flag cut-outs" },
   ];
+  // In 🔮 Projections mode, resolve where the current standings would send each team
+  // (R32 from group finishers + best-3rd slotting; later rounds as KO scores arrive).
+  const resultsKey = JSON.stringify(results || {});
+  const projected = React.useMemo(
+    () => (bottomView === "proj" && window.wcResolveBracket ? window.wcResolveBracket(results, null, {}).slots : null),
+    [bottomView, resultsKey]
+  );
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
@@ -146,15 +160,18 @@ function BracketTab({ store, setPick, results, goHelp }) {
           <span style={{ alignSelf: "center", fontSize: 12, color: "#7e8cc0" }}>opens a printable page (color or B&amp;W)</span>
         </div>
       )}
+      {projected && (
+        <div style={{ fontSize: 12.5, color: "#ffe8a8", marginBottom: 6 }}>🔮 <i>Faded italic</i> teams are projected from the current standings (winners, runners-up &amp; best-3rd places slotted into their real matches) — tap any to keep or change. Your own picks stay put.</div>
+      )}
       <div style={{ flex: bottomView ? "1 1 58%" : 1, minHeight: 0, overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "center", alignItems: "stretch", gap: 2, minWidth: 1500, height: "100%", minHeight: 560 }}>
-          <HubColumn side="L" round="R32" n={8} header="Round of 32" store={store} onOpen={onOpen} />
+          <HubColumn side="L" round="R32" n={8} header="Round of 32" store={store} onOpen={onOpen} projected={projected} />
           <Conn leaves={8} dir="lr" />
-          <HubColumn side="L" round="R16" n={4} header="Round of 16" store={store} onOpen={onOpen} />
+          <HubColumn side="L" round="R16" n={4} header="Round of 16" store={store} onOpen={onOpen} projected={projected} />
           <Conn leaves={4} dir="lr" />
-          <HubColumn side="L" round="QF" n={2} header="Quarters" store={store} onOpen={onOpen} />
+          <HubColumn side="L" round="QF" n={2} header="Quarters" store={store} onOpen={onOpen} projected={projected} />
           <Conn leaves={2} dir="lr" />
-          <HubColumn side="L" round="SF" n={1} header="Semi" store={store} onOpen={onOpen} />
+          <HubColumn side="L" round="SF" n={1} header="Semi" store={store} onOpen={onOpen} projected={projected} />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 190, gap: 12 }}>
             <Trophy size={56} stroke="#16235a" />
             <div style={{ background: "#f4b740", borderRadius: 14, padding: "8px 12px", textAlign: "center", minWidth: 150 }}>
@@ -165,13 +182,13 @@ function BracketTab({ store, setPick, results, goHelp }) {
             </div>
             <div style={{ fontSize: 12, color: "#9fb0e0", textAlign: "center", lineHeight: 1.35 }}>★ FINAL · M{(WC.KO_M[104]||{}).no} · {(WC.KO_M[104]||{}).date} ★<br /><span style={{ fontSize: 10.5 }}>📍 {(WC.KO_M[104]||{}).city}</span></div>
           </div>
-          <HubColumn side="R" round="SF" n={1} header="Semi" store={store} onOpen={onOpen} alignRight />
+          <HubColumn side="R" round="SF" n={1} header="Semi" store={store} onOpen={onOpen} alignRight projected={projected} />
           <Conn leaves={2} dir="rl" />
-          <HubColumn side="R" round="QF" n={2} header="Quarters" store={store} onOpen={onOpen} alignRight />
+          <HubColumn side="R" round="QF" n={2} header="Quarters" store={store} onOpen={onOpen} alignRight projected={projected} />
           <Conn leaves={4} dir="rl" />
-          <HubColumn side="R" round="R16" n={4} header="Round of 16" store={store} onOpen={onOpen} alignRight />
+          <HubColumn side="R" round="R16" n={4} header="Round of 16" store={store} onOpen={onOpen} alignRight projected={projected} />
           <Conn leaves={8} dir="rl" />
-          <HubColumn side="R" round="R32" n={8} header="Round of 32" store={store} onOpen={onOpen} alignRight />
+          <HubColumn side="R" round="R32" n={8} header="Round of 32" store={store} onOpen={onOpen} alignRight projected={projected} />
         </div>
       </div>
       {bottomView && (
