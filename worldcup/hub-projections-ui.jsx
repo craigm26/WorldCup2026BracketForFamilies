@@ -137,3 +137,54 @@ function ProjectionsPanel({ group, results }) {
   );
 }
 window.ProjectionsPanel = ProjectionsPanel;
+
+/* Compact all-12-groups projection grid — the Bracket tab's 🔮 companion to Pool play.
+   At-a-glance "who's heading to the Round of 32" that fills the R32 slots above. */
+function BracketProjections({ results }) {
+  const WC = window.WC;
+  results = results || {};
+  const key = React.useMemo(() => Object.keys(results)
+    .filter((k) => { const r = results[k]; return r && r[0] !== "" && r[1] !== "" && r[0] != null && r[1] != null; })
+    .sort().map((k) => k + ":" + results[k][0] + "-" + results[k][1]).join("|"), [results]);
+  const proj = React.useMemo(() => window.wcProjections(results), [key]); // eslint-disable-line
+  const top2 = (pt) => { let v = Math.round(pt.pTop2 * 100); if (v >= 100 && !pt.clinchedTop2) v = 99; if (v <= 0 && !pt.eliminated && pt.pTop2 > 0) v = 1; return v; };
+  const icon = (pt) => pt.clinchedWin ? "👑" : pt.clinchedTop2 ? "✅" : pt.eliminated ? (pt.pThird > 0.005 ? "🟡" : "❌") : "⚔️";
+  return (
+    <div style={{ background: "rgba(0,0,0,.14)", borderRadius: 14, padding: 12 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "#f4b740", marginBottom: 8 }}>🔮 Projections — who's heading to the Round of 32?</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+        {Object.keys(WC.GROUPS).map((g) => {
+          const gp = proj.groups[g];
+          return (
+            <div key={g} style={{ background: "rgba(255,255,255,.05)", borderRadius: 10, padding: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 13, fontWeight: 700, color: "#9fb0e0", marginBottom: 6 }}>
+                <span>Group {g}</span>
+                <span style={{ fontWeight: 600, color: "#7e8cc0", fontSize: 12 }}>{gp.remainingCount ? gp.remainingCount + " to go" : "final"}</span>
+              </div>
+              {gp.standings.map((row) => {
+                const pt = gp.perTeam[row.k];
+                return (
+                  <div key={row.k} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 0", fontSize: 13 }}>
+                    <span style={{ width: 16, flex: "none", textAlign: "center" }}>{icon(pt)}</span>
+                    <Flag code={WC.T[row.k].c} w={20} style={{ border: "1px solid #fff", borderRadius: 2, flex: "none" }} />
+                    <span style={{ flex: 1, minWidth: 0, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[row.k].n}</span>
+                    <span style={{ width: 46, height: 7, borderRadius: 4, background: "rgba(255,255,255,.12)", overflow: "hidden", flex: "none", display: "flex" }}>
+                      <span style={{ width: top2(pt) + "%", background: "#34c77b" }} />
+                      <span style={{ width: Math.round(pt.pThird * 100) + "%", background: "#f4b740" }} />
+                    </span>
+                    <span style={{ width: 32, textAlign: "right", color: "#34c77b", fontWeight: 700, flex: "none" }}>{top2(pt)}%</span>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 11.5, color: "#7e8cc0", marginTop: 8 }}>
+        🟢 chance to finish top 2 · 🟡 best-3rd hopes · 👑 won group · ✅ through · ❌ out — exact from every remaining result.
+        Full detail on the 📊 Standings tab → 🔮 Projections.
+      </div>
+    </div>
+  );
+}
+window.BracketProjections = BracketProjections;

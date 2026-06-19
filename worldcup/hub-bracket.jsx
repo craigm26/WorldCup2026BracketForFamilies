@@ -113,8 +113,9 @@ function HubColumn({ side, round, n, header, store, onOpen, alignRight }) {
 function BracketTab({ store, setPick, results, goHelp }) {
   const [picking, setPicking] = React.useState(null);
   const [sharing, setSharing] = React.useState(false);
-  const [showPools, setShowPools] = React.useState(false);
+  const [bottomView, setBottomView] = React.useState(""); // "" | "pools" | "proj"
   const [printOpen, setPrintOpen] = React.useState(false);
+  const toggleBottom = (v) => setBottomView((cur) => (cur === v ? "" : v));
   const onOpen = (id) => setPicking(id);
   const Conn = window.Connector;
   const champ = store.bracket["CHAMP"];
@@ -129,7 +130,8 @@ function BracketTab({ store, setPick, results, goHelp }) {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
         <div style={{ fontSize: 20, fontWeight: 700, color: "#f4b740" }}>Tap a slot to fill the bracket</div>
         {goHelp && <HelpLink goHelp={goHelp} id="bracket" label="How the bracket works" />}
-        <button onClick={() => setShowPools((v) => !v)} style={{ marginLeft: "auto", cursor: "pointer", border: showPools ? "2px solid #34c77b" : "2px solid transparent", background: showPools ? "rgba(52,199,123,.18)" : "rgba(255,255,255,.1)", color: showPools ? "#bdf0d3" : "#dfe6ff", borderRadius: 12, padding: "7px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>📊 Pool play</button>
+        <button onClick={() => toggleBottom("pools")} style={{ marginLeft: "auto", cursor: "pointer", border: bottomView === "pools" ? "2px solid #34c77b" : "2px solid transparent", background: bottomView === "pools" ? "rgba(52,199,123,.18)" : "rgba(255,255,255,.1)", color: bottomView === "pools" ? "#bdf0d3" : "#dfe6ff", borderRadius: 12, padding: "7px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>📊 Pool play</button>
+        <button onClick={() => toggleBottom("proj")} style={{ cursor: "pointer", border: bottomView === "proj" ? "2px solid #f4b740" : "2px solid transparent", background: bottomView === "proj" ? "rgba(244,183,64,.18)" : "rgba(255,255,255,.1)", color: bottomView === "proj" ? "#ffe8a8" : "#dfe6ff", borderRadius: 12, padding: "7px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>🔮 Projections</button>
         <button onClick={() => setPrintOpen((v) => !v)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 12, padding: "8px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>🖨 Print</button>
         <button onClick={() => setSharing(true)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 12, padding: "8px 13px", fontWeight: 700, fontSize: 14, whiteSpace: "nowrap" }}>📤 Share</button>
         <button onClick={() => setPicking("CHAMP")} style={{ display: "flex", alignItems: "center", gap: 8, background: "#f4b740", color: "#16235a", border: "none", borderRadius: 12, padding: "8px 16px", fontWeight: 700, fontSize: 15, cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -144,7 +146,7 @@ function BracketTab({ store, setPick, results, goHelp }) {
           <span style={{ alignSelf: "center", fontSize: 12, color: "#7e8cc0" }}>opens a printable page (color or B&amp;W)</span>
         </div>
       )}
-      <div style={{ flex: showPools ? "1 1 58%" : 1, minHeight: 0, overflow: "auto" }}>
+      <div style={{ flex: bottomView ? "1 1 58%" : 1, minHeight: 0, overflow: "auto" }}>
         <div style={{ display: "flex", justifyContent: "center", alignItems: "stretch", gap: 2, minWidth: 1500, height: "100%", minHeight: 560 }}>
           <HubColumn side="L" round="R32" n={8} header="Round of 32" store={store} onOpen={onOpen} />
           <Conn leaves={8} dir="lr" />
@@ -172,9 +174,9 @@ function BracketTab({ store, setPick, results, goHelp }) {
           <HubColumn side="R" round="R32" n={8} header="Round of 32" store={store} onOpen={onOpen} alignRight />
         </div>
       </div>
-      {showPools && (
+      {bottomView && (
         <div style={{ flex: "1 1 42%", minHeight: 0, overflow: "auto", marginTop: 10 }}>
-          <PoolsPanel results={results} />
+          {bottomView === "pools" ? <PoolsPanel results={results} /> : <window.BracketProjections results={results} />}
         </div>
       )}
       {picking && <TeamPicker onPick={(k) => { setPick(picking, k); setPicking(null); }} onClose={() => setPicking(null)} />}
