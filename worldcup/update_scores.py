@@ -5,11 +5,13 @@ Hub's index.html, so the Hub can auto-fill standings & schedule.
 
   Hub  <--reads--  live-scores.json  <--writes--  this script  <--fetches--  a football API
 
-TWO PROVIDERS (auto-picked):
-  • TheSportsDB  — the DEFAULT. FREE, NO SIGN-UP: it ships with the public test key "3".
-                   Nothing to configure — it just works (once the 2026 fixtures are loaded).
-  • football-data.org — used instead IF you provide a token (env FOOTBALL_DATA_TOKEN or a
-                   token file). Richer/live data on paid plans.
+PROVIDERS (auto-picked, in order):
+  • ESPN         — the DEFAULT. FREE, NO KEY, NO SIGN-UP. Returns the whole 104-match
+                   World Cup (schedule + live/final scores) in one request, and its team
+                   abbreviations already match our kit codes. Unofficial but stable.
+  • TheSportsDB  — automatic FALLBACK if ESPN is unreachable (free key "3"; sparse/laggy).
+  • football-data.org — used INSTEAD if you provide a token (env FOOTBALL_DATA_TOKEN or a
+                   token file). Richer/live data on paid plans (free tier often excludes the WC).
 
 Output schema (all the Hub cares about):
   { "updated": "<ISO time>",
@@ -55,7 +57,12 @@ def read_fd_token():
     return ""
 
 FD_TOKEN = read_fd_token()
-# ---- TheSportsDB (default, free, no sign-up). "3" is the public test key. ----
+# ---- ESPN (DEFAULT, free, NO key): the whole 104-match World Cup in one request,
+# complete + current, and its team abbreviations already equal our kit codes. ----
+ESPN_URL = ("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/"
+            "scoreboard?dates=%s0601-%s0720&limit=400")
+# ---- TheSportsDB (fallback only): "3" is the public test key; its free feed is
+# sparse/laggy, so it's used just as a backstop if ESPN is unreachable. ----
 TSDB_KEY = os.environ.get("THESPORTSDB_KEY", "3").strip() or "3"
 TSDB_LEAGUE = "4429"  # FIFA World Cup
 
@@ -75,8 +82,15 @@ TEAM = {
     "england": "ENG", "croatia": "CRO", "ghana": "GHA", "panama": "PAN",
 }
 
+VALID_CODES = set(TEAM.values())   # our 48 kit 3-letter codes
+
 def map_team(name):
-    return TEAM.get((name or "").strip().lower())
+    if not name:
+        return None
+    s = name.strip()
+    if s.upper() in VALID_CODES:    # ESPN already hands us kit codes — pass through
+        return s.upper()
+    return TEAM.get(s.lower())      # TheSportsDB / football-data hand us full names
 
 def _get(url, headers=None):
     req = urllib.request.Request(url, headers=headers or {})
@@ -114,6 +128,40 @@ def fetch_footballdata():
         sc = ((m.get("score") or {}).get("fullTime") or {})
         out.append({"home": (m.get("homeTeam") or {}).get("name"), "away": (m.get("awayTeam") or {}).get("name"),
                     "hg": sc.get("home"), "ag": sc.get("away"), "status": status})
+    return out
+
+def fetch_espn():
+    # ESPN's free hidden API returns the full FIFA World Cup schedule + live/final
+    # scores. competitors carry homeAway + team.abbreviation (== our kit codes) + score;
+    # status.type.state is pre|in|post. Soft-fetched so a blip falls back to TheSportsDB.
+    data = _get_soft(ESPN_URL % (SEASON, SEASON))
+    out = []
+    for e in (data.get("events") or []):
+        comp = (e.get("competitions") or [{}])[0]
+        cs = comp.get("competitors") or []
+        home = next((c for c in cs if c.get("homeAway") == "home"), None)
+        away = next((c for c in cs if c.get("homeAway") == "away"), None)
+        if not home or not away:
+            continue
+        st = ((e.get("status") or {}).get("type")) or {}
+        state = st.get("state"); name = (st.get("name") or "").upper()
+        if state == "post" or st.get("completed"):
+            status = "FT"
+        elif state == "in":
+            status = "HT" if "HALF" in name else "LIVE"
+        else:
+            status = ""   # pre / scheduled — no score yet
+        def _sc(c):
+            v = c.get("score")
+            try:
+                return int(v) if v not in (None, "") else None
+            except (TypeError, ValueError):
+                return None
+        out.append({"home": (home.get("team") or {}).get("abbreviation"),
+                    "away": (away.get("team") or {}).get("abbreviation"),
+                    "hg": _sc(home) if status else None,
+                    "ag": _sc(away) if status else None,
+                    "status": status})
     return out
 
 def _parse_tsdb_events(data):
@@ -227,7 +275,9 @@ def main():
     if FD_TOKEN:
         provider, rows = "football-data.org", fetch_footballdata()
     else:
-        provider, rows = "TheSportsDB (free)", fetch_thesportsdb()
+        provider, rows = "ESPN (free)", fetch_espn()
+        if not rows:   # ESPN unreachable/empty — fall back to TheSportsDB's feeds
+            provider, rows = "TheSportsDB (free, fallback)", fetch_thesportsdb()
     matches = build(rows)
     played = [m for m in matches if ("hg" in m) or m.get("status") in ("LIVE", "HT")]
     # Accumulate onto what's already published so a transient gap in the upstream feed

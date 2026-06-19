@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-19T00:05:28.228023+00:00",
+  "updated": "2026-06-19T00:49:42.323482+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -46,9 +46,149 @@
     {
       "home": "CAN",
       "away": "QAT",
-      "status": "LIVE",
+      "status": "FT",
       "hg": 6,
       "ag": 0
+    },
+    {
+      "home": "QAT",
+      "away": "SUI",
+      "status": "FT",
+      "hg": 1,
+      "ag": 1
+    },
+    {
+      "home": "HAI",
+      "away": "SCO",
+      "status": "FT",
+      "hg": 0,
+      "ag": 1
+    },
+    {
+      "home": "AUS",
+      "away": "TUR",
+      "status": "FT",
+      "hg": 2,
+      "ag": 0
+    },
+    {
+      "home": "GER",
+      "away": "CUW",
+      "status": "FT",
+      "hg": 7,
+      "ag": 1
+    },
+    {
+      "home": "NED",
+      "away": "JPN",
+      "status": "FT",
+      "hg": 2,
+      "ag": 2
+    },
+    {
+      "home": "CIV",
+      "away": "ECU",
+      "status": "FT",
+      "hg": 1,
+      "ag": 0
+    },
+    {
+      "home": "SWE",
+      "away": "TUN",
+      "status": "FT",
+      "hg": 5,
+      "ag": 1
+    },
+    {
+      "home": "ESP",
+      "away": "CPV",
+      "status": "FT",
+      "hg": 0,
+      "ag": 0
+    },
+    {
+      "home": "BEL",
+      "away": "EGY",
+      "status": "FT",
+      "hg": 1,
+      "ag": 1
+    },
+    {
+      "home": "KSA",
+      "away": "URU",
+      "status": "FT",
+      "hg": 1,
+      "ag": 1
+    },
+    {
+      "home": "IRN",
+      "away": "NZL",
+      "status": "FT",
+      "hg": 2,
+      "ag": 2
+    },
+    {
+      "home": "FRA",
+      "away": "SEN",
+      "status": "FT",
+      "hg": 3,
+      "ag": 1
+    },
+    {
+      "home": "IRQ",
+      "away": "NOR",
+      "status": "FT",
+      "hg": 1,
+      "ag": 4
+    },
+    {
+      "home": "ARG",
+      "away": "ALG",
+      "status": "FT",
+      "hg": 3,
+      "ag": 0
+    },
+    {
+      "home": "AUT",
+      "away": "JOR",
+      "status": "FT",
+      "hg": 3,
+      "ag": 1
+    },
+    {
+      "home": "POR",
+      "away": "COD",
+      "status": "FT",
+      "hg": 1,
+      "ag": 1
+    },
+    {
+      "home": "ENG",
+      "away": "CRO",
+      "status": "FT",
+      "hg": 4,
+      "ag": 2
+    },
+    {
+      "home": "GHA",
+      "away": "PAN",
+      "status": "FT",
+      "hg": 1,
+      "ag": 0
+    },
+    {
+      "home": "UZB",
+      "away": "COL",
+      "status": "FT",
+      "hg": 1,
+      "ag": 3
+    },
+    {
+      "home": "CZE",
+      "away": "RSA",
+      "status": "FT",
+      "hg": 1,
+      "ag": 1
     }
   ]
 }
