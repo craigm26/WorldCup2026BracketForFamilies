@@ -701,6 +701,7 @@ function FamilyView({ map, players, books, collections, activeId, sync, setSync,
 
 function StickersTab({ collections, setSticker, players, books, addBook, renameBook, removeBook, switchBook, addPlayer, sync, setSync, goHelp, syncStatus }) {
   const [view, setView] = React.useState("book"); // book | trade | overview | family
+  const [exporting, setExporting] = React.useState(false);
   const B = window.WCSTKBOOKS;
   const activeId = players.active;
   const reg = (books && books[activeId]) || (B ? B.defaultRegistry(activeId) : { list: [{ id: activeId, label: "My album" }], active: activeId });
@@ -717,12 +718,14 @@ function StickersTab({ collections, setSticker, players, books, addBook, renameB
     <div style={{ height: "100%", overflow: "auto" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
         {seg("book", "📖 My Book")}{seg("trade", "🔄 Trade Matcher")}{seg("overview", "📊 Overview")}{seg("family", "👨‍👩‍👧 Family")}
-        {goHelp && <span style={{ marginLeft: "auto" }}><HelpLink goHelp={goHelp} id="stk-mark" label="How stickers work" /></span>}
+        <button onClick={() => setExporting(true)} style={{ marginLeft: "auto", border: "none", cursor: "pointer", borderRadius: 12, padding: "9px 16px", fontSize: 15, fontWeight: 700, background: "rgba(244,183,64,.18)", color: "#ffe8a8" }}>📤 Export</button>
+        {goHelp && <span><HelpLink goHelp={goHelp} id="stk-mark" label="How stickers work" /></span>}
       </div>
       {view === "book" && <MyBookView map={map} setSticker={setSticker} activeBook={activeBook} reg={reg} playerId={activeId} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} />}
       {view === "trade" && <TradeMatcherView collections={collections} players={players} books={books} activeId={activeId} addPlayer={addPlayer} />}
       {view === "overview" && <OverviewView collections={collections} players={players} books={books} addPlayer={addPlayer} />}
       {view === "family" && <FamilyView map={map} players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} />}
+      {exporting && <window.StickerExportModal entries={bookEntries(players, books, collections)} defaultBookId={activeBook} onClose={() => setExporting(false)} />}
     </div>
   );
 }
