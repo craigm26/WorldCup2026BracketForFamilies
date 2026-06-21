@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-21T02:35:22.911079+00:00",
+  "updated": "2026-06-21T04:04:10.566026+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -243,6 +243,13 @@
       "home": "ECU",
       "away": "CUW",
       "status": "FT",
+      "hg": 0,
+      "ag": 0
+    },
+    {
+      "home": "TUN",
+      "away": "JPN",
+      "status": "HT",
       "hg": 0,
       "ag": 0
     }
