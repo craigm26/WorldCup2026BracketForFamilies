@@ -99,6 +99,22 @@ test('projected R32 slot maps a group finisher to the right knockout match', () 
   assert.equal(run.oppFeeder, '2B');
 });
 
+test('position tables: 12 teams per place, ranked, with a 3rd-place cutoff', () => {
+  const pt = P.wcPositionTables(oneLeft);
+  [pt.first, pt.second, pt.third, pt.fourth].forEach((arr) => assert.equal(arr.length, 12));
+  // each table is sorted by pts → gd → gf → rank
+  for (let i = 1; i < pt.third.length; i++) {
+    const a = pt.third[i - 1], b = pt.third[i];
+    assert.ok(a.pts > b.pts || (a.pts === b.pts && a.gd >= b.gd), 'third not sorted at ' + i);
+  }
+  assert.equal(pt.thirdAdvance, 8);
+  assert.equal(pt.thirdCutoffPts, pt.third[7].pts);
+  assert.equal(pt.first[0].rank, 1);
+  // every team appears exactly once across the four tables (48 total)
+  const all = [...pt.first, ...pt.second, ...pt.third, ...pt.fourth].map((r) => r.k);
+  assert.equal(new Set(all).size, 48);
+});
+
 test('best-3rd watch ranks all 12 thirds with an 8th-place cutoff', () => {
   const w = P.wcThirdPlaceWatch(oneLeft);
   assert.equal(w.ranked.length, 12);

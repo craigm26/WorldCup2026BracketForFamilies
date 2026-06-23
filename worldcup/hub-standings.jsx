@@ -78,6 +78,81 @@ function KnockoutPanel({ results, koResults, setKoResult, liveFeed }) {
   );
 }
 
+/* Standings sliced by finishing place — all 12 group winners, all 12 runners-up,
+   all 12 third-place teams (best 8 advance), all 12 fourth-place teams. */
+function PlacesPanel({ results }) {
+  const WC = window.WC;
+  const GC = { A:"#e2473b",B:"#2f6fe0",C:"#1f9d57",D:"#f08a24",E:"#8a5cd1",F:"#13a8a8",G:"#e64f9b",H:"#d9a316",I:"#3f51c4",J:"#d8463c",K:"#1d77c9",L:"#2f9e4f" };
+  const PT = window.wcPositionTables(results || {});
+  const [only, setOnly] = React.useState("all");
+  const GRID = "26px 24px minmax(64px,1fr) repeat(4, 22px) 34px 36px";
+  const SECTIONS = [
+    { key: "first",  rows: PT.first,  title: "🥇 Group winners — 1st place", note: "All 12 advance. Ranked against each other (a stronger finish earns a kinder Round-of-32 draw).", kind: "adv" },
+    { key: "second", rows: PT.second, title: "🥈 Runners-up — 2nd place",     note: "All 12 advance.", kind: "adv" },
+    { key: "third",  rows: PT.third,  title: "🥉 Third place — best 8 of 12 advance", note: "The Round-of-32 race. As it stands, the top 8 go through and the bottom 4 are out.", kind: "third" },
+    { key: "fourth", rows: PT.fourth, title: "4th place — eliminated",        note: "Bottom of each group — out of the tournament.", kind: "out" },
+  ];
+  const advColor = (sec, i) => sec.kind === "out" ? false : sec.kind === "third" ? (i < PT.thirdAdvance) : true;
+  const chip = (id, label) => (
+    <button key={id} onClick={() => setOnly(id)} style={{ border: "none", cursor: "pointer", borderRadius: 20, padding: "6px 13px", fontSize: 14, fontWeight: 700,
+      background: only === id ? "#f4b740" : "rgba(255,255,255,.1)", color: only === id ? "#16235a" : "#dfe6ff" }}>{label}</button>
+  );
+  const headRow = (
+    <div style={{ display: "grid", gridTemplateColumns: GRID, gap: "0 4px", alignItems: "center", fontSize: 12, color: "#9fb0e0", fontWeight: 700, padding: "0 6px 5px" }}>
+      <span></span><span></span><span></span>
+      {["P","W","D","L"].map((h) => <span key={h} style={{ textAlign: "center" }}>{h}</span>)}
+      <span style={{ textAlign: "center" }}>GD</span>
+      <span style={{ textAlign: "center", color: "#f4b740" }}>Pts</span>
+    </div>
+  );
+  const row = (sec, r, i) => {
+    const adv = advColor(sec, i);
+    const bg = adv === false ? "rgba(226,71,59,.13)" : adv ? "rgba(52,199,123,.14)" : "transparent";
+    return (
+      <div key={r.g + r.k} style={{ display: "grid", gridTemplateColumns: GRID, gap: "0 4px", alignItems: "center", padding: "8px 6px", borderTop: "1px solid rgba(255,255,255,.07)", background: bg, borderRadius: 8 }}>
+        <span style={{ textAlign: "center", fontWeight: 700, color: adv === false ? "#ff9c93" : adv ? "#34c77b" : "#9fb0e0" }}>{r.rank}</span>
+        <span style={{ width: 22, height: 22, borderRadius: 6, background: GC[r.g], color: "#fff", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{r.g}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+          <Flag code={WC.T[r.k].c} w={26} style={{ border: "2px solid #fff", borderRadius: 3, flex: "none" }} />
+          <span style={{ fontSize: 15, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[r.k].n}</span>
+        </span>
+        {[r.p, r.w, r.d, r.l].map((n, j) => <span key={j} style={{ textAlign: "center", fontSize: 14, color: "#dfe6ff" }}>{n}</span>)}
+        <span style={{ textAlign: "center", fontSize: 14, color: "#dfe6ff" }}>{(r.gd > 0 ? "+" : "") + r.gd}</span>
+        <span style={{ textAlign: "center", fontSize: 17, fontWeight: 700, color: "#fff" }}>{r.pts}</span>
+      </div>
+    );
+  };
+  return (
+    <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ fontSize: 14, color: "#9fb0e0" }}>Standings by finishing place — based on current standings.</div>
+        <span style={{ display: "flex", gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
+          {chip("all", "All")}{chip("first", "🥇 1st")}{chip("second", "🥈 2nd")}{chip("third", "🥉 3rd")}{chip("fourth", "4th")}
+        </span>
+      </div>
+      {SECTIONS.filter((s) => only === "all" || only === s.key).map((sec) => (
+        <div key={sec.key} style={{ background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16, marginBottom: 16 }}>
+          <div style={{ fontSize: 19, fontWeight: 700, color: "#f4b740", marginBottom: 2 }}>{sec.title}</div>
+          <div style={{ fontSize: 13, color: "#9fb0e0", marginBottom: 10 }}>{sec.note}</div>
+          {headRow}
+          {sec.rows.map((r, i) => (
+            <React.Fragment key={r.g + r.k}>
+              {row(sec, r, i)}
+              {sec.kind === "third" && i === PT.thirdAdvance - 1 && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", margin: "2px 0" }}>
+                  <div style={{ flex: 1, borderTop: "2px dashed rgba(244,183,64,.6)" }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#f4b740", whiteSpace: "nowrap" }}>✂ best-8 cutoff · need ≥ {PT.thirdCutoffPts} pts to advance</span>
+                  <div style={{ flex: 1, borderTop: "2px dashed rgba(244,183,64,.6)" }} />
+                </div>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StandingsTab({ results, live, status, setResult, koResults, setKoResult, liveFeed, initialView }) {
   const WC = window.WC;
   results = results || {};
@@ -86,8 +161,9 @@ function StandingsTab({ results, live, status, setResult, koResults, setKoResult
   const [view, setView] = React.useState(initialView === "proj" ? "proj" : "table");
   const groups = Object.keys(WC.GROUPS);
   const isKO = g === "KO";
+  const isPlace = g === "PLACE";
   const fixtures = WC.FIXTURES[g] || [];
-  const table = isKO ? [] : window.computeStandings(g, results);
+  const table = (isKO || isPlace) ? [] : window.computeStandings(g, results);
   const GC = { A:"#e2473b",B:"#2f6fe0",C:"#1f9d57",D:"#f08a24",E:"#8a5cd1",F:"#13a8a8",G:"#e64f9b",H:"#d9a316",I:"#3f51c4",J:"#d8463c",K:"#1d77c9",L:"#2f9e4f" };
 
   return (
@@ -102,7 +178,10 @@ function StandingsTab({ results, live, status, setResult, koResults, setKoResult
         <button onClick={() => setG("KO")}
           style={{ height: 52, padding: "0 16px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 16, fontWeight: 700,
             background: g === "KO" ? "#f4b740" : "rgba(255,255,255,.1)", color: g === "KO" ? "#16235a" : "#fff", boxShadow: g === "KO" ? "0 4px 0 rgba(0,0,0,.25)" : "none" }}>🏆 Knockout</button>
-        {!isKO && (
+        <button onClick={() => setG("PLACE")}
+          style={{ height: 52, padding: "0 16px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 16, fontWeight: 700,
+            background: isPlace ? "#f4b740" : "rgba(255,255,255,.1)", color: isPlace ? "#16235a" : "#fff", boxShadow: isPlace ? "0 4px 0 rgba(0,0,0,.25)" : "none" }}>🥇 By place</button>
+        {!isKO && !isPlace && (
           <span style={{ marginLeft: "auto", display: "inline-flex", background: "rgba(255,255,255,.08)", borderRadius: 14, padding: 4, alignSelf: "center" }}>
             {[["table", "📊 Table"], ["proj", "🔮 Projections"]].map(([id, label]) => (
               <button key={id} onClick={() => setView(id)}
@@ -115,6 +194,8 @@ function StandingsTab({ results, live, status, setResult, koResults, setKoResult
 
       {g === "KO" ? (
         <KnockoutPanel results={results} koResults={koResults} setKoResult={setKoResult} liveFeed={liveFeed} />
+      ) : isPlace ? (
+        <PlacesPanel results={results} />
       ) : view === "proj" ? (
         <window.ProjectionsPanel group={g} results={results} />
       ) : (

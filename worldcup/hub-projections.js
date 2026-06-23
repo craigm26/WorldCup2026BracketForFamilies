@@ -252,7 +252,28 @@
              meta: { remainingFixtures: totalRemaining, playedFixtures: 6 * Object.keys(WC.GROUPS).length - totalRemaining } };
   }
 
+  // ---- standings sliced by finishing position (1st/2nd/3rd/4th across all groups) ----
+  // Each position's 12 teams ranked against each other by the same cross-group key the
+  // bracket uses (pts → gd → gf → FIFA rank). The 3rd-place table is the interesting one:
+  // the best `thirdAdvance` (8) advance, the rest are out — `thirdCutoffPts` is the line.
+  function wcPositionTables(results) {
+    results = results || {};
+    var WC = window.WC;
+    var byPos = [[], [], [], []];
+    Object.keys(WC.GROUPS).forEach(function (g) {
+      window.computeStandings(g, results).forEach(function (row, i) {
+        if (i < 4) byPos[i].push(Object.assign({ g: g }, row));
+      });
+    });
+    byPos.forEach(function (arr) {
+      arr.sort(function (a, b) { return b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || WC.T[a.k].r - WC.T[b.k].r; });
+      arr.forEach(function (r, i) { r.rank = i + 1; });
+    });
+    return { first: byPos[0], second: byPos[1], third: byPos[2], fourth: byPos[3],
+             thirdAdvance: 8, thirdCutoffPts: byPos[2].length >= 8 ? byPos[2][7].pts : 0 };
+  }
+
   return { wcOutcomeProbs: wcOutcomeProbs, wcGroupScenarios: wcGroupScenarios,
            wcThirdPlaceWatch: wcThirdPlaceWatch, wcProjectedSlot: wcProjectedSlot,
-           wcProjections: wcProjections };
+           wcProjections: wcProjections, wcPositionTables: wcPositionTables };
 });
