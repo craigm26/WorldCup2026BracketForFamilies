@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-23T00:03:48.305237+00:00",
+  "updated": "2026-06-23T01:13:32.069353+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -291,16 +291,16 @@
     {
       "home": "FRA",
       "away": "IRQ",
-      "status": "HT",
-      "hg": 1,
+      "status": "FT",
+      "hg": 3,
       "ag": 0
     },
     {
       "home": "NOR",
       "away": "SEN",
       "status": "HT",
-      "hg": 0,
-      "ag": 0
+      "hg": 2,
+      "ag": 1
     }
   ]
 }
