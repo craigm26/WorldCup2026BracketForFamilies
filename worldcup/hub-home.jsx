@@ -66,13 +66,52 @@ function PlayerBar({ players, brackets, results, switchPlayer, addPlayer, remove
   );
 }
 
-function HomeTab({ tz, fav, results, players, brackets, switchPlayer, addPlayer, removePlayer, setTab }) {
+/* A compact group table for the Home page that slides teams as live scores land. */
+function LiveGroupTable({ g, results, status }) {
+  const WC = window.WC;
+  const table = window.computeStandings(g, results || {});
+  const liveSet = window.liveTeamSet ? window.liveTeamSet(status) : {};
+  const Flip = window.FlipRows || (({ children }) => <div>{children}</div>);
+  const GC = { A:"#e2473b",B:"#2f6fe0",C:"#1f9d57",D:"#f08a24",E:"#8a5cd1",F:"#13a8a8",G:"#e64f9b",H:"#d9a316",I:"#3f51c4",J:"#d8463c",K:"#1d77c9",L:"#2f9e4f" };
+  return (
+    <div style={{ background: "rgba(255,255,255,.05)", borderRadius: 12, padding: 12, flex: "1 1 250px", minWidth: 230 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ width: 22, height: 22, borderRadius: 6, background: GC[g], color: "#fff", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{g}</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#9fb0e0" }}>Group {g}</span>
+      </div>
+      <Flip>
+        {table.map((r, idx) => {
+          const adv = idx < 2, third = idx === 2;
+          return (
+            <div key={r.k} data-flip={r.k} style={{ display: "grid", gridTemplateColumns: "16px 22px 1fr 28px 26px", gap: 6, alignItems: "center", padding: "5px 4px", borderRadius: 8,
+              background: adv ? "rgba(52,199,123,.14)" : third ? "rgba(244,183,64,.12)" : "transparent" }}>
+              <span style={{ color: adv ? "#34c77b" : third ? "#f4b740" : "#9fb0e0", fontWeight: 700, fontSize: 13, textAlign: "center" }}>{idx + 1}</span>
+              <Flag code={WC.T[r.k].c} w={22} style={{ border: "1.5px solid #fff", borderRadius: 2, flex: "none" }} />
+              <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, color: "#fff", fontSize: 14, fontWeight: 600 }}>
+                <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[r.k].n}</span>
+                {liveSet[r.k] && <span className="wc-live-dot" title="Playing now" />}
+              </span>
+              <span style={{ textAlign: "center", color: "#dfe6ff", fontSize: 13 }}>{(r.gd > 0 ? "+" : "") + r.gd}</span>
+              <span style={{ textAlign: "center", color: "#fff", fontWeight: 700 }}>{r.pts}</span>
+            </div>
+          );
+        })}
+      </Flip>
+    </div>
+  );
+}
+
+function HomeTab({ tz, fav, results, status, players, brackets, switchPlayer, addPlayer, removePlayer, setTab }) {
   const WC = window.WC, WCTZ = window.WCTZ;
   const now = useNow(1000);
   const all = React.useMemo(() => WCTZ.matches(), []);
   const nowMs = now.getTime();
   const next = all.find((m) => m.dt.getTime() > nowMs);
   const live = all.filter((m) => { const s = m.dt.getTime(); return nowMs >= s && nowMs < s + 115 * 60000; });
+  // groups with a match in play right now (from the live feed) — these tables move live
+  const playingGroups = Array.from(new Set(Object.keys(status || {})
+    .filter((k) => status[k] === "LIVE" || status[k] === "HT")
+    .map((k) => k.split("-")[0]))).sort();
   const zone = WCTZ.zoneOf(tz);
   const dayKey = (d) => { try { return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(d); } catch (e) { return ""; } };
   const today = dayKey(now);
@@ -80,14 +119,21 @@ function HomeTab({ tz, fav, results, players, brackets, switchPlayer, addPlayer,
   const lt = (m) => WCTZ.local(m.date, m.et.h, m.et.m, tz);
 
   const MatchRow = ({ m, big }) => {
-    const t = matchTeams(m, true), k = lt(m), isLive = live.indexOf(m) >= 0;
+    const t = matchTeams(m, true), k = lt(m);
+    const key = m.type === "group" ? (m.g + "-" + m.idx) : null;
+    const r = key && results ? results[key] : null;
+    const st = key && status ? status[key] : null;
+    const isLive = st === "LIVE" || st === "HT" || live.indexOf(m) >= 0;
+    const hasScore = r && r[0] !== "" && r[1] !== "" && r[0] != null && r[1] != null;
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderTop: "1px solid rgba(255,255,255,.08)" }}>
-        {isLive ? <span style={{ background: "#e2473b", color: "#fff", fontWeight: 700, fontSize: 10, borderRadius: 6, padding: "2px 6px", flex: "none" }}>● LIVE</span>
+        {isLive ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#e2473b", color: "#fff", fontWeight: 700, fontSize: 10, borderRadius: 6, padding: "2px 6px", flex: "none" }}><span className="wc-live-dot" style={{ width: 6, height: 6, background: "#fff", boxShadow: "none" }} />{st === "HT" ? "HT" : "LIVE"}</span>
+          : st === "FT" ? <span style={{ color: "#9fb0e0", fontWeight: 700, fontSize: 11, width: 64, flex: "none" }}>FT</span>
           : <span style={{ color: "#9fb0e0", fontWeight: 700, fontSize: 12, width: 64, flex: "none" }}>{k.icon} {k.time}</span>}
         {t.ca ? <Flag code={t.ca} w={24} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none" }} /> : null}
         <span style={{ fontSize: big ? 16 : 14, color: "#fff", flex: 1, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.a}</span>
-        <span style={{ color: "#6f86c9", fontWeight: 700, fontSize: 12 }}>v</span>
+        {hasScore ? <span style={{ fontWeight: 700, color: "#fff", fontSize: big ? 18 : 15, fontVariantNumeric: "tabular-nums", flex: "none", minWidth: 46, textAlign: "center" }}>{r[0]}<span style={{ color: "#6f86c9", margin: "0 4px" }}>-</span>{r[1]}</span>
+          : <span style={{ color: "#6f86c9", fontWeight: 700, fontSize: 12 }}>v</span>}
         <span style={{ fontSize: big ? 16 : 14, color: "#fff", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.b}</span>
         {t.cb ? <Flag code={t.cb} w={24} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none" }} /> : null}
         <span style={{ fontSize: 12, color: "#9fb0e0", flex: "none" }}>📍 {m.city}</span>
@@ -141,9 +187,23 @@ function HomeTab({ tz, fav, results, players, brackets, switchPlayer, addPlayer,
         </div>
       )}
 
+      {/* live standings drama — tables that reorder as goals go in */}
+      {playingGroups.length > 0 && (
+        <div style={{ background: "linear-gradient(135deg, rgba(226,71,59,.14), rgba(255,255,255,.06))", border: "2px solid rgba(226,71,59,.35)", borderRadius: 18, padding: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+            <span className="wc-live-dot" />
+            <span style={{ fontSize: 18, fontWeight: 700, color: "#ffb3ad" }}>Live tables — watch them move</span>
+          </div>
+          <div style={{ fontSize: 13, color: "#9fb0e0", marginBottom: 12 }}>Standings shift the moment a goal goes in. Tap 📊 Standings for the full view.</div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            {playingGroups.map((g) => <LiveGroupTable key={g} g={g} results={results} status={status} />)}
+          </div>
+        </div>
+      )}
+
       {/* live now / today's games */}
       <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 4 }}>{live.length ? "🔴 Live & today" : "📅 Today's games"}</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 4 }}>{(live.length || playingGroups.length) ? "🔴 Live & today" : "📅 Today's games"}</div>
         {todays.length ? todays.map((m, i) => <MatchRow key={i} m={m} big />)
           : <div style={{ fontSize: 14, color: "#9fb0e0", padding: "8px 0" }}>No games today. {next ? "First up: " + matchTeams(next, true).a + " v " + matchTeams(next, true).b + " on " + next.date + "." : ""} Tap 📅 Schedule for the full calendar.</div>}
       </div>

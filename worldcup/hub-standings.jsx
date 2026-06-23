@@ -78,9 +78,52 @@ function KnockoutPanel({ results, koResults, setKoResult, liveFeed }) {
   );
 }
 
+/* FLIP: when the standings reorder (a live goal!), slide each row from its old spot
+   to its new one and flash it — so you can watch teams climb and fall in real time. */
+function useFlip() {
+  const ref = React.useRef(null);
+  const prev = React.useRef({});
+  React.useLayoutEffect(() => {
+    const el = ref.current; if (!el) return;
+    const nodes = el.querySelectorAll("[data-flip]");
+    const present = {};
+    nodes.forEach((node) => {
+      const key = node.getAttribute("data-flip"); present[key] = 1;
+      const top = node.offsetTop, old = prev.current[key];
+      prev.current[key] = top;
+      if (old != null && old !== top) {
+        if (typeof node.animate === "function") {
+          try { node.animate([{ transform: "translateY(" + (old - top) + "px)" }, { transform: "translateY(0)" }], { duration: 650, easing: "cubic-bezier(.2,.8,.2,1)" }); } catch (e) {}
+        }
+        node.classList.remove("wc-moved"); void node.offsetWidth; node.classList.add("wc-moved");
+      }
+    });
+    Object.keys(prev.current).forEach((k) => { if (!present[k]) delete prev.current[k]; });
+  });
+  return ref;
+}
+function FlipRows({ children, style }) {
+  const ref = useFlip();
+  return <div ref={ref} style={style}>{children}</div>;
+}
+// teams currently in a live / half-time match — drives the 🔴 pulse.
+function liveTeamSet(status) {
+  const WC = window.WC, set = {};
+  Object.keys(status || {}).forEach((k) => {
+    const st = status[k]; if (st !== "LIVE" && st !== "HT") return;
+    const m = /^([A-L])-(\d+)$/.exec(k); if (!m) return;
+    const fx = (WC.FIXTURES[m[1]] || [])[+m[2]]; if (!fx) return;
+    set[fx[0]] = 1; set[fx[1]] = 1;
+  });
+  return set;
+}
+window.FlipRows = FlipRows;        // reused by the Home tab's live tables
+window.liveTeamSet = liveTeamSet;
+
 /* Standings sliced by finishing place — all 12 group winners, all 12 runners-up,
    all 12 third-place teams (best 8 advance), all 12 fourth-place teams. */
-function PlacesPanel({ results }) {
+function PlacesPanel({ results, status }) {
+  const liveSet = liveTeamSet(status);
   const WC = window.WC;
   const GC = { A:"#e2473b",B:"#2f6fe0",C:"#1f9d57",D:"#f08a24",E:"#8a5cd1",F:"#13a8a8",G:"#e64f9b",H:"#d9a316",I:"#3f51c4",J:"#d8463c",K:"#1d77c9",L:"#2f9e4f" };
   const PT = window.wcPositionTables(results || {});
@@ -109,12 +152,13 @@ function PlacesPanel({ results }) {
     const adv = advColor(sec, i);
     const bg = adv === false ? "rgba(226,71,59,.13)" : adv ? "rgba(52,199,123,.14)" : "transparent";
     return (
-      <div key={r.g + r.k} style={{ display: "grid", gridTemplateColumns: GRID, gap: "0 4px", alignItems: "center", padding: "8px 6px", borderTop: "1px solid rgba(255,255,255,.07)", background: bg, borderRadius: 8 }}>
+      <div key={r.g + r.k} data-flip={r.g + r.k} style={{ display: "grid", gridTemplateColumns: GRID, gap: "0 4px", alignItems: "center", padding: "8px 6px", borderTop: "1px solid rgba(255,255,255,.07)", background: bg, borderRadius: 8 }}>
         <span style={{ textAlign: "center", fontWeight: 700, color: adv === false ? "#ff9c93" : adv ? "#34c77b" : "#9fb0e0" }}>{r.rank}</span>
         <span style={{ width: 22, height: 22, borderRadius: 6, background: GC[r.g], color: "#fff", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{r.g}</span>
         <span style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
           <Flag code={WC.T[r.k].c} w={26} style={{ border: "2px solid #fff", borderRadius: 3, flex: "none" }} />
           <span style={{ fontSize: 15, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[r.k].n}</span>
+          {liveSet[r.k] && <span className="wc-live-dot" title="Playing now" />}
         </span>
         {[r.p, r.w, r.d, r.l].map((n, j) => <span key={j} style={{ textAlign: "center", fontSize: 14, color: "#dfe6ff" }}>{n}</span>)}
         <span style={{ textAlign: "center", fontSize: 14, color: "#dfe6ff" }}>{(r.gd > 0 ? "+" : "") + r.gd}</span>
@@ -135,18 +179,20 @@ function PlacesPanel({ results }) {
           <div style={{ fontSize: 19, fontWeight: 700, color: "#f4b740", marginBottom: 2 }}>{sec.title}</div>
           <div style={{ fontSize: 13, color: "#9fb0e0", marginBottom: 10 }}>{sec.note}</div>
           {headRow}
-          {sec.rows.map((r, i) => (
-            <React.Fragment key={r.g + r.k}>
-              {row(sec, r, i)}
-              {sec.kind === "third" && i === PT.thirdAdvance - 1 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", margin: "2px 0" }}>
-                  <div style={{ flex: 1, borderTop: "2px dashed rgba(244,183,64,.6)" }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#f4b740", whiteSpace: "nowrap" }}>✂ best-8 cutoff · need ≥ {PT.thirdCutoffPts} pts to advance</span>
-                  <div style={{ flex: 1, borderTop: "2px dashed rgba(244,183,64,.6)" }} />
-                </div>
-              )}
-            </React.Fragment>
-          ))}
+          <FlipRows>
+            {sec.rows.map((r, i) => (
+              <React.Fragment key={r.g + r.k}>
+                {row(sec, r, i)}
+                {sec.kind === "third" && i === PT.thirdAdvance - 1 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", margin: "2px 0" }}>
+                    <div style={{ flex: 1, borderTop: "2px dashed rgba(244,183,64,.6)" }} />
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#f4b740", whiteSpace: "nowrap" }}>✂ best-8 cutoff · need ≥ {PT.thirdCutoffPts} pts to advance</span>
+                    <div style={{ flex: 1, borderTop: "2px dashed rgba(244,183,64,.6)" }} />
+                  </div>
+                )}
+              </React.Fragment>
+            ))}
+          </FlipRows>
         </div>
       ))}
     </div>
@@ -164,6 +210,7 @@ function StandingsTab({ results, live, status, setResult, koResults, setKoResult
   const isPlace = g === "PLACE";
   const fixtures = WC.FIXTURES[g] || [];
   const table = (isKO || isPlace) ? [] : window.computeStandings(g, results);
+  const liveSet = liveTeamSet(status);
   const GC = { A:"#e2473b",B:"#2f6fe0",C:"#1f9d57",D:"#f08a24",E:"#8a5cd1",F:"#13a8a8",G:"#e64f9b",H:"#d9a316",I:"#3f51c4",J:"#d8463c",K:"#1d77c9",L:"#2f9e4f" };
 
   return (
@@ -195,7 +242,7 @@ function StandingsTab({ results, live, status, setResult, koResults, setKoResult
       {g === "KO" ? (
         <KnockoutPanel results={results} koResults={koResults} setKoResult={setKoResult} liveFeed={liveFeed} />
       ) : isPlace ? (
-        <PlacesPanel results={results} />
+        <PlacesPanel results={results} status={status} />
       ) : view === "proj" ? (
         <window.ProjectionsPanel group={g} results={results} />
       ) : (
@@ -244,21 +291,24 @@ function StandingsTab({ results, live, status, setResult, koResults, setKoResult
             {["P","W","D","L","GF","GA"].map((h) => <span key={h} style={{ textAlign: "center" }}>{h}</span>)}
             <span style={{ textAlign: "center", color: "#f4b740" }}>Pts</span>
           </div>
+          <FlipRows>
           {table.map((row, idx) => {
             const adv = idx < 2, third = idx === 2;
             return (
-              <div key={row.k} style={{ display: "grid", gridTemplateColumns: "26px minmax(74px,1fr) repeat(6, 30px) 40px", gap: "0 4px", alignItems: "center", padding: "9px 0", borderTop: "1px solid rgba(255,255,255,.08)",
+              <div key={row.k} data-flip={row.k} style={{ display: "grid", gridTemplateColumns: "26px minmax(74px,1fr) repeat(6, 30px) 40px", gap: "0 4px", alignItems: "center", padding: "9px 0", borderTop: "1px solid rgba(255,255,255,.08)",
                 background: adv ? "rgba(52,199,123,.16)" : third ? "rgba(244,183,64,.14)" : "transparent", borderRadius: 8 }}>
                 <span style={{ textAlign: "center", fontWeight: 700, color: adv ? "#34c77b" : third ? "#f4b740" : "#9fb0e0" }}>{idx + 1}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                   <Flag code={WC.T[row.k].c} w={30} style={{ border: "2px solid #fff", borderRadius: 3, flex: "none" }} />
                   <span style={{ fontSize: 16, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[row.k].n}</span>
+                  {liveSet[row.k] && <span className="wc-live-dot" title="Playing now" />}
                 </span>
                 {[row.p, row.w, row.d, row.l, row.gf, row.ga].map((n, j) => <span key={j} style={{ textAlign: "center", fontSize: 15, color: "#dfe6ff" }}>{n}</span>)}
                 <span style={{ textAlign: "center", fontSize: 18, fontWeight: 700, color: "#fff" }}>{row.pts}</span>
               </div>
             );
           })}
+          </FlipRows>
           <div style={{ marginTop: 14, fontSize: 13, color: "#9fb0e0", lineHeight: 1.4 }}>
             <span style={{ color: "#34c77b", fontWeight: 700 }}>● Top 2 advance</span> &nbsp;·&nbsp;
             <span style={{ color: "#f4b740", fontWeight: 700 }}>● 3rd may advance</span> (8 best 3rd-place teams).<br />
