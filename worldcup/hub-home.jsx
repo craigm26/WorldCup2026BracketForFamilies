@@ -44,7 +44,9 @@ function favVerdict(pt) {
 const DRAMA_SEEN = "wc26drama_seen", DRAMA_EVENTS = "wc26drama_events", DRAMA_ON = "wc26drama_on";
 const DRAMA_STALE_MS = 30 * 60000; // a baseline older than this is re-seeded silently (no overnight flood)
 function dramaTTL(sev) { return sev === "big" ? 30 * 60000 : sev === "medium" ? 15 * 60000 : 8 * 60000; }
-function loadDramaEvents() { try { const a = JSON.parse(localStorage.getItem(DRAMA_EVENTS)); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
+// Drop pre-upgrade events (no `causeKey`) so an upgraded device starts the cause-led ticker
+// clean instead of replaying the old un-summarized rows until they TTL out.
+function loadDramaEvents() { try { const a = JSON.parse(localStorage.getItem(DRAMA_EVENTS)); return Array.isArray(a) ? a.filter((e) => e && e.causeKey !== undefined) : []; } catch (e) { return []; } }
 function useHomeDrama(snapshot, enabled) {
   const [events, setEvents] = React.useState(loadDramaEvents);
   React.useEffect(() => {
