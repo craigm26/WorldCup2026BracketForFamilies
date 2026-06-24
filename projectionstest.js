@@ -231,6 +231,35 @@ test('drama: cutoff_move and r32_opp_change carry clean, match-scoped ids', () =
   assert.equal(opp.id, 'r32_opp_change:m79:b', 'r32 id keys on the match number');
 });
 
+test('drama: events carry the "because" — the goal that triggered them', () => {
+  const prev = { 'A-0': [0, 2], 'A-1': [0, 0] }; // A-1 (KOR v CZE) kicked off, 0-0
+  const cur = { 'A-0': [0, 2], 'A-1': [0, 3] };  // Czechia score → they leapfrog to lead Group A
+  const st = { 'A-1': 'LIVE' };
+  const ev = P.wcDramaDiff(P.wcQualSnapshot(prev, st), P.wcQualSnapshot(cur, st));
+  assert.ok(ev.length, 'a leader flip should produce events');
+  assert.ok(ev.every((e) => e.causeKey === 'A-1'), 'all stamped with the one changed fixture');
+  assert.ok(/Czechia scored/.test(ev[0].causeText), 'cause names the scorer: ' + ev[0].causeText);
+});
+
+test('drama: summary collapses churn into one line per type, under one cause', () => {
+  const mk = (type, teamCode, sev, extra) => Object.assign({ type: type, teamCode: teamCode, severity: sev,
+    emoji: 'x', sentence: type + ' ' + teamCode, causeKey: 'B-3', causeText: 'Bosnia & Herz. scored — Bosnia & Herz. 2–1 Qatar', causeCode: 'BIH', ts: 1000 }, extra || {});
+  const events = [
+    mk('clinch_top2', 'MEX', 'big'),
+    mk('third8_out', 'CRO', 'big'), mk('third8_out', 'PAR', 'big'), mk('third8_out', 'CPV', 'big'),
+    mk('third8_in', 'FRA', 'medium'), mk('third8_in', 'NED', 'medium'),
+    mk('r32_opp_change', 'MEX', 'small', { matchNo: 79 }), mk('r32_opp_change', 'USA', 'small', { matchNo: 80 }),
+  ];
+  const batches = P.wcSummarizeDrama(events);
+  assert.equal(batches.length, 1, 'one cause batch');
+  assert.ok(/Bosnia & Herz\. scored/.test(batches[0].causeText));
+  // clinch (1) + third8_out summary (1) + third8_in summary (1) + r32 summary (1)
+  assert.equal(batches[0].rows.length, 4, JSON.stringify(batches[0].rows.map((r) => r.sentence)));
+  const out = batches[0].rows.find((r) => /dropped off/.test(r.sentence));
+  assert.ok(out && out.teams.length === 3 && /^3 teams/.test(out.sentence), 'three teams folded into one line');
+  assert.ok(/^2 projected Round-of-32 ties/.test(batches[0].rows.find((r) => /Round-of-32/.test(r.sentence)).sentence));
+});
+
 test('drama: snapshot.third8 == the best-8 thirds and all sit in real R32 slots', () => {
   const s = P.wcQualSnapshot(oneLeft);
   const best8 = P.wcThirdPlaceWatch(oneLeft).ranked.slice(0, 8).map((t) => t.k).sort();

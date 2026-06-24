@@ -320,12 +320,41 @@
       var t = mt[no] || {};
       r32[no] = { top: t.top || null, bot: t.bot || null };
     });
+    // raw scores of every played (incl. in-play) fixture, so the diff can name the GOAL that
+    // triggered each ripple ("because Bosnia scored").
+    var scores = {};
+    Object.keys(results).forEach(function (k) { if (isPlayed(results[k])) scores[k] = [+results[k][0], +results[k][1]]; });
     // hash blends the live scores (so leader / best-3rd / R32 drama fires on every goal) with a
     // finalization marker (so a clinch/eliminate transition fires the moment a game goes FINAL,
     // even when the final score equals the last live score).
     var hash = playedScoresHash(results) + '#' + playedScoresHash(finalResults);
     return { hash: hash, perTeam: perTeam, third8: third8,
-             thirdCutoffPts: pt.thirdCutoffPts, leader: leader, r32: r32 };
+             thirdCutoffPts: pt.thirdCutoffPts, leader: leader, r32: r32, scores: scores };
+  }
+
+  // The "because": which fixtures changed between two snapshots, and (when known) who scored.
+  function dramaCauses(prev, cur) {
+    var WC = window.WC, ps = (prev && prev.scores) || {}, cs = (cur && cur.scores) || {}, out = [];
+    Object.keys(cs).forEach(function (k) {
+      var a = ps[k], b = cs[k];
+      if (a && a[0] === b[0] && a[1] === b[1]) return; // unchanged
+      var m = /^([A-L])-(\d+)$/.exec(k); if (!m) return;
+      var fx = (WC.FIXTURES[m[1]] || [])[+m[2]]; if (!fx) return;
+      var scorer = null;
+      if (a) { if (b[0] > a[0]) scorer = fx[0]; else if (b[1] > a[1]) scorer = fx[1]; }
+      out.push({ key: k, g: m[1], home: fx[0], away: fx[1], hg: b[0], ag: b[1], scorer: scorer });
+    });
+    return out;
+  }
+  function dramaCauseText(causes) {
+    var WC = window.WC, nm = function (k) { return (WC.T[k] && WC.T[k].n) || k; };
+    if (!causes.length) return '';
+    if (causes.length === 1) {
+      var c = causes[0], line = nm(c.home) + ' ' + c.hg + '–' + c.ag + ' ' + nm(c.away);
+      return c.scorer ? (nm(c.scorer) + ' scored — ' + nm(c.home) + ' ' + c.hg + '–' + c.ag + ' ' + nm(c.away)) : line;
+    }
+    if (causes.length === 2) return causes.map(function (c) { return nm(c.home) + ' ' + c.hg + '–' + c.ag + ' ' + nm(c.away); }).join(' · ');
+    return 'Goals across ' + causes.length + ' matches';
   }
 
   function wcDramaSentence(ev, WC) {
@@ -359,6 +388,11 @@
     // Two guards: first-load (no baseline) and no-played-score-change (live-poll no-op / 1s tick).
     if (!prev || !cur || prev.hash === cur.hash) return [];
     var WC = window.WC, raw = [];
+    // the goal(s) that triggered this batch — attached to every consequence so the UI can say why.
+    var causes = dramaCauses(prev, cur);
+    var cText = dramaCauseText(causes);
+    var cKey = causes.map(function (c) { return c.key; }).sort().join(',');
+    var cCode = causes.length === 1 ? (causes[0].scorer || causes[0].home) : null;
     function push(type, teamCode, otherCode, groupLetter, extra) {
       var ev = { type: type, teamCode: teamCode || null, otherCode: otherCode || null,
                  groupLetter: groupLetter || null, emoji: DRAMA_EMOJI[type], severity: DRAMA_SEV[type] };
@@ -368,6 +402,7 @@
       // suffixed with the snapshot hash so the same transition isn't doubled across a remount.
       var idKey = (extra && extra.matchNo != null) ? ('m' + extra.matchNo) : (teamCode || groupLetter || '');
       ev.id = type + ':' + idKey + ':' + cur.hash;
+      ev.causeText = cText; ev.causeKey = cKey; ev.causeCode = cCode;
       raw.push(ev);
     }
     // per-team: clinch / elimination
@@ -409,8 +444,44 @@
     return out;
   }
 
+  // Collapse a flat event list into cause-led batches: one "because" header per goal-batch,
+  // with the repetitive best-3rd / R32 churn folded into a single summary line each (so families
+  // see "Bosnia scored → 5 teams dropped off the best-3rd line" instead of 5 identical rows).
+  function wcSummarizeDrama(events) {
+    events = events || [];
+    var groups = {}, order = [], RANK = { big: 0, medium: 1, small: 2 };
+    events.forEach(function (e) {
+      var ck = (e.causeKey != null && e.causeKey !== '') ? e.causeKey : ('id:' + e.id);
+      if (!groups[ck]) { groups[ck] = { causeKey: ck, causeText: e.causeText || '', causeCode: e.causeCode || null, ts: e.ts || 0, events: [] }; order.push(ck); }
+      groups[ck].events.push(e);
+      if ((e.ts || 0) > groups[ck].ts) groups[ck].ts = e.ts || 0;
+    });
+    var batches = order.map(function (ck) {
+      var g = groups[ck], byType = {}, rows = [];
+      g.events.forEach(function (e) { (byType[e.type] = byType[e.type] || []).push(e); });
+      // marquee, one-off transitions keep their own warm sentence
+      ['clinch_win', 'clinch_top2', 'eliminated_out', 'eliminated_third_hope', 'leader_change', 'cutoff_move'].forEach(function (t) {
+        (byType[t] || []).forEach(function (e) { rows.push({ emoji: e.emoji, severity: e.severity, sentence: e.sentence, teams: e.teamCode ? [e.teamCode] : [] }); });
+      });
+      function summarize(t, emoji, one, many, sev) {
+        var es = byType[t] || []; if (!es.length) return;
+        rows.push({ emoji: emoji, severity: sev, teams: es.map(function (e) { return e.teamCode; }).filter(Boolean),
+          sentence: es.length + ' ' + (es.length === 1 ? one : many) });
+      }
+      summarize('third8_out', '🔴', 'team dropped off the last best-3rd spot — on the bubble now', 'teams dropped off the best-3rd line — on the bubble now', 'big');
+      summarize('third8_in', '🟢', 'team climbed into the best-3rd places', 'teams climbed into the best-3rd places', 'medium');
+      var r32 = byType['r32_opp_change'] || [];
+      if (r32.length) rows.push({ emoji: '🔀', severity: 'small', teams: [], sentence: r32.length + ' projected Round-of-32 tie' + (r32.length === 1 ? '' : 's') + ' changed' });
+      rows.sort(function (a, b) { return RANK[a.severity] - RANK[b.severity]; });
+      return { causeKey: ck, causeText: g.causeText, causeCode: g.causeCode, ts: g.ts, rows: rows };
+    });
+    batches.sort(function (a, b) { return b.ts - a.ts; });
+    return batches;
+  }
+
   return { wcOutcomeProbs: wcOutcomeProbs, wcGroupScenarios: wcGroupScenarios,
            wcThirdPlaceWatch: wcThirdPlaceWatch, wcProjectedSlot: wcProjectedSlot,
            wcProjections: wcProjections, wcPositionTables: wcPositionTables,
-           wcQualSnapshot: wcQualSnapshot, wcDramaDiff: wcDramaDiff, wcDramaSentence: wcDramaSentence };
+           wcQualSnapshot: wcQualSnapshot, wcDramaDiff: wcDramaDiff, wcDramaSentence: wcDramaSentence,
+           wcSummarizeDrama: wcSummarizeDrama };
 });

@@ -243,18 +243,36 @@ function HeroBand({ liveMatches, next, results, status, nowMs, tz, champ, scoreM
 
 /* ---- DRAMA ticker: "what just changed" — each goal that ripples into a qualification
    or knockout placement, as a warm one-line pill. Newest first, max 5 + expand. ---- */
-function DramaRow({ ev }) {
+/* one effect line — a single team's transition OR a summarized cluster ("5 teams dropped…") */
+function DramaSummaryRow({ row }) {
   const WC = window.WC;
-  const tint = ev.severity === "big" ? { bg: "rgba(244,183,64,.14)", bd: "rgba(244,183,64,.55)" }
-    : ev.severity === "medium" ? { bg: "rgba(52,199,123,.12)", bd: "rgba(52,199,123,.4)" }
+  const tint = row.severity === "big" ? { bg: "rgba(244,183,64,.14)", bd: "rgba(244,183,64,.55)" }
+    : row.severity === "medium" ? { bg: "rgba(52,199,123,.12)", bd: "rgba(52,199,123,.4)" }
     : { bg: "rgba(255,255,255,.06)", bd: "rgba(255,255,255,.16)" };
-  const code = ev.teamCode, code2 = ev.otherCode;
   return (
-    <div className="wc-drama-row" style={{ display: "flex", alignItems: "center", gap: 10, background: tint.bg, border: "1px solid " + tint.bd, borderRadius: 12, padding: "9px 12px" }}>
-      <span style={{ fontSize: 20, flex: "none" }}>{ev.emoji}</span>
-      {code && WC.T[code] && <Flag code={WC.T[code].c} w={26} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none" }} />}
-      {code2 && WC.T[code2] && <Flag code={WC.T[code2].c} w={26} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none", opacity: .85 }} />}
-      <span style={{ flex: 1, fontSize: 15, fontWeight: 600, color: "#fff", minWidth: 0 }}>{ev.sentence}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 8, background: tint.bg, border: "1px solid " + tint.bd, borderRadius: 12, padding: "8px 12px" }}>
+      <span style={{ fontSize: 19, flex: "none" }}>{row.emoji}</span>
+      {(row.teams || []).slice(0, 12).map((kk) => WC.T[kk] ? <Flag key={kk} code={WC.T[kk].c} w={20} style={{ border: "1.5px solid #fff", borderRadius: 2, flex: "none" }} /> : null)}
+      <span style={{ flex: 1, fontSize: 14.5, fontWeight: 600, color: "#fff", minWidth: 0 }}>{row.sentence}</span>
+    </div>
+  );
+}
+/* one cause→effect card: the goal that landed ("because"), then its summarized ripples */
+function DramaBatch({ batch }) {
+  const WC = window.WC;
+  return (
+    <div className="wc-drama-row" style={{ marginBottom: 12 }}>
+      {batch.causeText ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+          <span style={{ fontSize: 18, flex: "none" }}>⚽</span>
+          {batch.causeCode && WC.T[batch.causeCode] ? <Flag code={WC.T[batch.causeCode].c} w={24} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none" }} /> : null}
+          <span style={{ fontWeight: 700, color: "#fff", fontSize: 15, minWidth: 0 }}>{batch.causeText}</span>
+          {batch.rows.length ? <span style={{ marginLeft: "auto", fontSize: 12.5, color: "#9fb0e0", whiteSpace: "nowrap", flex: "none" }}>↓ and that shifted</span> : null}
+        </div>
+      ) : null}
+      <div style={{ display: "grid", gap: 6, paddingLeft: batch.causeText ? 12 : 0, borderLeft: batch.causeText ? "2px solid rgba(255,255,255,.14)" : "none" }}>
+        {batch.rows.map((r, i) => <DramaSummaryRow key={i} row={r} />)}
+      </div>
     </div>
   );
 }
@@ -262,20 +280,19 @@ function DramaTicker({ events, nowMs }) {
   const [expanded, setExpanded] = React.useState(false);
   const visible = (events || []).filter((e) => nowMs - e.ts < dramaTTL(e.severity));
   if (!visible.length) return null;
-  const shown = expanded ? visible : visible.slice(0, 5);
-  const extra = visible.length - shown.length;
+  const batches = window.wcSummarizeDrama(visible);
+  const shown = expanded ? batches : batches.slice(0, 3);
+  const hidden = batches.slice(shown.length).reduce((n, b) => n + b.rows.length, 0);
   return (
     <div style={{ background: "linear-gradient(135deg, rgba(226,71,59,.14), rgba(255,255,255,.06))", border: "2px solid rgba(226,71,59,.35)", borderRadius: 18, padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <span className="wc-live-dot" />
         <span style={{ fontSize: 18, fontWeight: 700, color: "#ffb3ad" }}>⚡ What just changed</span>
-        <span style={{ fontSize: 12.5, color: "#9fb0e0", marginLeft: "auto" }}>every goal reshapes who reaches the Round of 32</span>
+        <span style={{ fontSize: 12.5, color: "#9fb0e0", marginLeft: "auto" }}>each goal, and the knockout shake-up it caused</span>
       </div>
-      <div style={{ display: "grid", gap: 7 }}>
-        {shown.map((e) => <DramaRow key={e.id} ev={e} />)}
-      </div>
-      {extra > 0 && <button onClick={() => setExpanded(true)} style={{ marginTop: 10, border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 20, padding: "6px 14px", fontWeight: 700, fontSize: 13 }}>+{extra} more {extra === 1 ? "change" : "changes"}</button>}
-      {expanded && visible.length > 5 && <button onClick={() => setExpanded(false)} style={{ marginTop: 10, marginLeft: 8, border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#9fb0e0", borderRadius: 20, padding: "6px 14px", fontWeight: 700, fontSize: 13 }}>show less</button>}
+      {shown.map((b) => <DramaBatch key={b.causeKey} batch={b} />)}
+      {hidden > 0 && <button onClick={() => setExpanded(true)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 20, padding: "6px 14px", fontWeight: 700, fontSize: 13 }}>+{hidden} more</button>}
+      {expanded && batches.length > 3 && <button onClick={() => setExpanded(false)} style={{ marginLeft: 8, border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#9fb0e0", borderRadius: 20, padding: "6px 14px", fontWeight: 700, fontSize: 13 }}>show less</button>}
     </div>
   );
 }
