@@ -530,6 +530,7 @@ function HubApp() {
   // In demo (?demo=1) the results are fabricated, so the REAL live-feed status must not leak onto
   // them (it would slap a pulsing LIVE badge on a demo scoreline). Demo is fully self-contained.
   const liveStatus = demo ? {} : lr.status;
+  const liveClock = demo ? {} : (lr.clock || {});   // per-fixture match minute ("67'")
   const liveActive = applyLive;
   const baseResults = lr.out ? Object.assign({}, store.results, lr.out) : store.results;
   const results = demoData ? demoData.results : baseResults;
@@ -631,11 +632,11 @@ function HubApp() {
         </div>
       )}
       <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
-        {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} status={liveStatus} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} scoreMode={scoreMode} demo={demo} />}
+        {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} status={liveStatus} clock={liveClock} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} scoreMode={scoreMode} demo={demo} />}
         {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} books={books} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} addPlayer={addPlayer} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} />}
         {tab === "help" && <HelpTab target={helpTarget} clearTarget={() => setHelpTarget(null)} />}
         {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} goHelp={goHelp} />}
-        {tab === "standings" && <StandingsTab results={results} live={liveActive} status={liveStatus} setResult={setResult} koResults={koResults} setKoResult={setKoResult} liveFeed={demo ? null : (applyLive ? live : null)} initialView={viewParam === "proj" ? "proj" : "table"} />}
+        {tab === "standings" && <StandingsTab results={results} live={liveActive} status={liveStatus} clock={liveClock} setResult={setResult} koResults={koResults} setKoResult={setKoResult} liveFeed={demo ? null : (applyLive ? live : null)} initialView={viewParam === "proj" ? "proj" : "table"} />}
         {tab === "schedule" && <ScheduleTab results={results} status={liveStatus} tz={tz} setTz={setTz} />}
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
         {tab === "facts" && <FactsTab fav={fav} toggleFav={toggleFav} />}

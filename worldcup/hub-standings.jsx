@@ -199,10 +199,11 @@ function PlacesPanel({ results, status }) {
   );
 }
 
-function StandingsTab({ results, live, status, setResult, koResults, setKoResult, liveFeed, initialView }) {
+function StandingsTab({ results, live, status, clock, setResult, koResults, setKoResult, liveFeed, initialView }) {
   const WC = window.WC;
   results = results || {};
   status = status || {};
+  clock = clock || {};
   const [g, setG] = React.useState("A");
   const [view, setView] = React.useState(initialView === "proj" ? "proj" : "table");
   const groups = Object.keys(WC.GROUPS);
@@ -256,7 +257,7 @@ function StandingsTab({ results, live, status, setResult, koResults, setKoResult
             const st = status[key];
             return (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: i < 5 ? "1px solid rgba(255,255,255,.1)" : "none" }}>
-                <span style={{ fontSize: 13, color: "#9fb0e0", width: 92, flex: "none" }}>{f[2]} · {f[3]}{st ? " · " + st : ""}</span>
+                <span style={{ fontSize: 13, color: "#9fb0e0", width: 92, flex: "none" }}>{f[2]} · {f[3]}{st ? " · " + ((st === "LIVE" || st === "HT") && clock[key] ? clock[key] : st) : ""}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, justifyContent: "flex-end" }}>
                   <span style={{ fontSize: 18, fontWeight: 600, color: "#fff", textAlign: "right" }}>{WC.T[f[0]].n}</span>
                   <Flag code={WC.T[f[0]].c} w={36} style={{ border: "2px solid #fff", borderRadius: 4, flex: "none" }} />

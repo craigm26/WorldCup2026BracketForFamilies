@@ -21,23 +21,25 @@ window.HUB = {
    the Pi). Schema: { updated:"ISO", matches:[{home:"MEX",away:"RSA",hg:2,ag:1,status:"FT"}] }
    home/away are our 3-letter codes. liveToResults maps it onto the standings. */
 window.liveToResults = function (live) {
-  const WC = window.WC, out = {}, status = {};
-  if (!live || !Array.isArray(live.matches)) return { out, status };
+  const WC = window.WC, out = {}, status = {}, clock = {};
+  if (!live || !Array.isArray(live.matches)) return { out, status, clock };
   live.matches.forEach((m) => {
     Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f, i) => {
       const key = g + "-" + i;
       if (f[0] === m.home && f[1] === m.away) {
         if (m.hg != null && m.ag != null) out[key] = [m.hg, m.ag];
-        if (m.status) status[key] = m.status; // FT / LIVE / etc.
+        if (m.status) status[key] = m.status; // FT / LIVE / HT
+        if (m.min) clock[key] = m.min;        // last known match minute, e.g. "67'"
       } else if (f[0] === m.away && f[1] === m.home) {
         // The feed reported this fixture with home/away reversed (the venue's "home"
         // side differs from our schedule order) — flip the goals so they line up.
         if (m.hg != null && m.ag != null) out[key] = [m.ag, m.hg];
         if (m.status) status[key] = m.status;
+        if (m.min) clock[key] = m.min;
       }
     }));
   });
-  return { out, status };
+  return { out, status, clock };
 };
 
 /* ---- standings computation ---- */

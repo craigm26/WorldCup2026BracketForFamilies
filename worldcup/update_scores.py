@@ -15,8 +15,10 @@ PROVIDERS (auto-picked, in order):
 
 Output schema (all the Hub cares about):
   { "updated": "<ISO time>",
-    "matches": [ { "home":"MEX", "away":"RSA", "hg":2, "ag":1, "status":"FT" }, ... ] }
-home/away are the kit's 3-letter codes (see TEAM map / data.js T{}).
+    "matches": [ { "home":"MEX", "away":"RSA", "hg":2, "ag":1, "status":"FT" },
+                 { "home":"BIH", "away":"QAT", "hg":3, "ag":1, "status":"LIVE", "min":"67'" }, ... ] }
+home/away are the kit's 3-letter codes (see TEAM map / data.js T{}). "min" (optional) is the
+last known match clock for an in-play game ("67'", "45'+2'") — shown live on the hub.
 
 USAGE
   python3 update_scores.py --self-test     # check team-mapping, no network
@@ -145,10 +147,13 @@ def fetch_espn():
             continue
         st = ((e.get("status") or {}).get("type")) or {}
         state = st.get("state"); name = (st.get("name") or "").upper()
+        sd = (st.get("shortDetail") or "").strip()   # the live clock ESPN shows: "67'", "HT", "FT"
         if state == "post" or st.get("completed"):
             status = "FT"
         elif state == "in":
-            status = "HT" if "HALF" in name else "LIVE"
+            # ONLY the genuine halftime is HT — name is STATUS_FIRST_HALF / STATUS_HALFTIME /
+            # STATUS_SECOND_HALF, so a substring "HALF" match would wrongly flag the 2nd half.
+            status = "HT" if (name == "STATUS_HALFTIME" or sd.upper() in ("HT", "HALFTIME", "HALF TIME")) else "LIVE"
         else:
             status = ""   # pre / scheduled — no score yet
         def _sc(c):
@@ -157,11 +162,17 @@ def fetch_espn():
                 return int(v) if v not in (None, "") else None
             except (TypeError, ValueError):
                 return None
-        out.append({"home": (home.get("team") or {}).get("abbreviation"),
-                    "away": (away.get("team") or {}).get("abbreviation"),
-                    "hg": _sc(home) if status else None,
-                    "ag": _sc(away) if status else None,
-                    "status": status})
+        row = {"home": (home.get("team") or {}).get("abbreviation"),
+               "away": (away.get("team") or {}).get("abbreviation"),
+               "hg": _sc(home) if status else None,
+               "ag": _sc(away) if status else None,
+               "status": status}
+        # the last known match minute for an in-play game (e.g. "67'") — shown live in the Hub
+        if status in ("LIVE", "HT"):
+            mn = sd or (((comp.get("status") or {}).get("displayClock") or "").strip())
+            if mn:
+                row["min"] = mn
+        out.append(row)
     return out
 
 def _parse_tsdb_events(data):
@@ -222,6 +233,8 @@ def build(rows):
         if not home or not away:
             continue
         item = {"home": home, "away": away, "status": r["status"]}
+        if r.get("min"):
+            item["min"] = r["min"]
         if r["hg"] is not None and r["ag"] is not None:
             item["hg"], item["ag"] = r["hg"], r["ag"]
         key = frozenset((home, away))

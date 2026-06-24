@@ -164,7 +164,7 @@ function LiveGroupTable({ g, results, status }) {
 
 /* ---- HERO band: one full-width face. Big live scores when a match is in play (and not
    spoiler-free), else the next-kickoff countdown, else a champion card. Never empty. ---- */
-function HeroBand({ liveMatches, next, results, status, nowMs, tz, champ, scoreMode }) {
+function HeroBand({ liveMatches, next, results, status, clock, nowMs, tz, champ, scoreMode }) {
   const WC = window.WC, WCTZ = window.WCTZ;
   const lt = (m) => WCTZ.local(m.date, m.et.h, m.et.m, tz);
   const showLive = scoreMode !== "manual" && liveMatches.length > 0;
@@ -183,7 +183,7 @@ function HeroBand({ liveMatches, next, results, status, nowMs, tz, champ, scoreM
               <div key={key} style={{ flex: "1 1 280px", minWidth: 250, background: "rgba(0,0,0,.22)", borderRadius: 16, padding: "12px 16px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#e2473b", color: "#fff", fontWeight: 700, fontSize: 11, borderRadius: 6, padding: "2px 8px" }}>
-                    <span className="wc-live-dot" style={{ width: 6, height: 6, background: "#fff", boxShadow: "none" }} />{st === "HT" ? "HALF-TIME" : "LIVE"}
+                    <span className="wc-live-dot" style={{ width: 6, height: 6, background: "#fff", boxShadow: "none" }} />{st === "HT" ? "HALF-TIME" : ((clock || {})[key] || "LIVE")}
                   </span>
                   <span style={{ fontSize: 12, color: "#cdd9ff" }}>📍 {m.city}</span>
                 </div>
@@ -433,7 +433,8 @@ function ProjectedR32Mini({ results, changedMatches, setTab }) {
   );
 }
 
-function HomeTab({ tz, fav, results, status, players, brackets, switchPlayer, addPlayer, removePlayer, setTab, scoreMode, demo }) {
+function HomeTab({ tz, fav, results, status, clock, players, brackets, switchPlayer, addPlayer, removePlayer, setTab, scoreMode, demo }) {
+  clock = clock || {};
   const WC = window.WC, WCTZ = window.WCTZ;
   const now = useNow(1000);
   const all = React.useMemo(() => WCTZ.matches(), []);
@@ -479,7 +480,7 @@ function HomeTab({ tz, fav, results, status, players, brackets, switchPlayer, ad
     const hasScore = r && r[0] !== "" && r[1] !== "" && r[0] != null && r[1] != null;
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderTop: "1px solid rgba(255,255,255,.08)" }}>
-        {isLive ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#e2473b", color: "#fff", fontWeight: 700, fontSize: 10, borderRadius: 6, padding: "2px 6px", flex: "none" }}><span className="wc-live-dot" style={{ width: 6, height: 6, background: "#fff", boxShadow: "none" }} />{st === "HT" ? "HT" : "LIVE"}</span>
+        {isLive ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#e2473b", color: "#fff", fontWeight: 700, fontSize: 10, borderRadius: 6, padding: "2px 6px", flex: "none" }}><span className="wc-live-dot" style={{ width: 6, height: 6, background: "#fff", boxShadow: "none" }} />{st === "HT" ? "HT" : (clock[key] || "LIVE")}</span>
           : st === "FT" ? <span style={{ color: "#9fb0e0", fontWeight: 700, fontSize: 11, width: 64, flex: "none" }}>FT</span>
           : <span style={{ color: "#9fb0e0", fontWeight: 700, fontSize: 12, width: 64, flex: "none" }}>{k.icon} {k.time}</span>}
         {t.ca ? <Flag code={t.ca} w={24} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none" }} /> : null}
@@ -507,7 +508,7 @@ function HomeTab({ tz, fav, results, status, players, brackets, switchPlayer, ad
   return (
     <div style={{ height: "100%", overflow: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
       {/* 1 · HERO — big live scores, else next-kickoff countdown */}
-      <HeroBand liveMatches={liveMatches} next={next} results={results} status={status} nowMs={nowMs} tz={tz} champ={champ} scoreMode={scoreMode} />
+      <HeroBand liveMatches={liveMatches} next={next} results={results} status={status} clock={clock} nowMs={nowMs} tz={tz} champ={champ} scoreMode={scoreMode} />
 
       {/* 2 · DRAMA — what just changed */}
       {dramaOn && <DramaTicker events={dramaEvents} nowMs={nowMs} />}
