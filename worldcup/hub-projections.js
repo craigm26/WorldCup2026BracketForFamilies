@@ -469,13 +469,16 @@
       ['clinch_win', 'clinch_top2', 'eliminated_out', 'eliminated_third_hope', 'leader_change', 'cutoff_move'].forEach(function (t) {
         (byType[t] || []).forEach(function (e) { rows.push({ emoji: e.emoji, severity: e.severity, sentence: e.sentence, teams: e.teamCode ? [e.teamCode] : [] }); });
       });
-      function summarize(t, emoji, one, many, sev) {
+      function summarize(t, emoji, many, sev) {
         var es = byType[t] || []; if (!es.length) return;
+        // a single team keeps its own named sentence ("South Africa slipped OUT…"); only a real
+        // cluster collapses to "N teams …" with a flag row.
+        if (es.length === 1) { rows.push({ emoji: es[0].emoji, severity: es[0].severity, teams: es[0].teamCode ? [es[0].teamCode] : [], sentence: es[0].sentence }); return; }
         rows.push({ emoji: emoji, severity: sev, teams: es.map(function (e) { return e.teamCode; }).filter(Boolean),
-          sentence: es.length + ' ' + (es.length === 1 ? one : many) });
+          sentence: es.length + ' ' + many });
       }
-      summarize('third8_out', '🔴', 'team dropped off the last best-3rd spot — on the bubble now', 'teams dropped off the best-3rd line — on the bubble now', 'big');
-      summarize('third8_in', '🟢', 'team climbed into the best-3rd places', 'teams climbed into the best-3rd places', 'medium');
+      summarize('third8_out', '🔴', 'teams dropped off the best-3rd line — on the bubble now', 'big');
+      summarize('third8_in', '🟢', 'teams climbed into the best-3rd places', 'medium');
       var r32 = byType['r32_opp_change'] || [];
       if (r32.length) rows.push({ emoji: '🔀', severity: 'small', teams: [], sentence: r32.length + ' projected Round-of-32 tie' + (r32.length === 1 ? '' : 's') + ' changed' });
       rows.sort(function (a, b) { return RANK[a.severity] - RANK[b.severity]; });

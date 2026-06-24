@@ -260,6 +260,15 @@ test('drama: summary collapses churn into one line per type, under one cause', (
   assert.ok(/^2 projected Round-of-32 ties/.test(batches[0].rows.find((r) => /Round-of-32/.test(r.sentence)).sentence));
 });
 
+test('drama: a single team in a batch keeps its NAMED sentence (not "1 team")', () => {
+  const one = [{ id: 'x', type: 'third8_out', teamCode: 'BIH', severity: 'big', emoji: '🔴',
+    sentence: 'Bosnia & Herz. slipped OUT of the last best-3rd spot — on the bubble now.',
+    causeKey: 'B-5', causeText: 'Bosnia & Herz. scored — Bosnia & Herz. 3–1 Qatar', causeCode: 'BIH', ts: 1000 }];
+  const rows = P.wcSummarizeDrama(one)[0].rows;
+  assert.equal(rows.length, 1);
+  assert.ok(/Bosnia & Herz\./.test(rows[0].sentence) && !/^1 team/.test(rows[0].sentence), rows[0].sentence);
+});
+
 test('drama: a cold/stale baseline catch-up (many matches at once) stays silent', () => {
   const empty = P.wcQualSnapshot({}, {});
   const full = P.wcQualSnapshot({ 'A-0': [1, 0], 'A-1': [2, 0], 'A-2': [0, 1], 'A-3': [1, 0], 'A-4': [0, 2], 'A-5': [2, 2],
