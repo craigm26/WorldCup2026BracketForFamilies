@@ -390,6 +390,12 @@
     var WC = window.WC, raw = [];
     // the goal(s) that triggered this batch — attached to every consequence so the UI can say why.
     var causes = dramaCauses(prev, cur);
+    // A big batch of changed matches at once means the baseline is COLD, not that a goal just
+    // went in: the live feed loaded all results in one shot, the tab was closed overnight, or
+    // it's a fresh device. Reseed silently (caller advances the baseline) instead of flooding the
+    // ticker with every already-decided result as "just changed". One live goal is ever only 1-2
+    // changed fixtures, even when it ripples to many teams.
+    if (causes.length > 8) return [];
     var cText = dramaCauseText(causes);
     var cKey = causes.map(function (c) { return c.key; }).sort().join(',');
     var cCode = causes.length === 1 ? (causes[0].scorer || causes[0].home) : null;

@@ -41,7 +41,10 @@ function favVerdict(pt) {
 /* ---- drama persistence: baseline snapshot + the visible event list both live in
    localStorage, so the ticker survives the Home remount-on-tab-switch and the 4h kiosk
    reload without re-firing. First load (no baseline) seeds silently → zero false drama. */
-const DRAMA_SEEN = "wc26drama_seen", DRAMA_EVENTS = "wc26drama_events", DRAMA_ON = "wc26drama_on";
+// v2 keys = a one-time clean slate: earlier builds could seed an empty baseline before the live
+// feed loaded, then narrate every already-decided result as "just changed". Bumping the keys
+// discards that and the cold-catch-up guard in wcDramaDiff stops it recurring.
+const DRAMA_SEEN = "wc26drama_seen2", DRAMA_EVENTS = "wc26drama_events2", DRAMA_ON = "wc26drama_on2";
 const DRAMA_STALE_MS = 30 * 60000; // a baseline older than this is re-seeded silently (no overnight flood)
 function dramaTTL(sev) { return sev === "big" ? 30 * 60000 : sev === "medium" ? 15 * 60000 : 8 * 60000; }
 // Drop pre-upgrade events (no `causeKey`) so an upgraded device starts the cause-led ticker

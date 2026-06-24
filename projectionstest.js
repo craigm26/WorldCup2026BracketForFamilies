@@ -260,6 +260,13 @@ test('drama: summary collapses churn into one line per type, under one cause', (
   assert.ok(/^2 projected Round-of-32 ties/.test(batches[0].rows.find((r) => /Round-of-32/.test(r.sentence)).sentence));
 });
 
+test('drama: a cold/stale baseline catch-up (many matches at once) stays silent', () => {
+  const empty = P.wcQualSnapshot({}, {});
+  const full = P.wcQualSnapshot({ 'A-0': [1, 0], 'A-1': [2, 0], 'A-2': [0, 1], 'A-3': [1, 0], 'A-4': [0, 2], 'A-5': [2, 2],
+    'B-0': [1, 0], 'B-1': [2, 0], 'B-2': [0, 1], 'B-3': [1, 0] }, {}); // 10 fixtures appear at once
+  assert.deepEqual(P.wcDramaDiff(empty, full), [], 'no flood when the baseline is catching up');
+});
+
 test('drama: snapshot.third8 == the best-8 thirds and all sit in real R32 slots', () => {
   const s = P.wcQualSnapshot(oneLeft);
   const best8 = P.wcThirdPlaceWatch(oneLeft).ranked.slice(0, 8).map((t) => t.k).sort();
