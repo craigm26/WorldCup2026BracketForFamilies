@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-24T22:43:04.321443+00:00",
+  "updated": "2026-06-24T23:13:34.342761+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -355,17 +355,17 @@
       "home": "MAR",
       "away": "HAI",
       "status": "LIVE",
-      "min": "42'",
-      "hg": 1,
-      "ag": 1
+      "min": "50'",
+      "hg": 2,
+      "ag": 2
     },
     {
       "home": "SCO",
       "away": "BRA",
       "status": "LIVE",
-      "min": "42'",
+      "min": "48'",
       "hg": 0,
-      "ag": 1
+      "ag": 2
     }
   ]
 }
