@@ -122,3 +122,121 @@ test('best-3rd watch ranks all 12 thirds with an 8th-place cutoff', () => {
   const s = w.statusForGroup('A');
   assert.ok(s && typeof s.rank === 'number' && typeof s.inTop8 === 'boolean');
 });
+
+// ---- DRAMA: snapshot + diff (the "what just changed" mechanic) ----
+
+test('drama: snapshot is a JSON-serializable fingerprint with the expected keys', () => {
+  const s = P.wcQualSnapshot(oneLeft);
+  assert.equal(typeof s.hash, 'string');
+  assert.equal(s.perTeam.MEX.g, 'A');
+  assert.equal(typeof s.perTeam.MEX.clinchedTop2, 'boolean');
+  assert.equal(typeof s.thirdCutoffPts, 'number');
+  assert.equal(Object.keys(s.r32).length, 16);                       // R32 matches 73..88
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(s)), s);          // pure data — no functions/closures
+});
+
+test('drama: first-load and no-op guards return zero events', () => {
+  const s = P.wcQualSnapshot(oneLeft);
+  assert.deepEqual(P.wcDramaDiff(null, s), []);                      // no baseline ⇒ silent
+  assert.deepEqual(P.wcDramaDiff(undefined, s), []);
+  assert.deepEqual(P.wcDramaDiff(s, s), []);                         // identical played-scores hash
+});
+
+test('drama: a real clinch fires a big, ready-to-render event', () => {
+  const prev = { 'A-0': [3, 0], 'A-1': [2, 0], 'A-2': [0, 1] };      // MEX 3 pts, nothing locked
+  const ev = P.wcDramaDiff(P.wcQualSnapshot(prev), P.wcQualSnapshot(oneLeft)); // MEX win Group A
+  const mex = ev.find((e) => e.teamCode === 'MEX');
+  assert.ok(mex, 'MEX should get a drama event');
+  assert.ok(mex.type === 'clinch_win' || mex.type === 'clinch_top2', mex.type);
+  assert.equal(mex.severity, 'big');
+  assert.ok(/Mexico/.test(mex.sentence) && mex.emoji && mex.id, 'has copy + emoji + id');
+});
+
+test('drama: a group-leader change fires ⬆️ with both team names', () => {
+  const prev = { 'A-0': [0, 1] };                                    // RSA beat MEX → RSA lead A
+  const cur = { 'A-0': [0, 1], 'A-1': [3, 0] };                      // KOR (+3) leapfrogs RSA (+1)
+  const ev = P.wcDramaDiff(P.wcQualSnapshot(prev), P.wcQualSnapshot(cur));
+  const lc = ev.find((e) => e.type === 'leader_change' && e.groupLetter === 'A');
+  assert.ok(lc, 'expected a leader change in Group A');
+  assert.equal(lc.teamCode, 'KOR');
+  assert.equal(lc.otherCode, 'RSA');
+  assert.ok(/South Korea/.test(lc.sentence) && /South Africa/.test(lc.sentence));
+});
+
+test('drama: events are deduped per team and sorted big→medium→small', () => {
+  const prev = { 'A-0': [3, 0], 'A-1': [2, 0], 'A-2': [0, 1] };
+  const ev = P.wcDramaDiff(P.wcQualSnapshot(prev), P.wcQualSnapshot(oneLeft));
+  const seen = {};
+  ev.filter((e) => e.teamCode && e.type !== 'r32_opp_change').forEach((e) => {
+    assert.ok(!seen[e.teamCode], 'duplicate team event ' + e.teamCode);
+    seen[e.teamCode] = 1;
+  });
+  const rank = { big: 0, medium: 1, small: 2 };
+  for (let i = 1; i < ev.length; i++) assert.ok(rank[ev[i - 1].severity] <= rank[ev[i].severity], 'unsorted at ' + i);
+});
+
+test('drama: hand-built snapshots exercise third8 / r32 / cutoff transitions', () => {
+  const peq = { JOR: { g: 'H', clinchedWin: false, clinchedTop2: false, eliminated: false, pThird: 0.2 },
+                ECU: { g: 'E', clinchedWin: false, clinchedTop2: false, eliminated: false, pThird: 0.2 } };
+  const prev = { hash: 'h1', perTeam: peq, third8: { JOR: true }, thirdCutoffPts: 1,
+                 leader: { H: 'ARG' }, r32: { 79: { top: 'MEX', bot: 'JOR' } } };
+  const cur = { hash: 'h2', perTeam: peq, third8: { ECU: true }, thirdCutoffPts: 2,
+                leader: { H: 'AUT' }, r32: { 79: { top: 'MEX', bot: 'ECU' } } };
+  const ev = P.wcDramaDiff(prev, cur);
+  const types = ev.map((e) => e.type);
+  assert.ok(types.includes('third8_out'), 'JOR dropped out of the best-3rd 8');
+  assert.ok(types.includes('third8_in'), 'ECU climbed into the best-3rd 8');
+  assert.ok(types.includes('leader_change'), 'Group H leader AUT over ARG');
+  assert.ok(types.includes('r32_opp_change'), 'M79 pairing changed');
+  assert.ok(types.includes('cutoff_move'), 'cutoff 1→2');
+  assert.ok(/Mexico/.test(ev.find((e) => e.type === 'r32_opp_change').sentence));
+  assert.ok(/Ecuador/.test(ev.find((e) => e.type === 'r32_opp_change').sentence));
+  assert.ok(/2 points/.test(ev.find((e) => e.type === 'cutoff_move').sentence));
+  assert.equal(ev[0].severity, 'big');                              // third8_out leads
+});
+
+test('drama: r32_opp_change only fires between two real teams, never a feeder fill-in', () => {
+  const prev = { hash: 'a', perTeam: {}, third8: {}, thirdCutoffPts: 0, leader: {},
+                 r32: { 79: { top: 'MEX', bot: null } } };           // bottom still a feeder
+  const cur = { hash: 'b', perTeam: {}, third8: {}, thirdCutoffPts: 0, leader: {},
+                r32: { 79: { top: 'MEX', bot: 'ECU' } } };           // feeder resolved (not a swap)
+  assert.equal(P.wcDramaDiff(prev, cur).filter((e) => e.type === 'r32_opp_change').length, 0);
+});
+
+test('drama: a clinch off a LIVE score is held until the game is FINAL', () => {
+  // Group A: A-0..A-3 final; A-4 (CZE v MEX) is the game that locks MEX's group win.
+  const base = { 'A-0': [3, 0], 'A-1': [2, 0], 'A-2': [0, 1], 'A-3': [1, 0] };
+  const withA4 = Object.assign({}, base, { 'A-4': [0, 3] }); // MEX winning big
+  const prev = P.wcQualSnapshot(base, {});
+  const liveSnap = P.wcQualSnapshot(withA4, { 'A-4': 'LIVE' }); // same score, still in play
+  const ftSnap = P.wcQualSnapshot(withA4, { 'A-4': 'FT' });     // same score, now final
+  // while LIVE: no absolute clinch claim for MEX
+  assert.equal(P.wcDramaDiff(prev, liveSnap).filter((e) => e.teamCode === 'MEX' && /clinch/.test(e.type)).length, 0,
+    'must not clinch off an in-progress score');
+  // LIVE→FT (identical score) still changes the hash, and NOW the clinch is allowed to fire
+  assert.notEqual(liveSnap.hash, ftSnap.hash, 'finalization must change the hash');
+  assert.ok(P.wcDramaDiff(liveSnap, ftSnap).filter((e) => e.teamCode === 'MEX' && /clinch/.test(e.type)).length >= 1,
+    'clinch fires once the game is final');
+});
+
+test('drama: cutoff_move and r32_opp_change carry clean, match-scoped ids', () => {
+  const prev = { hash: 'a', perTeam: {}, third8: {}, thirdCutoffPts: 1, leader: {},
+                 r32: { 79: { top: 'MEX', bot: 'JOR' } } };
+  const cur = { hash: 'b', perTeam: {}, third8: {}, thirdCutoffPts: 2, leader: {},
+                r32: { 79: { top: 'MEX', bot: 'ECU' } } };
+  const ev = P.wcDramaDiff(prev, cur);
+  const cut = ev.find((e) => e.type === 'cutoff_move');
+  const opp = ev.find((e) => e.type === 'r32_opp_change');
+  assert.ok(!/mundefined/.test(cut.id), 'cutoff id is clean: ' + cut.id);
+  assert.equal(opp.id, 'r32_opp_change:m79:b', 'r32 id keys on the match number');
+});
+
+test('drama: snapshot.third8 == the best-8 thirds and all sit in real R32 slots', () => {
+  const s = P.wcQualSnapshot(oneLeft);
+  const best8 = P.wcThirdPlaceWatch(oneLeft).ranked.slice(0, 8).map((t) => t.k).sort();
+  assert.deepStrictEqual(Object.keys(s.third8).sort(), best8);
+  const resolved = window.wcResolveBracket(oneLeft, null, {});
+  const slotTeams = new Set();
+  Object.values(resolved.matchTeams).forEach((t) => { if (t.top) slotTeams.add(t.top); if (t.bot) slotTeams.add(t.bot); });
+  Object.keys(s.third8).forEach((k) => assert.ok(slotTeams.has(k), k + ' (best-3rd) should fill an R32 slot'));
+});

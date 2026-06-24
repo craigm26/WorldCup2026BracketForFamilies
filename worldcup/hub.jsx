@@ -497,12 +497,15 @@ function HubApp() {
     .then((r) => (r.ok ? r.json() : null))
     .then((d) => { if (d && Array.isArray(d.matches)) { setLive(d); setLastFetch(Date.now()); } return d; })
     .catch(() => null), []);
+  // Poll harder while a match is actually in play (so a goal — and every standings/projection/
+  // drama ripple it triggers — lands within ~20s), and ease off between games.
+  const liveNow = scoreMode !== "manual" && live && Array.isArray(live.matches) && live.matches.some((m) => m.status === "LIVE" || m.status === "HT");
   React.useEffect(() => {
     if (scoreMode !== "full") return;
     fetchLive();
-    const id = setInterval(fetchLive, 60000);
+    const id = setInterval(fetchLive, liveNow ? 20000 : 45000);
     return () => clearInterval(id);
-  }, [scoreMode, fetchLive]);
+  }, [scoreMode, fetchLive, liveNow]);
 
   // One-shot presence check in any mode (spoiler-free: it never displays scores,
   // it only notices that a live feed exists). Lets a manual-mode family discover
@@ -524,6 +527,9 @@ function HubApp() {
 
   const applyLive = scoreMode !== "manual" && !!live;
   const lr = applyLive ? window.liveToResults(live) : { out: null, status: {} };
+  // In demo (?demo=1) the results are fabricated, so the REAL live-feed status must not leak onto
+  // them (it would slap a pulsing LIVE badge on a demo scoreline). Demo is fully self-contained.
+  const liveStatus = demo ? {} : lr.status;
   const liveActive = applyLive;
   const baseResults = lr.out ? Object.assign({}, store.results, lr.out) : store.results;
   const results = demoData ? demoData.results : baseResults;
@@ -625,12 +631,12 @@ function HubApp() {
         </div>
       )}
       <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
-        {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} status={lr.status} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} />}
+        {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} status={liveStatus} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} scoreMode={scoreMode} demo={demo} />}
         {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} books={books} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} addPlayer={addPlayer} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} />}
         {tab === "help" && <HelpTab target={helpTarget} clearTarget={() => setHelpTarget(null)} />}
         {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} goHelp={goHelp} />}
-        {tab === "standings" && <StandingsTab results={results} live={liveActive} status={lr.status} setResult={setResult} koResults={koResults} setKoResult={setKoResult} liveFeed={applyLive ? live : null} initialView={viewParam === "proj" ? "proj" : "table"} />}
-        {tab === "schedule" && <ScheduleTab results={results} status={lr.status} tz={tz} setTz={setTz} />}
+        {tab === "standings" && <StandingsTab results={results} live={liveActive} status={liveStatus} setResult={setResult} koResults={koResults} setKoResult={setKoResult} liveFeed={demo ? null : (applyLive ? live : null)} initialView={viewParam === "proj" ? "proj" : "table"} />}
+        {tab === "schedule" && <ScheduleTab results={results} status={liveStatus} tz={tz} setTz={setTz} />}
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
         {tab === "facts" && <FactsTab fav={fav} toggleFav={toggleFav} />}
         {tab === "play" && <PlayTab />}

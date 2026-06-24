@@ -11,3 +11,6 @@ worldcup/sync-config.js
 *.html.bak
 *.bak
 .DS_Store
+
+# local test deps (no package.json; never deploy these)
+node_modules/

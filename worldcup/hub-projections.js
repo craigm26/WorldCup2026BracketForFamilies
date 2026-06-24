@@ -273,7 +273,144 @@
              thirdAdvance: 8, thirdCutoffPts: byPos[2].length >= 8 ? byPos[2][7].pts : 0 };
   }
 
+  // ---- DRAMA: snapshot the qualification picture; diff two snapshots into warm events ----
+  // The "what just changed when a goal goes in" mechanic. wcQualSnapshot(results) is a pure,
+  // JSON-serializable fingerprint of every fact we narrate (built from ONE wcProjections call —
+  // groups + per-team clinch/elim + the resolved bracket — plus one wcPositionTables call for the
+  // cross-group best-3rd membership). wcDramaDiff(prev,cur) turns two snapshots into ready-to-render
+  // events; wcDramaSentence() owns the warm, kid-readable phrasing (one place to review/snapshot-test).
+  function playedScoresHash(results) {
+    return Object.keys(results).filter(function (k) { return isPlayed(results[k]); }).sort()
+      .map(function (k) { return k + ':' + results[k][0] + '-' + results[k][1]; }).join('|');
+  }
+  function groupPlayedCount(letter, results) {
+    var fx = window.WC.FIXTURES[letter] || [], n = 0;
+    fx.forEach(function (f, i) { if (isPlayed(results[letter + '-' + i])) n++; });
+    return n;
+  }
+  function wcQualSnapshot(results, status) {
+    results = results || {}; status = status || {};
+    var WC = window.WC;
+    // Absolute claims (clinch / eliminate) must come from SETTLED scores only — never narrate
+    // "WON THE GROUP / THROUGH / OUT" off an in-progress LIVE/HT score that can still reverse.
+    // Everything else (leader / best-3rd / projected R32 / cutoff) is an honest "as it stands"
+    // picture and is allowed to move on a live goal.
+    var live = {}, hasLive = false;
+    Object.keys(status).forEach(function (k) { if (status[k] === 'LIVE' || status[k] === 'HT') { live[k] = 1; hasLive = true; } });
+    var finalResults = results;
+    if (hasLive) { finalResults = {}; Object.keys(results).forEach(function (k) { if (!live[k]) finalResults[k] = results[k]; }); }
+    var projLive = wcProjections(results);
+    var projFinal = hasLive ? wcProjections(finalResults) : projLive;
+    var pt = wcPositionTables(results);
+    var perTeam = {}, leader = {}, third8 = {}, r32 = {};
+    Object.keys(WC.GROUPS).forEach(function (g) {
+      // leader only once a group has actually played, so the FIFA-rank seeded order before
+      // kick-off never fires a spurious "took the lead from nobody" event.
+      leader[g] = groupPlayedCount(g, results) > 0 ? projLive.groups[g].standings[0].k : null;
+      projLive.groups[g].standings.forEach(function (row) {
+        var pf = projFinal.groups[g].perTeam[row.k]; // clinch/elim from SETTLED scores only
+        perTeam[row.k] = { g: g, clinchedWin: !!pf.clinchedWin, clinchedTop2: !!pf.clinchedTop2,
+                           eliminated: !!pf.eliminated, pThird: pf.pThird || 0 };
+      });
+    });
+    pt.third.forEach(function (r, i) { if (i < pt.thirdAdvance) third8[r.k] = true; });
+    var mt = projLive.resolved.matchTeams || {};
+    Object.keys(WC.KO_M).forEach(function (no) {
+      if (WC.KO_M[no].round !== 'R32') return;
+      var t = mt[no] || {};
+      r32[no] = { top: t.top || null, bot: t.bot || null };
+    });
+    // hash blends the live scores (so leader / best-3rd / R32 drama fires on every goal) with a
+    // finalization marker (so a clinch/eliminate transition fires the moment a game goes FINAL,
+    // even when the final score equals the last live score).
+    var hash = playedScoresHash(results) + '#' + playedScoresHash(finalResults);
+    return { hash: hash, perTeam: perTeam, third8: third8,
+             thirdCutoffPts: pt.thirdCutoffPts, leader: leader, r32: r32 };
+  }
+
+  function wcDramaSentence(ev, WC) {
+    var nm = function (k) { return (k && WC.T[k] && WC.T[k].n) || k || ''; };
+    var T = nm(ev.teamCode), O = nm(ev.otherCode), G = ev.groupLetter;
+    switch (ev.type) {
+      case 'clinch_win': return T + ' have WON Group ' + G + ' — top of the table!';
+      case 'clinch_top2': return T + ' are THROUGH to the knockouts!';
+      case 'eliminated_out': return T + " can't reach the top 2 of Group " + G + ' anymore.';
+      case 'eliminated_third_hope': return T + ' miss the top 2 — only a best-3rd spot can save them.';
+      case 'third8_out': return T + ' slipped OUT of the last best-3rd spot — on the bubble now.';
+      case 'third8_in': return T + ' sneaked INTO the best-3rd places — 8th and going through!';
+      case 'leader_change': return T + ' have jumped above ' + O + ' to lead Group ' + G + '!';
+      case 'r32_opp_change': return 'New Round-of-32 tie: ' + T + ' would now meet ' + O + '.';
+      case 'cutoff_move': return 'The bar for a best-3rd spot is now ' + ev.n + ' point' + (ev.n === 1 ? '' : 's') + '.';
+      default: return '';
+    }
+  }
+
+  var DRAMA_SEV = { clinch_win: 'big', clinch_top2: 'big', eliminated_out: 'big', third8_out: 'big',
+    eliminated_third_hope: 'medium', third8_in: 'medium', leader_change: 'medium',
+    r32_opp_change: 'small', cutoff_move: 'small' };
+  var DRAMA_EMOJI = { clinch_win: '👑', clinch_top2: '🎉', eliminated_out: '❌', eliminated_third_hope: '😬',
+    third8_out: '🔴', third8_in: '🟢', leader_change: '⬆️', r32_opp_change: '🔀', cutoff_move: '📊' };
+  var DRAMA_RANK = { big: 0, medium: 1, small: 2 };
+  // per-team precedence when a single goal triggers several transitions for one team
+  var TEAM_PRIORITY = { clinch_win: 0, clinch_top2: 1, eliminated_out: 2, eliminated_third_hope: 3,
+    third8_out: 4, third8_in: 5, leader_change: 6 };
+
+  function wcDramaDiff(prev, cur) {
+    // Two guards: first-load (no baseline) and no-played-score-change (live-poll no-op / 1s tick).
+    if (!prev || !cur || prev.hash === cur.hash) return [];
+    var WC = window.WC, raw = [];
+    function push(type, teamCode, otherCode, groupLetter, extra) {
+      var ev = { type: type, teamCode: teamCode || null, otherCode: otherCode || null,
+                 groupLetter: groupLetter || null, emoji: DRAMA_EMOJI[type], severity: DRAMA_SEV[type] };
+      if (extra) Object.assign(ev, extra);
+      ev.sentence = wcDramaSentence(ev, WC);
+      // identity = matchNo when the event is match-scoped (r32), else team/group; always
+      // suffixed with the snapshot hash so the same transition isn't doubled across a remount.
+      var idKey = (extra && extra.matchNo != null) ? ('m' + extra.matchNo) : (teamCode || groupLetter || '');
+      ev.id = type + ':' + idKey + ':' + cur.hash;
+      raw.push(ev);
+    }
+    // per-team: clinch / elimination
+    Object.keys(cur.perTeam).forEach(function (k) {
+      var a = prev.perTeam[k], b = cur.perTeam[k];
+      if (!a) return;
+      if (!a.clinchedWin && b.clinchedWin) push('clinch_win', k, null, b.g);
+      else if (!a.clinchedTop2 && b.clinchedTop2) push('clinch_top2', k, null, b.g);
+      if (!a.eliminated && b.eliminated) push(b.pThird <= 0.005 ? 'eliminated_out' : 'eliminated_third_hope', k, null, b.g);
+    });
+    // cross-group best-3rd membership — the marquee "the bar moved under you" drama
+    Object.keys(cur.third8).forEach(function (k) { if (!prev.third8[k]) push('third8_in', k, null, cur.perTeam[k] && cur.perTeam[k].g); });
+    Object.keys(prev.third8).forEach(function (k) { if (!cur.third8[k]) push('third8_out', k, null, cur.perTeam[k] && cur.perTeam[k].g); });
+    // group leader changes (both sides concrete; never-played groups carry null leaders)
+    Object.keys(cur.leader).forEach(function (g) {
+      var a = prev.leader[g], b = cur.leader[g];
+      if (a && b && a !== b) push('leader_change', b, a, g);
+    });
+    // projected R32 pairing swaps (both sides real teams, not feeders) — one per match
+    Object.keys(cur.r32).forEach(function (no) {
+      var a = prev.r32[no], b = cur.r32[no]; if (!a || !b) return;
+      var real = function (c) { return c && WC.T[c]; };
+      if (!(real(a.top) && real(a.bot) && real(b.top) && real(b.bot))) return;
+      if ([a.top, a.bot].sort().join(',') !== [b.top, b.bot].sort().join(',')) push('r32_opp_change', b.top, b.bot, null, { matchNo: +no });
+    });
+    // cutoff line move (single summary event)
+    if (prev.thirdCutoffPts != null && cur.thirdCutoffPts != null && prev.thirdCutoffPts !== cur.thirdCutoffPts)
+      push('cutoff_move', null, null, null, { n: cur.thirdCutoffPts });
+    // dedupe per team: keep only the most important transition per team (r32/cutoff are exempt)
+    var best = {};
+    raw.forEach(function (ev) {
+      if (ev.teamCode == null || TEAM_PRIORITY[ev.type] == null) return;
+      if (!best[ev.teamCode] || TEAM_PRIORITY[ev.type] < TEAM_PRIORITY[best[ev.teamCode].type]) best[ev.teamCode] = ev;
+    });
+    var out = raw.filter(function (ev) {
+      return ev.teamCode == null || TEAM_PRIORITY[ev.type] == null || best[ev.teamCode] === ev;
+    });
+    out.sort(function (x, y) { return DRAMA_RANK[x.severity] - DRAMA_RANK[y.severity]; });
+    return out;
+  }
+
   return { wcOutcomeProbs: wcOutcomeProbs, wcGroupScenarios: wcGroupScenarios,
            wcThirdPlaceWatch: wcThirdPlaceWatch, wcProjectedSlot: wcProjectedSlot,
-           wcProjections: wcProjections, wcPositionTables: wcPositionTables };
+           wcProjections: wcProjections, wcPositionTables: wcPositionTables,
+           wcQualSnapshot: wcQualSnapshot, wcDramaDiff: wcDramaDiff, wcDramaSentence: wcDramaSentence };
 });
