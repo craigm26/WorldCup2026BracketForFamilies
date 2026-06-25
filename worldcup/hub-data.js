@@ -251,8 +251,13 @@ window.useHubStore = function () {
   sref.current = { players: players, books: books, collections: collections, meta: meta, sync: sync };
   const syncingRef = React.useRef(false);
   const sharedOn = () => {
+    // Explicit kill-switch wins (rollback escape hatch): set wc26shared="0" to stop auto-sync.
+    try { if (localStorage.getItem("wc26shared") === "0") return false; } catch (e) {}
     try { if (window.WCSYNC_DEFAULT && window.WCSYNC_DEFAULT.shared) return true; } catch (e) {}
-    try { return localStorage.getItem("wc26shared") === "1"; } catch (e) { return false; }
+    try { if (localStorage.getItem("wc26shared") === "1") return true; } catch (e) {}
+    // Configured ⇒ back up continuously. Any device that joined (setup link or kiosk default)
+    // syncs on its own, so a single device can never silently become the only copy.
+    return !!(sref.current && sref.current.sync);
   };
   const syncOnce = React.useCallback(async () => {
     const SY = window.WCSTKSYNC, FX = window.WCFAMSTORE, cfg = sref.current.sync;
@@ -309,7 +314,7 @@ window.useHubStore = function () {
            players: players, addPlayer: addPlayer, switchPlayer: switchPlayer,
            removePlayer: removePlayer, importPlayer: importPlayer,
            books: books, addBook: addBook, renameBook: renameBook, removeBook: removeBook, switchBook: switchBook,
-           syncStatus: syncStatus };
+           syncStatus: syncStatus, syncNow: syncOnce };
 };
 
 /* ---- Share a bracket as a compact URL (no backend): one char per slot ---- */

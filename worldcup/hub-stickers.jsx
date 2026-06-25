@@ -589,7 +589,7 @@ function InviteCard({ sync }) {
   );
 }
 
-function FamilyConnected({ players, books, collections, activeId, sync, setSync, syncStatus }) {
+function FamilyConnected({ players, books, collections, activeId, sync, setSync, syncStatus, syncNow }) {
   const SY = window.WCSTKSYNC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK, B = window.WCSTKBOOKS;
   const idx = React.useMemo(() => L.buildIndex(WCSTK), [WCSTK]);
   const me = players.list.find((p) => p.id === activeId) || { name: "Me", emoji: "🙂" };
@@ -613,19 +613,18 @@ function FamilyConnected({ players, books, collections, activeId, sync, setSync,
   }, [sync]);
   React.useEffect(() => { load(); }, [load]);
 
+  // "Back up now" runs the SAME reconcile/push path as the background auto-sync driver
+  // (syncNow), so manual and automatic backups key rows identically (by playerId+bookId)
+  // and converge. The old bespoke loop keyed the default book by device memberId, which
+  // diverged from auto-sync and spawned duplicate rows — never do per-book POSTs here.
   const publish = async () => {
     setErr(""); setBusy(true);
     try {
-      for (const bk of reg.list) {
-        // The default book (id == playerId) publishes under the device memberId so it
-        // updates — not duplicates — a row published before multi-book support existed.
-        const remoteBookId = bk.id === activeId ? sync.memberId : bk.id;
-        await SY.postAction(sync, "publishCollection",
-          { name: me.name, emoji: me.emoji, bookId: remoteBookId, bookLabel: bk.label,
-            collection: SY.serializeCollection(collections[bk.id] || {}) });
-      }
+      if (typeof syncNow === "function") await syncNow();
+      else throw new Error("sync unavailable — reload the app");
       await load();
-    } catch (e) { setErr(String(e.message || e)); setBusy(false); }
+    } catch (e) { setErr(String(e.message || e)); }
+    setBusy(false);
   };
 
   const totalsOf = (m) => L.playerTotals(m, idx);
@@ -635,7 +634,7 @@ function FamilyConnected({ players, books, collections, activeId, sync, setSync,
   return (
     <div>
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
-        <button onClick={publish} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 16px", fontSize: 15, opacity: busy ? .6 : 1 }}>⬆️ Publish my book{reg.list.length > 1 ? "s" : ""}</button>
+        <button onClick={publish} disabled={busy} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 800, borderRadius: 10, padding: "9px 16px", fontSize: 15, opacity: busy ? .6 : 1 }}>{busy ? "⏳ Backing up…" : "⬆️ Back up now"}</button>
         <button onClick={load} disabled={busy} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.12)", color: "#dfe6ff", fontWeight: 700, borderRadius: 10, padding: "9px 14px", fontSize: 14 }}>↻ Refresh</button>
         {lastSync && <span style={{ color: "#7e8cc0", fontSize: 12 }}>synced {lastSync}</span>}
         <button onClick={() => { if (!busy && window.confirm("Disconnect this device from family sync?")) setSync(null); }} disabled={busy} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "transparent", color: "#7e8cc0", fontSize: 13, textDecoration: "underline" }}>Disconnect</button>
@@ -669,7 +668,7 @@ function FamilyConnected({ players, books, collections, activeId, sync, setSync,
   );
 }
 
-function FamilyView({ map, players, books, collections, activeId, sync, setSync, goHelp, syncStatus }) {
+function FamilyView({ map, players, books, collections, activeId, sync, setSync, goHelp, syncStatus, syncNow }) {
   const SY = window.WCSTKSYNC;
   const [link, setLink] = React.useState("");
   const [linkErr, setLinkErr] = React.useState("");
@@ -696,10 +695,10 @@ function FamilyView({ map, players, books, collections, activeId, sync, setSync,
       </div>
     );
   }
-  return <FamilyConnected players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} syncStatus={syncStatus} />;
+  return <FamilyConnected players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} syncStatus={syncStatus} syncNow={syncNow} />;
 }
 
-function StickersTab({ collections, setSticker, players, books, addBook, renameBook, removeBook, switchBook, addPlayer, sync, setSync, goHelp, syncStatus }) {
+function StickersTab({ collections, setSticker, players, books, addBook, renameBook, removeBook, switchBook, addPlayer, sync, setSync, goHelp, syncStatus, syncNow }) {
   const [view, setView] = React.useState("book"); // book | trade | overview | family
   const [exporting, setExporting] = React.useState(false);
   const B = window.WCSTKBOOKS;
@@ -724,7 +723,7 @@ function StickersTab({ collections, setSticker, players, books, addBook, renameB
       {view === "book" && <MyBookView map={map} setSticker={setSticker} activeBook={activeBook} reg={reg} playerId={activeId} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} />}
       {view === "trade" && <TradeMatcherView collections={collections} players={players} books={books} activeId={activeId} addPlayer={addPlayer} />}
       {view === "overview" && <OverviewView collections={collections} players={players} books={books} addPlayer={addPlayer} />}
-      {view === "family" && <FamilyView map={map} players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} />}
+      {view === "family" && <FamilyView map={map} players={players} books={books} collections={collections} activeId={activeId} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} syncNow={syncNow} />}
       {exporting && <window.StickerExportModal entries={bookEntries(players, books, collections)} defaultBookId={activeBook} onClose={() => setExporting(false)} />}
     </div>
   );
