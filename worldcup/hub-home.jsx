@@ -324,10 +324,35 @@ function PlacesAtAGlance({ results, status, setTab }) {
   const WC = window.WC, liveSet = window.liveTeamSet ? window.liveTeamSet(status) : {};
   const PT = React.useMemo(() => window.wcPositionTables(results || {}), [playedHashOf(results)]); // eslint-disable-line
   const Flip = window.FlipRows || (({ children }) => <div>{children}</div>);
+  // Richer best-3rd table: rank · group · team · games-left · GF · GD · Pts (GF/GD are the
+  // tiebreakers that decide the cutoff). Each team plays 3 group games, so "Left" = 3 − played.
+  const T3COLS = "30px 22px minmax(56px,1fr) 30px 26px 32px 30px";
+  const t3cell = { textAlign: "center", fontSize: 12.5, color: "#dfe6ff" };
+  const t3head = { textAlign: "center" };
+  const sumPlayed = PT.first.concat(PT.second, PT.third, PT.fourth).reduce((s, r) => s + (r.p || 0), 0);
+  const groupGamesLeft = Math.max(0, 72 - Math.round(sumPlayed / 2)); // 12 groups × 6 = 72 group games
+  const cutoffSplit = (function () { // what separates the 8th (in) and 9th (out) teams when they're level on points
+    const a = PT.third[PT.thirdAdvance - 1], b = PT.third[PT.thirdAdvance];
+    if (!a || !b || a.pts !== b.pts) return null;
+    if (a.gd !== b.gd) return "goal difference";
+    if (a.gf !== b.gf) return "goals scored";
+    return "FIFA ranking";
+  })();
+  const thirdHeader = (
+    <div style={{ display: "grid", gridTemplateColumns: T3COLS, gap: "0 6px", alignItems: "center", padding: "0 6px 5px", fontSize: 10.5, fontWeight: 700, color: "#7e8cc0", letterSpacing: .4 }}>
+      <span style={t3head}>#</span><span />
+      <span>TEAM</span>
+      <span style={t3head} title="Group games still to play">LEFT</span>
+      <span style={t3head} title="Goals for — the 3rd tiebreaker">GF</span>
+      <span style={t3head} title="Goal difference — the 2nd tiebreaker">GD</span>
+      <span style={t3head}>PTS</span>
+    </div>
+  );
   const thirdRow = (r, i) => {
     const adv = i < PT.thirdAdvance;
+    const gl = Math.max(0, 3 - (r.p || 0));
     return (
-      <div key={r.g + r.k} data-flip={r.g + r.k} style={{ display: "grid", gridTemplateColumns: "34px 22px minmax(56px,1fr) 28px 28px", gap: "0 6px", alignItems: "center", padding: "6px 6px", borderTop: "1px solid rgba(255,255,255,.07)", background: adv ? "rgba(52,199,123,.14)" : "rgba(226,71,59,.13)", borderRadius: 8 }}>
+      <div key={r.g + r.k} data-flip={r.g + r.k} style={{ display: "grid", gridTemplateColumns: T3COLS, gap: "0 6px", alignItems: "center", padding: "6px 6px", borderTop: "1px solid rgba(255,255,255,.07)", background: adv ? "rgba(52,199,123,.14)" : "rgba(226,71,59,.13)", borderRadius: 8 }}>
         <span style={{ textAlign: "center", fontWeight: 700, color: adv ? "#34c77b" : "#ff9c93", fontSize: 13 }} title={adv ? "advancing" : "out as it stands"}>{adv ? "✓" : "✗"}{r.rank}</span>
         <span style={{ width: 20, height: 20, borderRadius: 5, background: GC[r.g], color: "#fff", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{r.g}</span>
         <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
@@ -335,7 +360,9 @@ function PlacesAtAGlance({ results, status, setTab }) {
           <span style={{ fontSize: 13.5, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[r.k].n}</span>
           {liveSet[r.k] && <span className="wc-live-dot" style={{ width: 6, height: 6 }} />}
         </span>
-        <span style={{ textAlign: "center", fontSize: 12.5, color: "#dfe6ff" }}>{(r.gd > 0 ? "+" : "") + r.gd}</span>
+        <span style={{ textAlign: "center", fontSize: 12.5, fontWeight: gl ? 700 : 400, color: gl === 0 ? "#5f6b94" : "#9af0c2" }} title={gl === 0 ? "all 3 group games played" : gl + " group game" + (gl === 1 ? "" : "s") + " to play"}>{gl === 0 ? "—" : gl}</span>
+        <span style={t3cell}>{r.gf}</span>
+        <span style={t3cell}>{(r.gd > 0 ? "+" : "") + r.gd}</span>
         <span style={{ textAlign: "center", fontSize: 15, fontWeight: 700, color: "#fff" }}>{r.pts}</span>
       </div>
     );
@@ -344,7 +371,7 @@ function PlacesAtAGlance({ results, status, setTab }) {
   return (
     <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16 }}>
       <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 2 }}>🏁 The race for the Round of 32</div>
-      <div style={{ fontSize: 13, color: "#9fb0e0", marginBottom: 12 }}>Top 2 of every group go through, plus the 8 best 3rd-placed teams. It all reshuffles as scores change.</div>
+      <div style={{ fontSize: 13, color: "#9fb0e0", marginBottom: 12 }}>Top 2 of every group go through, plus the 8 best 3rd-placed teams.{groupGamesLeft > 0 ? " " + groupGamesLeft + " group game" + (groupGamesLeft === 1 ? "" : "s") + " still to play — it all reshuffles as scores change." : " Group stage complete."}</div>
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         <div style={lane()}>
           <div style={{ fontSize: 14, fontWeight: 700, color: "#9af0c2", marginBottom: 8 }}>🥇 Group winners <span style={{ color: "#7e8cc0", fontWeight: 600, fontSize: 12 }}>· all 12 through</span></div>
@@ -358,20 +385,22 @@ function PlacesAtAGlance({ results, status, setTab }) {
       {/* the star: the best-3rd race with the cutoff line */}
       <div style={{ background: "rgba(0,0,0,.18)", borderRadius: 14, padding: 12, marginBottom: 12 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#f4cd77", marginBottom: 6 }}>🥉 Best 3rd places — only 8 of 12 squeeze through</div>
+        {thirdHeader}
         <Flip>
           {PT.third.map((r, i) => (
             <React.Fragment key={r.g + r.k}>
               {thirdRow(r, i)}
               {i === PT.thirdAdvance - 1 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", margin: "2px 0" }}>
-                  <div style={{ flex: 1, borderTop: "2px dashed rgba(244,183,64,.6)" }} />
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#f4b740", whiteSpace: "nowrap" }}>✂ best-8 cutoff · need ≥ {PT.thirdCutoffPts} pts</span>
-                  <div style={{ flex: 1, borderTop: "2px dashed rgba(244,183,64,.6)" }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", margin: "2px 0", flexWrap: "wrap", justifyContent: "center" }}>
+                  <div style={{ flex: "1 1 30px", minWidth: 20, borderTop: "2px dashed rgba(244,183,64,.6)" }} />
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: "#f4b740", textAlign: "center" }}>✂ best-8 cutoff · need ≥ {PT.thirdCutoffPts} pts{cutoffSplit ? " · 8th & 9th split by " + cutoffSplit : ""}</span>
+                  <div style={{ flex: "1 1 30px", minWidth: 20, borderTop: "2px dashed rgba(244,183,64,.6)" }} />
                 </div>
               )}
             </React.Fragment>
           ))}
         </Flip>
+        <div style={{ fontSize: 11, color: "#7e8cc0", marginTop: 8, lineHeight: 1.5 }}>Tiebreakers in order: points → goal difference (GD) → goals scored (GF) → FIFA ranking.</div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div style={{ flex: "1 1 220px", minWidth: 0 }}>
