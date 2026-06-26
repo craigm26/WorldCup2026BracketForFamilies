@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-26T20:55:03.592522+00:00",
+  "updated": "2026-06-26T21:33:42.468874+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -424,16 +424,14 @@
     {
       "home": "NOR",
       "away": "FRA",
-      "status": "LIVE",
-      "min": "90'+1'",
+      "status": "FT",
       "hg": 1,
-      "ag": 3
+      "ag": 4
     },
     {
       "home": "SEN",
       "away": "IRQ",
-      "status": "LIVE",
-      "min": "87'",
+      "status": "FT",
       "hg": 5,
       "ag": 0
     }
