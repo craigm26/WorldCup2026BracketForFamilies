@@ -401,7 +401,7 @@ function PlaceChips({ rows, status, tint }) {
           <span style={{ width: 16, height: 16, borderRadius: 4, background: GC[r.g], color: "#fff", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>{r.g}</span>
           <Flag code={WC.T[r.k].c} w={20} style={{ border: "1px solid #fff", borderRadius: 2, flex: "none" }} />
           <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{r.k}</span>
-          {liveSet[r.k] && <span className="wc-live-dot" style={{ width: 6, height: 6 }} />}
+          {liveSet[r.k] && <span className="wc-live-dot" title="Playing now" style={{ width: 6, height: 6 }} />}
           <span style={{ fontSize: 11.5, color: "#cdd9ff" }}>{r.pts}</span>
         </span>
       ))}
@@ -446,7 +446,7 @@ function PlacesAtAGlance({ results, status, setTab }) {
         <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
           <Flag code={WC.T[r.k].c} w={22} style={{ border: "1.5px solid #fff", borderRadius: 2, flex: "none" }} />
           <span style={{ fontSize: 13.5, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{WC.T[r.k].n}</span>
-          {liveSet[r.k] && <span className="wc-live-dot" style={{ width: 6, height: 6 }} />}
+          {liveSet[r.k] && <span className="wc-live-dot" title="Playing now" style={{ width: 6, height: 6 }} />}
         </span>
         <span style={{ textAlign: "center", fontSize: 12.5, fontWeight: gl ? 700 : 400, color: gl === 0 ? "#5f6b94" : "#9af0c2" }} title={gl === 0 ? "all 3 group games played" : gl + " group game" + (gl === 1 ? "" : "s") + " to play"}>{gl === 0 ? "—" : gl}</span>
         <span style={t3cell}>{r.gf}</span>
@@ -455,7 +455,7 @@ function PlacesAtAGlance({ results, status, setTab }) {
       </div>
     );
   };
-  const lane = (title, fg) => ({ background: "rgba(0,0,0,.14)", borderRadius: 14, padding: 12, flex: "1 1 280px", minWidth: 250 });
+  const lane = (title, fg) => ({ background: "rgba(0,0,0,.14)", borderRadius: 14, padding: 12, flex: "1 1 280px", minWidth: 0 });
   return (
     <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16 }}>
       <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 2 }}>🏁 The race for the Round of 32</div>
