@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-27T22:11:56.769830+00:00",
+  "updated": "2026-06-27T22:39:42.921533+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -467,26 +467,31 @@
       "home": "CRO",
       "away": "GHA",
       "status": "LIVE",
-      "min": "49'",
+      "min": "78'",
       "hg": 1,
-      "ag": 0,
+      "ag": 1,
       "poss": [
         52,
         48
       ],
       "sh": [
         5,
-        2
+        4
       ],
       "sot": [
         2,
-        0
+        1
       ],
       "goals": [
         {
           "min": "31'",
           "team": "CRO",
           "scorer": "Petar Sucic"
+        },
+        {
+          "min": "73'",
+          "team": "GHA",
+          "scorer": "Derrick Luckassen"
         }
       ]
     },
@@ -494,20 +499,32 @@
       "home": "PAN",
       "away": "ENG",
       "status": "LIVE",
-      "min": "52'",
+      "min": "80'",
       "hg": 0,
-      "ag": 0,
+      "ag": 2,
       "poss": [
-        27,
-        73
+        34,
+        66
       ],
       "sh": [
-        3,
-        9
+        11,
+        14
       ],
       "sot": [
         2,
-        2
+        5
+      ],
+      "goals": [
+        {
+          "min": "62'",
+          "team": "ENG",
+          "scorer": "Jude Bellingham"
+        },
+        {
+          "min": "67'",
+          "team": "ENG",
+          "scorer": "Harry Kane"
+        }
       ]
     }
   ]
