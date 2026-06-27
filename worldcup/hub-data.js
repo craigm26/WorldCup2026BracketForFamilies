@@ -18,11 +18,27 @@ window.HUB = {
 
 /* ---- live scores ----
    The Hub fetches a same-origin ./live-scores.json (written by update_scores.py on
-   the Pi). Schema: { updated:"ISO", matches:[{home:"MEX",away:"RSA",hg:2,ag:1,status:"FT"}] }
-   home/away are our 3-letter codes. liveToResults maps it onto the standings. */
+   the Pi). Schema: { updated:"ISO", matches:[{home:"MEX",away:"RSA",hg:2,ag:1,status:"FT",
+     min:"67'",                       // last known match minute
+     poss:[58,42], sh:[9,7], sot:[4,3],   // OPTIONAL in-game stats, home/away-oriented (like hg/ag)
+     goals:[{min:"34'",team:"MEX",scorer:"Lozano"}]   // OPTIONAL; team is an ABSOLUTE kit code
+   }] }
+   home/away are our 3-letter codes. liveToResults maps it onto the standings AND, when present,
+   returns a 4th `stats` map (keyed g-idx) carrying the in-game stats for the live hero. */
 window.liveToResults = function (live) {
-  const WC = window.WC, out = {}, status = {}, clock = {};
-  if (!live || !Array.isArray(live.matches)) return { out, status, clock };
+  const WC = window.WC, out = {}, status = {}, clock = {}, stats = {};
+  if (!live || !Array.isArray(live.matches)) return { out, status, clock, stats };
+  // Pack the optional in-game stats for a fixture, flipping the home/away-oriented arrays
+  // (poss/sh/sot) when `flip` is set. goals[].team is an absolute kit code → never flipped.
+  const packStats = (m, flip) => {
+    const s = {};
+    const arr = (a) => (Array.isArray(a) && a.length === 2 ? (flip ? [a[1], a[0]] : [a[0], a[1]]) : undefined);
+    if (m.poss) s.poss = arr(m.poss);
+    if (m.sh) s.sh = arr(m.sh);
+    if (m.sot) s.sot = arr(m.sot);
+    if (Array.isArray(m.goals) && m.goals.length) s.goals = m.goals;
+    return (s.poss || s.sh || s.sot || s.goals) ? s : null;
+  };
   live.matches.forEach((m) => {
     Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f, i) => {
       const key = g + "-" + i;
@@ -30,16 +46,57 @@ window.liveToResults = function (live) {
         if (m.hg != null && m.ag != null) out[key] = [m.hg, m.ag];
         if (m.status) status[key] = m.status; // FT / LIVE / HT
         if (m.min) clock[key] = m.min;        // last known match minute, e.g. "67'"
+        const s = packStats(m, false); if (s) stats[key] = s;
       } else if (f[0] === m.away && f[1] === m.home) {
         // The feed reported this fixture with home/away reversed (the venue's "home"
         // side differs from our schedule order) — flip the goals so they line up.
         if (m.hg != null && m.ag != null) out[key] = [m.ag, m.hg];
         if (m.status) status[key] = m.status;
         if (m.min) clock[key] = m.min;
+        const s = packStats(m, true); if (s) stats[key] = s;
       }
     }));
   });
-  return { out, status, clock };
+  return { out, status, clock, stats };
+};
+
+/* ---- pool-play story facts (results-derived, always honest) ----
+   results: the g-idx → [hg,ag] map. goalsLog: optional flat list of {team,scorer} from the
+   accumulated feed (only present for matches we captured live). Returns the facts we can prove;
+   goldenBoot is included ONLY when we have real scorer names (never fabricated). */
+window.wcPoolStats = function (results, goalsLog) {
+  const WC = window.WC, R = results || {};
+  let mostGoals = null;       // { a, b, ha, ag, total, g }
+  const shutouts = {};        // teamCode -> count of games conceding 0
+  let biggestUpset = null;    // { winner, loser, wg, lg, gap }
+  Object.keys(WC.FIXTURES).forEach((g) => WC.FIXTURES[g].forEach((f, i) => {
+    const r = R[g + "-" + i];
+    if (!r || r[0] === "" || r[1] === "" || r[0] == null || r[1] == null) return;
+    const h = +r[0], a = +r[1]; if (Number.isNaN(h) || Number.isNaN(a)) return;
+    const total = h + a;
+    if (!mostGoals || total > mostGoals.total) mostGoals = { a: f[0], b: f[1], ha: h, ag: a, total, g };
+    if (a === 0) shutouts[f[0]] = (shutouts[f[0]] || 0) + 1;
+    if (h === 0) shutouts[f[1]] = (shutouts[f[1]] || 0) + 1;
+    // upset = lower-FIFA-ranked side (bigger r) beats a much higher-ranked side; gap = rank delta
+    if (h !== a) {
+      const win = h > a ? f[0] : f[1], los = h > a ? f[1] : f[0];
+      const wr = WC.T[win] ? WC.T[win].r : 999, lr = WC.T[los] ? WC.T[los].r : 999;
+      const gap = wr - lr; // positive when the winner was the lower-ranked (underdog) side
+      if (gap > 0 && (!biggestUpset || gap > biggestUpset.gap))
+        biggestUpset = { winner: win, loser: los, wg: Math.max(h, a), lg: Math.min(h, a), gap };
+    }
+  }));
+  let cleanestSheet = null;   // { team, n }
+  Object.keys(shutouts).forEach((t) => { if (!cleanestSheet || shutouts[t] > cleanestSheet.n) cleanestSheet = { team: t, n: shutouts[t] }; });
+
+  let goldenBoot = null;
+  if (Array.isArray(goalsLog) && goalsLog.length) {
+    const tally = {};
+    goalsLog.forEach((g) => { if (g && g.scorer) { const k = g.scorer + "|" + (g.team || ""); tally[k] = (tally[k] || 0) + 1; } });
+    const top = Object.keys(tally).map((k) => ({ scorer: k.split("|")[0], team: k.split("|")[1], n: tally[k] })).sort((x, y) => y.n - x.n)[0];
+    if (top && top.n >= 2) goldenBoot = top;   // only surface a leader with a real lead (>=2)
+  }
+  return { mostGoals, cleanestSheet, biggestUpset, goldenBoot };
 };
 
 /* ---- standings computation ---- */

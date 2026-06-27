@@ -14,3 +14,6 @@ worldcup/sync-config.js
 
 # local test deps (no package.json; never deploy these)
 node_modules/
+
+# Python bytecode cache + saved ESPN dev fixtures (never deploy)
+worldcup/__pycache__/

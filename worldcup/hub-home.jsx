@@ -164,7 +164,120 @@ function LiveGroupTable({ g, results, status }) {
 
 /* ---- HERO band: one full-width face. Big live scores when a match is in play (and not
    spoiler-free), else the next-kickoff countdown, else a champion card. Never empty. ---- */
-function HeroBand({ liveMatches, next, results, status, clock, nowMs, tz, champ, scoreMode }) {
+/* ---- live in-game momentum: ONE honest, explainable number ∈ [.05,.95] (home share).
+   "who's had the ball and the shots, lately." Laplace-smoothed so it's neutral (0.5) with no
+   data and never divides by zero. Shots aren't timestamped in the free feed, so only goals drive
+   recency. No xG, no possession-time integral — honest about what ESPN's free feed gives. ---- */
+window.wcMomentum = function (s, homeCode, awayCode, nowMin) {
+  if (!s) return null;
+  const share = (h, a) => (h + 0.5) / (h + a + 1);
+  const possShare = (s.poss && s.poss.length === 2) ? s.poss[0] / 100 : 0.5;
+  const shotShare = (s.sot && s.sot.length === 2) ? share(s.sot[0], s.sot[1])
+    : (s.sh && s.sh.length === 2) ? share(s.sh[0], s.sh[1]) : 0.5;
+  let recH = 0, recA = 0;
+  if (Array.isArray(s.goals) && nowMin) {
+    s.goals.forEach((g) => {
+      const gm = parseInt(g.min, 10);
+      if (!Number.isNaN(gm) && nowMin - gm <= 10 && nowMin - gm >= 0) {
+        if (g.team === homeCode) recH += 3; else if (g.team === awayCode) recA += 3;
+      }
+    });
+  }
+  const recentShare = (recH || recA) ? share(recH, recA) : 0.5;
+  const m = 0.35 * possShare + 0.35 * shotShare + 0.30 * recentShare;
+  return Math.max(0.05, Math.min(0.95, m));
+};
+
+function MomentumBar({ momentum, t }) {
+  const lead = momentum > 0.55 ? "h" : momentum < 0.45 ? "a" : null;
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, color: "#cdd9ff", marginBottom: 4, letterSpacing: .4 }}>
+        <span>⚡ MOMENTUM</span>
+        {lead && <span style={{ color: "#ffd2a8", fontWeight: 700 }}>🔥 {lead === "h" ? t.a : t.b} pushing</span>}
+      </div>
+      <div style={{ display: "flex", height: 9, borderRadius: 6, overflow: "hidden", background: "rgba(0,0,0,.32)" }}>
+        <span className="wc-mom-fill" style={{ flexGrow: momentum, flexBasis: 0, background: "linear-gradient(90deg,#ff8478,#e2473b)" }} />
+        <span className="wc-mom-fill" style={{ flexGrow: 1 - momentum, flexBasis: 0, background: "linear-gradient(90deg,#2f6fe0,#6f9bf2)" }} />
+      </div>
+    </div>
+  );
+}
+
+function StatStrip({ s }) {
+  const cells = [];
+  const cell = (label, h, a) => (
+    <div key={label} style={{ flex: 1, textAlign: "center", minWidth: 0 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", fontVariantNumeric: "tabular-nums" }}>{h}<span style={{ color: "#6f86c9", margin: "0 5px" }}>·</span>{a}</div>
+      <div style={{ fontSize: 9.5, color: "#9fb0e0", letterSpacing: .5 }}>{label}</div>
+    </div>
+  );
+  if (s.poss && s.poss.length === 2) cells.push(cell("POSSESSION %", s.poss[0], s.poss[1]));
+  if (s.sh && s.sh.length === 2) cells.push(cell("SHOTS", s.sh[0], s.sh[1]));
+  if (s.sot && s.sot.length === 2) cells.push(cell("ON TARGET", s.sot[0], s.sot[1]));
+  if (!cells.length) return null;
+  return <div style={{ display: "flex", gap: 6, marginTop: 10, background: "rgba(0,0,0,.18)", borderRadius: 10, padding: "8px 4px" }}>{cells}</div>;
+}
+
+function GoalTicker({ goals }) {
+  const WC = window.WC;
+  if (!Array.isArray(goals) || !goals.length) return null;
+  const recent = goals.slice(-3); // last 3, chronological (newest at the bottom)
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 11, color: "#cdd9ff", marginBottom: 4, letterSpacing: .4 }}>⚽ GOALS</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {recent.map((g, i) => (
+          <div key={g.min + "-" + i} className="wc-goal-row" style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, color: "#fff" }}>
+            <span style={{ fontWeight: 700, color: "#ffd2a8", minWidth: 30, flex: "none" }}>{g.min}</span>
+            {WC.T[g.team] ? <Flag code={WC.T[g.team].c} w={18} style={{ border: "1.5px solid #fff", borderRadius: 2, flex: "none" }} /> : null}
+            <span style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{g.scorer || "Goal"}</span>
+            {!g.scorer && WC.T[g.team] ? <span style={{ color: "#9fb0e0", fontSize: 12, flex: "none" }}>· {g.team}</span> : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* one live match in the hero: scoreline + (when the feed carries it) momentum, stats & goals. */
+function LiveMatchCard({ m, results, status, clock, stats }) {
+  const key = m.g + "-" + m.idx, r = (results || {})[key] || ["", ""], st = (status || {})[key];
+  const t = matchTeams(m, true);
+  const s = (stats || {})[key] || null;
+  const clk = (clock || {})[key];
+  const nowMin = clk ? parseInt(clk, 10) : (st === "HT" ? 45 : 0);
+  const momentum = s ? window.wcMomentum(s, m.home, m.away, nowMin) : null;
+  return (
+    <div style={{ flex: "1 1 280px", minWidth: 0, background: "rgba(0,0,0,.22)", borderRadius: 16, padding: "12px 14px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#e2473b", color: "#fff", fontWeight: 700, fontSize: 11, borderRadius: 6, padding: "2px 8px" }}>
+          <span className="wc-live-dot" style={{ width: 6, height: 6, background: "#fff", boxShadow: "none" }} />{st === "HT" ? "HALF-TIME" : (clk || "LIVE")}
+        </span>
+        <span style={{ fontSize: 12, color: "#cdd9ff" }}>📍 {m.city}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end", minWidth: 0 }}>
+          <span style={{ fontSize: 17, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.a}</span>
+          <Flag code={t.ca} w={34} style={{ border: "2px solid #fff", borderRadius: 4, flex: "none" }} />
+        </span>
+        <span style={{ fontWeight: 700, color: "#fff", fontSize: 40, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{r[0] === "" || r[0] == null
+          ? <span style={{ color: "#8fa0d0" }}>–<span style={{ margin: "0 8px" }} />–</span>
+          : <React.Fragment>{r[0]}<span style={{ color: "#6f86c9", margin: "0 8px" }}>-</span>{r[1]}</React.Fragment>}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <Flag code={t.cb} w={34} style={{ border: "2px solid #fff", borderRadius: 4, flex: "none" }} />
+          <span style={{ fontSize: 17, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.b}</span>
+        </span>
+      </div>
+      {momentum != null && <MomentumBar momentum={momentum} t={t} />}
+      {s && <StatStrip s={s} />}
+      {s && <GoalTicker goals={s.goals} />}
+      <div style={{ textAlign: "center", fontSize: 12, color: "#9fb0e0", marginTop: 10 }}>Group {m.g} · watch the table move below 👇</div>
+    </div>
+  );
+}
+
+function HeroBand({ liveMatches, next, results, status, clock, stats, nowMs, tz, champ, scoreMode }) {
   const WC = window.WC, WCTZ = window.WCTZ;
   const lt = (m) => WCTZ.local(m.date, m.et.h, m.et.m, tz);
   const showLive = scoreMode !== "manual" && liveMatches.length > 0;
@@ -176,34 +289,9 @@ function HeroBand({ liveMatches, next, results, status, clock, nowMs, tz, champ,
           <span className="wc-live-dot" /><span style={{ fontSize: 16, fontWeight: 700, letterSpacing: 1, color: "#ffb3ad" }}>LIVE NOW</span>
         </div>
         <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-          {liveMatches.map((m) => {
-            const key = m.g + "-" + m.idx, r = (results || {})[key] || ["", ""], st = (status || {})[key];
-            const t = matchTeams(m, true);
-            return (
-              <div key={key} style={{ flex: "1 1 280px", minWidth: 250, background: "rgba(0,0,0,.22)", borderRadius: 16, padding: "12px 16px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#e2473b", color: "#fff", fontWeight: 700, fontSize: 11, borderRadius: 6, padding: "2px 8px" }}>
-                    <span className="wc-live-dot" style={{ width: 6, height: 6, background: "#fff", boxShadow: "none" }} />{st === "HT" ? "HALF-TIME" : ((clock || {})[key] || "LIVE")}
-                  </span>
-                  <span style={{ fontSize: 12, color: "#cdd9ff" }}>📍 {m.city}</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 8 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end", minWidth: 0 }}>
-                    <span style={{ fontSize: 17, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.a}</span>
-                    <Flag code={t.ca} w={34} style={{ border: "2px solid #fff", borderRadius: 4, flex: "none" }} />
-                  </span>
-                  <span style={{ fontWeight: 700, color: "#fff", fontSize: 40, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{r[0] === "" || r[0] == null
-                    ? <span style={{ color: "#8fa0d0" }}>–<span style={{ margin: "0 8px" }} />–</span>
-                    : <React.Fragment>{r[0]}<span style={{ color: "#6f86c9", margin: "0 8px" }}>-</span>{r[1]}</React.Fragment>}</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                    <Flag code={t.cb} w={34} style={{ border: "2px solid #fff", borderRadius: 4, flex: "none" }} />
-                    <span style={{ fontSize: 17, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.b}</span>
-                  </span>
-                </div>
-                <div style={{ textAlign: "center", fontSize: 12, color: "#9fb0e0", marginTop: 6 }}>Group {m.g} · watch the table move below 👇</div>
-              </div>
-            );
-          })}
+          {liveMatches.map((m) => (
+            <LiveMatchCard key={m.g + "-" + m.idx} m={m} results={results} status={status} clock={clock} stats={stats} />
+          ))}
         </div>
       </div>
     );
@@ -417,7 +505,7 @@ function PlacesAtAGlance({ results, status, setTab }) {
 
 /* ---- Projected Round-of-32: how the group standings set up the knockout matchups
    (derives purely from group results). Pairings that just changed get a gold ring. ---- */
-function ProjectedR32Mini({ results, changedMatches, setTab }) {
+function ProjectedR32Mini({ results, changedMatches, setTab, locked }) {
   const WC = window.WC, KO_M = WC.KO_M;
   const resolved = React.useMemo(() => window.wcResolveBracket(results || {}, null, {}), [playedHashOf(results)]); // eslint-disable-line
   const mt = resolved.matchTeams || {};
@@ -436,10 +524,10 @@ function ProjectedR32Mini({ results, changedMatches, setTab }) {
   return (
     <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
-        <span style={{ fontSize: 18, fontWeight: 700, color: "#f4b740" }}>🗂️ Projected Round of 32</span>
-        <span style={{ fontSize: 13, color: "#9fb0e0" }}>if the groups ended right now</span>
+        <span style={{ fontSize: 18, fontWeight: 700, color: "#f4b740" }}>🗂️ {locked ? "Round of 32 — it's locked in" : "Projected Round of 32"}</span>
+        <span style={{ fontSize: 13, color: "#9fb0e0" }}>{locked ? "all 32 teams are in" : "if the groups ended right now"}</span>
       </div>
-      <div style={{ fontSize: 12.5, color: "#7e8cc0", marginBottom: 12 }}>Gold tiles depend on the wide-open best-3rd race · a gold ring means the matchup just changed.</div>
+      <div style={{ fontSize: 12.5, color: "#7e8cc0", marginBottom: 12 }}>{locked ? "Tap any tie to open the bracket. Gold tiles came through the best-3rd race." : "Gold tiles depend on the wide-open best-3rd race · a gold ring means the matchup just changed."}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
         {shown.map((no) => {
           const m = KO_M[no], t = mt[no] || {};
@@ -462,7 +550,108 @@ function ProjectedR32Mini({ results, changedMatches, setTab }) {
   );
 }
 
-function HomeTab({ tz, fav, results, status, clock, players, brackets, switchPlayer, addPlayer, removePlayer, setTab, scoreMode, demo }) {
+/* ---- POST-POOL pivot: the group race is over, so the home stops asking "who qualifies?"
+   and starts asking "who lifts the trophy?". A one-shot reveal + the locked R32 + each kid's
+   road to the final + a few honest pool-play story facts. ---- */
+function PoolStoryPills({ poolStats }) {
+  const WC = window.WC, ps = poolStats || {};
+  const pills = [];
+  const Team = ({ code }) => WC.T[code] ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Flag code={WC.T[code].c} w={18} style={{ border: "1.5px solid #fff", borderRadius: 2, flex: "none" }} />{WC.T[code].n}</span> : <span>{code}</span>;
+  if (ps.goldenBoot) pills.push(<span key="gb">👑 Golden Boot race: <b style={{ color: "#fff" }}>{ps.goldenBoot.scorer}</b> leads with {ps.goldenBoot.n} goals</span>);
+  if (ps.mostGoals) pills.push(<span key="mg">🥅 Most goals in a game: <Team code={ps.mostGoals.a} /> {ps.mostGoals.ha}–{ps.mostGoals.ag} <Team code={ps.mostGoals.b} /></span>);
+  if (ps.cleanestSheet) pills.push(<span key="cs">🛡️ Cleanest sheet: <Team code={ps.cleanestSheet.team} /> — {ps.cleanestSheet.n} shutout{ps.cleanestSheet.n > 1 ? "s" : ""}</span>);
+  else pills.push(<span key="cs0">🎯 No clean sheets this group stage — every game had a goal</span>);
+  if (ps.biggestUpset) pills.push(<span key="bu">😲 Biggest upset: <Team code={ps.biggestUpset.winner} /> stunned <Team code={ps.biggestUpset.loser} /> {ps.biggestUpset.wg}–{ps.biggestUpset.lg}</span>);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {pills.map((p, i) => (
+        <div key={i} className="wc-fact-pill" style={{ animationDelay: (i * 90) + "ms", background: "rgba(0,0,0,.18)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 12, padding: "9px 13px", fontSize: 14, color: "#dfe6ff" }}>{p}</div>
+      ))}
+    </div>
+  );
+}
+
+function FavRoadToFinal({ code, resolved, tz, proj }) {
+  const WC = window.WC, KO_M = WC.KO_M, WCTZ = window.WCTZ, mt = resolved.matchTeams || {};
+  if (!WC.T[code]) return null;
+  // Did this team make the 32? Find its R32 slot.
+  let no = null, oppCode = null;
+  Object.keys(KO_M).forEach((k) => {
+    if (KO_M[k].round !== "R32") return;
+    const t = mt[k] || {};
+    if (t.top === code) { no = +k; oppCode = t.bot; }
+    else if (t.bot === code) { no = +k; oppCode = t.top; }
+  });
+  if (no == null) {
+    // didn't qualify — show where they finished, warmly
+    const g = Object.keys(WC.GROUPS).find((gg) => WC.GROUPS[gg].indexOf(code) >= 0);
+    const srow = g && proj.groups[g] && proj.groups[g].standings.findIndex((x) => x.k === code);
+    const pos = srow >= 0 ? ["1st", "2nd", "3rd", "4th"][srow] : null;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: "1px solid rgba(255,255,255,.08)" }}>
+        <Flag code={WC.T[code].c} w={32} style={{ border: "2px solid #fff", borderRadius: 4, flex: "none", opacity: .7 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#cdd9ff" }}>{WC.T[code].n}</div>
+          <div style={{ fontSize: 12.5, color: "#9fb0e0" }}>Didn't make the 32 this time{pos && g ? " — finished " + pos + " in Group " + g : ""}. Next World Cup! 💛</div>
+        </div>
+      </div>
+    );
+  }
+  const m = KO_M[no];
+  const opp = oppCode && WC.T[oppCode];
+  const stops = ["R32", "R16", "QF", "SF", "Final"];
+  return (
+    <div style={{ padding: "10px 0", borderTop: "1px solid rgba(255,255,255,.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <Flag code={WC.T[code].c} w={32} style={{ border: "2px solid #fff", borderRadius: 4, flex: "none" }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>⭐ {WC.T[code].n}'s road to the final</div>
+          <div style={{ fontSize: 12.5, color: "#9fb0e0" }}>
+            Starts the knockouts v {opp ? <b style={{ color: "#fff" }}>{WC.T[oppCode].n}</b> : WC.feeder(no === m.no ? (mt[no] && mt[no].top === code ? m.bottom : m.top) : "", false)} · {m.date} {m.et} · 📍 {m.city}
+          </div>
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        {stops.map((s, i) => (
+          <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700 }}>
+            <span style={{ background: i === 0 ? "rgba(244,183,64,.22)" : "rgba(255,255,255,.07)", color: i === 0 ? "#f4b740" : "#9fb0e0", borderRadius: 8, padding: "4px 9px" }}>{s === "Final" ? "🏆 Final" : s}</span>
+            {i < stops.length - 1 && <span style={{ color: "#6f86c9" }}>→</span>}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function KnockoutsSetHero({ results, fav, proj, next, tz, setTab, poolStats, nowMs }) {
+  const WC = window.WC, WCTZ = window.WCTZ;
+  const resolved = React.useMemo(() => window.wcResolveBracket(results || {}, null, {}), [playedHashOf(results)]); // eslint-disable-line
+  const favList = (fav || []).filter((c) => WC.T[c]);
+  const nextKO = next && next.type === "ko" ? next : next; // first upcoming match is the first KO once groups are done
+  const k = nextKO ? WCTZ.local(nextKO.date, nextKO.et.h, nextKO.et.m, tz) : null;
+  return (
+    <div className="wc-ko-reveal" style={{ background: "linear-gradient(135deg, rgba(244,183,64,.26), rgba(47,111,224,.18))", border: "2px solid #f4b740", borderRadius: 20, padding: "20px 22px" }}>
+      <div style={{ textAlign: "center", marginBottom: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1.5, color: "#f4b740" }}>🏆 KNOCKOUTS ARE SET 🏆</div>
+        <div style={{ fontSize: 26, fontWeight: 700, color: "#fff", margin: "6px 0 2px" }}>Group stage done — all 32 teams are in</div>
+        <div style={{ fontSize: 14, color: "#cdd9ff" }}>The Round of 32 is locked. The real drama starts now. 🎬{k ? " First knockout kicks off " + k.weekday + " " + k.time + "." : ""}</div>
+      </div>
+
+      {favList.length > 0 && (
+        <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 14, padding: "6px 14px 12px", marginBottom: 12 }}>
+          {favList.map((c) => <FavRoadToFinal key={c} code={c} resolved={resolved} tz={tz} proj={proj} />)}
+        </div>
+      )}
+
+      <div style={{ fontSize: 13, fontWeight: 700, color: "#ffd2a8", margin: "4px 2px 8px" }}>📰 Pool-play stories</div>
+      <PoolStoryPills poolStats={poolStats} />
+
+      <button onClick={() => setTab && setTab("bracket")} style={{ display: "block", width: "100%", marginTop: 14, border: "none", cursor: "pointer", background: "rgba(244,183,64,.2)", color: "#f4b740", borderRadius: 12, padding: "11px 14px", fontWeight: 700, fontSize: 14 }}>🗂️ Open the full bracket →</button>
+    </div>
+  );
+}
+
+function HomeTab({ tz, fav, results, status, clock, stats, liveFeed, players, brackets, switchPlayer, addPlayer, removePlayer, setTab, scoreMode, demo }) {
   clock = clock || {};
   const WC = window.WC, WCTZ = window.WCTZ;
   const now = useNow(1000);
@@ -500,6 +689,25 @@ function HomeTab({ tz, fav, results, status, clock, players, brackets, switchPla
   const playedFixtures = proj.meta.playedFixtures;
   const groupOf = (code) => Object.keys(WC.GROUPS).find((g) => WC.GROUPS[g].indexOf(code) >= 0);
 
+  // Post-pool pivot: once all 72 group games are FT and nothing is live, the qualification
+  // race is over — the home reveals the locked knockouts instead of the (now-dead) projections.
+  const groupComplete = playedFixtures >= 72 && liveMatches.length === 0;
+  // Flatten every goal we captured live (scorer names) for the Golden Boot pill — but ONLY when our
+  // goal-logging covers nearly all the goals actually scored. A tournament whose early games predate
+  // the live-stats feature has partial data, and a Golden Boot computed from a fraction of the goals
+  // would be a half-truth — so below the coverage bar we hand back [] and the pill is simply omitted.
+  const goalsLog = React.useMemo(() => {
+    if (!liveFeed || !Array.isArray(liveFeed.matches)) return [];
+    let scored = 0, logged = 0; const out = [];
+    liveFeed.matches.forEach((m) => {
+      const tot = (m.hg != null && m.ag != null) ? (+m.hg + +m.ag) : 0;
+      scored += tot;
+      if (Array.isArray(m.goals)) { logged += m.goals.length; m.goals.forEach((g) => out.push(g)); }
+    });
+    return (scored > 0 && logged >= scored * 0.9) ? out : [];   // need ≥90% of goals captured
+  }, [liveFeed]);
+  const poolStats = React.useMemo(() => window.wcPoolStats(results || {}, goalsLog), [pHash, goalsLog]); // eslint-disable-line
+
   const MatchRow = ({ m, big }) => {
     const t = matchTeams(m, true), k = lt(m);
     const key = m.type === "group" ? (m.g + "-" + m.idx) : null;
@@ -533,14 +741,19 @@ function HomeTab({ tz, fav, results, status, clock, players, brackets, switchPla
   }).filter(Boolean);
 
   const champ = proj.resolved && proj.resolved.CHAMP;
+  // Show the "knockouts are set" reveal once the groups finish — but never shadow the
+  // World-Champions banner (the whole tournament being over wins).
+  const showKoSet = groupComplete && !champ;
 
   return (
     <div style={{ height: "100%", overflow: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* 1 · HERO — big live scores, else next-kickoff countdown */}
-      <HeroBand liveMatches={liveMatches} next={next} results={results} status={status} clock={clock} nowMs={nowMs} tz={tz} champ={champ} scoreMode={scoreMode} />
+      {/* 1 · HERO — once the groups are done, the locked-knockouts reveal; else live scores / countdown */}
+      {showKoSet
+        ? <KnockoutsSetHero results={results} fav={fav} proj={proj} next={next} tz={tz} setTab={setTab} poolStats={poolStats} nowMs={nowMs} />
+        : <HeroBand liveMatches={liveMatches} next={next} results={results} status={status} clock={clock} stats={stats} nowMs={nowMs} tz={tz} champ={champ} scoreMode={scoreMode} />}
 
-      {/* 2 · DRAMA — what just changed */}
-      {dramaOn && <DramaTicker events={dramaEvents} nowMs={nowMs} />}
+      {/* 2 · DRAMA — what just changed (qualification ripples; retired once the groups are done) */}
+      {dramaOn && !groupComplete && <DramaTicker events={dramaEvents} nowMs={nowMs} />}
 
       {/* 3 · live group tables that reorder as goals go in */}
       {playingGroups.length > 0 && (
@@ -558,12 +771,14 @@ function HomeTab({ tz, fav, results, status, clock, players, brackets, switchPla
 
       {/* 4 · the cross-group 1st/2nd/3rd/4th picture with the best-3rd cutoff.
           Held until matchday 1 is complete (>=24 games) so no un-played team is ever shown
-          sorted into a place — or flagged "going home" — before it has kicked a ball. */}
-      {playedFixtures >= 24 && <PlacesAtAGlance results={results} status={status} setTab={setTab} />}
+          sorted into a place — or flagged "going home" — before it has kicked a ball.
+          Retired once the groups finish — the KnockoutsSetHero owns that story then. */}
+      {!groupComplete && playedFixtures >= 24 && <PlacesAtAGlance results={results} status={status} setTab={setTab} />}
 
-      {/* 5 · projected Round-of-32 matchups */}
-      {(playedFixtures >= 24 || Object.keys(snapshot.perTeam).some((k) => snapshot.perTeam[k].clinchedTop2)) &&
-        <ProjectedR32Mini results={results} changedMatches={changedMatches} setTab={setTab} />}
+      {/* 5 · Round-of-32 matchups — "projected" while the groups run, then the locked grid (all 16
+          ties) once they're done, sitting under the KnockoutsSetHero reveal. */}
+      {(groupComplete || playedFixtures >= 24 || Object.keys(snapshot.perTeam).some((k) => snapshot.perTeam[k].clinchedTop2)) &&
+        <ProjectedR32Mini results={results} changedMatches={changedMatches} setTab={setTab} locked={groupComplete} />}
 
       {/* 6 · favourite teams */}
       {favRows.length > 0 && (

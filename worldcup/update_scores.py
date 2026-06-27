@@ -35,7 +35,7 @@ NOTES
     real draw. If scores don't show up, reconcile data.js.
 """
 
-import json, os, sys, datetime, urllib.request, urllib.error
+import json, os, re, sys, datetime, urllib.request, urllib.error
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "live-scores.json")
@@ -63,6 +63,9 @@ FD_TOKEN = read_fd_token()
 # complete + current, and its team abbreviations already equal our kit codes. ----
 ESPN_URL = ("https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/"
             "scoreboard?dates=%s0601-%s0720&limit=400")
+# Per-match box score + key events (possession, shots, goals-with-scorer). Soft-fetched ONLY for
+# in-play matches (a handful at once) so the live hero can show momentum/shots/scorers. Free, no key.
+ESPN_SUMMARY_URL = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=%s"
 # ---- TheSportsDB (fallback only): "3" is the public test key; its free feed is
 # sparse/laggy, so it's used just as a backstop if ESPN is unreachable. ----
 TSDB_KEY = os.environ.get("THESPORTSDB_KEY", "3").strip() or "3"
@@ -132,6 +135,52 @@ def fetch_footballdata():
                     "hg": sc.get("home"), "ag": sc.get("away"), "status": status})
     return out
 
+_GOAL_SCORER_RE = re.compile(r"\.\s*([^.()]+?)\s*\(")  # "...Côte d'Ivoire 1. Nicolas Pépé (Côte..." -> name
+
+def _espn_summary_stats(event_id, home_abbr, away_abbr):
+    """In-game stats for ONE live match from ESPN's free summary endpoint. Returns only the keys
+    that parse: poss/sh/sot as [home,away] (oriented to the passed abbrevs) and goals[] with
+    {min,team,scorer}. Soft-fetched: any error -> {} and the hero degrades to scoreline only."""
+    data = _get_soft(ESPN_SUMMARY_URL % event_id)
+    if not data:
+        return {}
+    out = {}
+    want = {"possessionPct": "poss", "totalShots": "sh", "shotsOnTarget": "sot", "shotsOnGoal": "sot"}
+    by_abbr, idmap = {}, {}
+    for t in ((data.get("boxscore") or {}).get("teams") or []):
+        team = t.get("team") or {}
+        abbr = (team.get("abbreviation") or "").upper()
+        idmap[str(team.get("id"))] = abbr
+        st = {}
+        for s in (t.get("statistics") or []):
+            key = want.get(s.get("name"))
+            if key and key not in st:
+                try:
+                    st[key] = int(round(float(s.get("displayValue"))))
+                except (TypeError, ValueError):
+                    pass
+        by_abbr[abbr] = st
+    h, a = by_abbr.get((home_abbr or "").upper(), {}), by_abbr.get((away_abbr or "").upper(), {})
+    for key in ("poss", "sh", "sot"):
+        if key in h and key in a:
+            out[key] = [h[key], a[key]]
+    goals = []
+    for ev in (data.get("keyEvents") or []):
+        if not ev.get("scoringPlay"):
+            continue
+        code = idmap.get(str((ev.get("team") or {}).get("id")))
+        mn = ((ev.get("clock") or {}).get("displayValue") or "").strip()
+        m = _GOAL_SCORER_RE.search(ev.get("text") or "")
+        scorer = m.group(1).strip() if m else None
+        # Defensive: a real name is short and digit-free. If the text format drifts and the regex
+        # grabs a phrase, drop it to None (shows a plain "Goal") rather than a garbage name.
+        if scorer and (len(scorer) > 40 or any(ch.isdigit() for ch in scorer)):
+            scorer = None
+        goals.append({"min": mn, "team": code, "scorer": scorer})
+    if goals:
+        out["goals"] = goals
+    return out
+
 def fetch_espn():
     # ESPN's free hidden API returns the full FIFA World Cup schedule + live/final
     # scores. competitors carry homeAway + team.abbreviation (== our kit codes) + score;
@@ -172,6 +221,13 @@ def fetch_espn():
             mn = sd or (((comp.get("status") or {}).get("displayClock") or "").strip())
             if mn:
                 row["min"] = mn
+            # enrich ONLY in-play matches with box-score + goals (one soft summary call each).
+            eid = e.get("id")
+            if eid:
+                stats = _espn_summary_stats(eid, row["home"], row["away"])
+                for k in ("poss", "sh", "sot", "goals"):
+                    if k in stats:
+                        row[k] = stats[k]
         out.append(row)
     return out
 
@@ -205,6 +261,23 @@ def fetch_thesportsdb():
         rows += _parse_tsdb_events(_get_soft(base + extra))
     return rows
 
+STAT_KEYS = ("poss", "sh", "sot", "goals")   # optional in-game enrichments carried per-fixture
+
+def _merge_pair(a, b):
+    # b is the NEWER row (callers pass (stored, fresh)). Keep the more-advanced record as the base
+    # (FT > LIVE > scheduled), with the newer winning ties so a fresh live score refreshes — but
+    # UNION the in-game stat fields so a live match's possession/shots/goals survive when it goes FT
+    # (the scoreboard FT row carries no stats). Goals: keep the longer (more complete) list.
+    base, other = (b, a) if _rank(b) >= _rank(a) else (a, b)
+    out = dict(base)
+    for k in STAT_KEYS:
+        if k not in out and k in other:
+            out[k] = other[k]
+    ga, gb = a.get("goals") or [], b.get("goals") or []
+    if ga or gb:
+        out["goals"] = ga if len(ga) >= len(gb) else gb
+    return out
+
 def _rank(item):
     # Prefer the richest record when the same fixture shows up in more than one feed
     # (or in a later run): a final score outranks an in-play score, then any score,
@@ -237,13 +310,18 @@ def build(rows):
             item["min"] = r["min"]
         if r["hg"] is not None and r["ag"] is not None:
             item["hg"], item["ag"] = r["hg"], r["ag"]
+        for k in STAT_KEYS:   # carry optional in-game stats (poss/sh/sot/goals) through unchanged
+            if r.get(k) is not None:
+                item[k] = r[k]
         key = frozenset((home, away))
         if key not in best or _rank(item) > _rank(best[key]):
             best[key] = item
     return list(best.values())
 
 SAMPLE = [{"home": "Mexico", "away": "South Africa", "hg": 2, "ag": 1, "status": "FT"},
-          {"home": "Korea Republic", "away": "Czechia", "hg": 1, "ag": 1, "status": "LIVE"},
+          {"home": "Korea Republic", "away": "Czechia", "hg": 1, "ag": 1, "status": "LIVE", "min": "67'",
+           "poss": [58, 42], "sh": [9, 7], "sot": [4, 3],
+           "goals": [{"min": "34'", "team": "KOR", "scorer": "Son Heung-min"}, {"min": "51'", "team": "CZE", "scorer": None}]},
           {"home": "Narnia", "away": "Atlantis", "hg": None, "ag": None, "status": ""}]
 
 def _pair_key(m):
@@ -270,8 +348,7 @@ def merge_existing(existing, fresh):
         k = _pair_key(m)
         if None in k:
             continue
-        if k not in best or _rank(m) >= _rank(best[k]):
-            best[k] = m
+        best[k] = _merge_pair(best[k], m) if k in best else m
     return list(best.values())
 
 def write(matches):

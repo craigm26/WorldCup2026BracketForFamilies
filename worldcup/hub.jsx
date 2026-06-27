@@ -367,7 +367,7 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
   const modes = [
     { id: "manual", icon: "✍️", title: "Manual — you type the scores", desc: "Best for kids! Watch the games, then type each score yourself on the Standings tab. Nothing changes on its own, so there are never any spoilers." },
     { id: "semi", icon: "🔄", title: "Semi-auto — update when YOU say", desc: "Watch first, peek later. Real scores stay hidden until you press “Update scores now.” Great if you record games and don't want spoilers." },
-    { id: "full", icon: "⚡", title: "Auto — scores update by themselves", desc: "The Hub quietly checks for new scores every minute and fills in the Standings for you. (Needs live-scores.json set up on the Pi — see the README.)" },
+    { id: "full", icon: "⚡", title: "Auto — scores update by themselves", desc: "The Hub quietly checks for new scores every minute and fills in the Standings for you. If the Wi-Fi drops it pauses, then catches up automatically when you're back online. (Needs live-scores.json set up on the Pi — see the README.)" },
   ];
   const Toggle = ({ on, onClick }) => (
     <button onClick={onClick} style={{ border: "none", cursor: "pointer", width: 52, height: 30, borderRadius: 20, padding: 3, background: on ? "#34c77b" : "rgba(255,255,255,.18)", transition: "background .2s", flex: "none" }}>
@@ -377,7 +377,7 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
   const card = { background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 18, marginBottom: 16 };
   return (
     <div style={{ height: "100%", overflow: "auto", maxWidth: 760 }}>
-      <div style={{ fontSize: 15, color: "#9fb0e0", marginBottom: 16 }}>Make the Hub work the way your family likes. Everything saves on this device.</div>
+      <div style={{ fontSize: 15, color: "#9fb0e0", marginBottom: 16 }}>Make the Hub work the way your family likes. Everything saves on this device — even with no Wi-Fi.</div>
 
       <div style={card}>
         <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 4 }}>🏆 How should scores update?</div>
@@ -401,6 +401,15 @@ function SettingsTab({ settings, setSetting, tz, setTz, fetchNow, lastFetch, liv
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, flexWrap: "wrap" }}>
             <button onClick={fetchNow} style={{ border: "none", cursor: "pointer", background: "#34c77b", color: "#06351f", fontWeight: 700, borderRadius: 12, padding: "10px 18px", fontSize: 15 }}>🔄 Update scores now</button>
             <span style={{ fontSize: 13, color: "#9fb0e0" }}>{lastFetch ? "Last updated " + new Date(lastFetch).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : (liveActive ? "Live scores loaded." : "No live scores found yet — that's OK, you can still type your own.")}</span>
+          </div>
+        )}
+        {settings.scoreMode !== "manual" && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginTop: 14 }}>
+            <Toggle on={settings.keepMyScores === true} onClick={() => setSetting("keepMyScores", !settings.keepMyScores)} />
+            <div>
+              <div style={{ fontSize: 15.5, fontWeight: 700, color: "#fff" }}>Keep the scores I type</div>
+              <div style={{ fontSize: 13, color: "#cdd9ff", lineHeight: 1.45 }}>When live scores come in, don't change games you entered by hand. Perfect for playing along during a watch party — type your scores and they'll stick. (Live still fills in the games you haven't entered.)</div>
+            </div>
           </div>
         )}
       </div>
@@ -478,7 +487,7 @@ function HubApp() {
     // spoiler-free Manual and persisted it on first load, so existing devices are stuck
     // on Manual — the modeV2 marker flips them to Auto exactly once, without clobbering a
     // later explicit choice. (?scoremode=manual still forces Manual for that load.)
-    const base = { scoreMode: "full", autoBracket: false };
+    const base = { scoreMode: "full", autoBracket: false, keepMyScores: false };
     try {
       const saved = JSON.parse(localStorage.getItem("wc26settings")) || {};
       const s = Object.assign({}, base, saved);
@@ -507,6 +516,21 @@ function HubApp() {
     return () => clearInterval(id);
   }, [scoreMode, fetchLive, liveNow]);
 
+  // Auto-retry the live feed the moment the internet comes back (Auto mode only —
+  // Semi/Manual stay spoiler-free until you ask). The interval above also keeps
+  // retrying on its own; this just makes reconnection instant. The kid-facing
+  // offline badge shows "back online — updating…" via the app-syncing event.
+  React.useEffect(() => {
+    const onOnline = () => {
+      if (scoreMode === "full") {
+        try { window.dispatchEvent(new CustomEvent("app-syncing")); } catch (e) {}
+        fetchLive();
+      }
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [scoreMode, fetchLive]);
+
   // One-shot presence check in any mode (spoiler-free: it never displays scores,
   // it only notices that a live feed exists). Lets a manual-mode family discover
   // that real results are available and turn on Auto with a single tap.
@@ -531,8 +555,15 @@ function HubApp() {
   // them (it would slap a pulsing LIVE badge on a demo scoreline). Demo is fully self-contained.
   const liveStatus = demo ? {} : lr.status;
   const liveClock = demo ? {} : (lr.clock || {});   // per-fixture match minute ("67'")
+  const liveStats = demo ? {} : (lr.stats || {});   // per-fixture in-game stats (poss/sh/sot/goals)
   const liveActive = applyLive;
-  const baseResults = lr.out ? Object.assign({}, store.results, lr.out) : store.results;
+  // Default: live wins (live overlays your saved scores). "Keep the scores I type"
+  // flips it so your hand-entered scores win and live only fills games you skipped.
+  const baseResults = lr.out
+    ? (settings.keepMyScores
+        ? Object.assign({}, lr.out, store.results)
+        : Object.assign({}, store.results, lr.out))
+    : store.results;
   const results = demoData ? demoData.results : baseResults;
   const bracketStore = demoData ? Object.assign({}, store, { bracket: demoData.bracket }) : store;
 
@@ -632,7 +663,7 @@ function HubApp() {
         </div>
       )}
       <main style={{ flex: 1, minHeight: 0, padding: "20px 26px" }}>
-        {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} status={liveStatus} clock={liveClock} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} scoreMode={scoreMode} demo={demo} />}
+        {tab === "home" && <HomeTab tz={tz} fav={fav} results={results} status={liveStatus} clock={liveClock} stats={liveStats} liveFeed={demo ? null : (applyLive ? live : null)} players={players} brackets={brackets} switchPlayer={switchPlayer} addPlayer={addPlayer} removePlayer={removePlayer} setTab={setTab} scoreMode={scoreMode} demo={demo} />}
         {tab === "stickers" && <StickersTab collections={collections} setSticker={setSticker} players={players} books={books} addBook={addBook} renameBook={renameBook} removeBook={removeBook} switchBook={switchBook} addPlayer={addPlayer} sync={sync} setSync={setSync} goHelp={goHelp} syncStatus={syncStatus} syncNow={syncNow} />}
         {tab === "help" && <HelpTab target={helpTarget} clearTarget={() => setHelpTarget(null)} />}
         {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} goHelp={goHelp} />}
