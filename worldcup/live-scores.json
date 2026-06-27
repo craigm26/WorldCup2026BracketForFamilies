@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-27T23:08:38.364347+00:00",
+  "updated": "2026-06-27T23:36:17.736276+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -523,6 +523,46 @@
           "team": "ENG",
           "scorer": "Harry Kane"
         }
+      ]
+    },
+    {
+      "home": "COL",
+      "away": "POR",
+      "status": "LIVE",
+      "min": "5'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        42,
+        58
+      ],
+      "sh": [
+        2,
+        0
+      ],
+      "sot": [
+        0,
+        0
+      ]
+    },
+    {
+      "home": "COD",
+      "away": "UZB",
+      "status": "LIVE",
+      "min": "4'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        49,
+        51
+      ],
+      "sh": [
+        1,
+        1
+      ],
+      "sot": [
+        0,
+        1
       ]
     }
   ]
