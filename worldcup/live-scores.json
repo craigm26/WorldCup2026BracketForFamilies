@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-28T01:20:22.550182+00:00",
+  "updated": "2026-06-28T02:12:52.833449+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -528,8 +528,7 @@
     {
       "home": "COL",
       "away": "POR",
-      "status": "LIVE",
-      "min": "88'",
+      "status": "FT",
       "hg": 0,
       "ag": 0,
       "poss": [
@@ -548,9 +547,8 @@
     {
       "home": "COD",
       "away": "UZB",
-      "status": "LIVE",
-      "min": "86'",
-      "hg": 2,
+      "status": "FT",
+      "hg": 3,
       "ag": 1,
       "poss": [
         62,
@@ -580,6 +578,46 @@
           "team": "COD",
           "scorer": "Fiston Mayele"
         }
+      ]
+    },
+    {
+      "home": "ALG",
+      "away": "AUT",
+      "status": "LIVE",
+      "min": "11'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        53,
+        47
+      ],
+      "sh": [
+        1,
+        1
+      ],
+      "sot": [
+        0,
+        0
+      ]
+    },
+    {
+      "home": "JOR",
+      "away": "ARG",
+      "status": "LIVE",
+      "min": "11'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        21,
+        79
+      ],
+      "sh": [
+        0,
+        0
+      ],
+      "sot": [
+        0,
+        0
       ]
     }
   ]
