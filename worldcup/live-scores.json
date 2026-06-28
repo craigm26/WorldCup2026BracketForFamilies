@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-27T23:36:17.736276+00:00",
+  "updated": "2026-06-28T00:04:20.201898+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -529,40 +529,47 @@
       "home": "COL",
       "away": "POR",
       "status": "LIVE",
-      "min": "5'",
+      "min": "33'",
       "hg": 0,
       "ag": 0,
       "poss": [
-        42,
-        58
+        50,
+        50
       ],
       "sh": [
-        2,
-        0
+        7,
+        3
       ],
       "sot": [
-        0,
-        0
+        1,
+        1
       ]
     },
     {
       "home": "COD",
       "away": "UZB",
       "status": "LIVE",
-      "min": "4'",
+      "min": "32'",
       "hg": 0,
-      "ag": 0,
+      "ag": 1,
       "poss": [
-        49,
-        51
+        58,
+        42
       ],
       "sh": [
-        1,
+        2,
         1
       ],
       "sot": [
-        0,
+        1,
         1
+      ],
+      "goals": [
+        {
+          "min": "10'",
+          "team": "UZB",
+          "scorer": "Eldor Shomurodov"
+        }
       ]
     }
   ]
