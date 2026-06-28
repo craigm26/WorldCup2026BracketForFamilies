@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-28T00:04:20.201898+00:00",
+  "updated": "2026-06-28T01:20:22.550182+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -529,39 +529,39 @@
       "home": "COL",
       "away": "POR",
       "status": "LIVE",
-      "min": "33'",
+      "min": "88'",
       "hg": 0,
       "ag": 0,
       "poss": [
-        50,
-        50
+        55,
+        45
       ],
       "sh": [
-        7,
-        3
+        21,
+        12
       ],
       "sot": [
-        1,
-        1
+        6,
+        2
       ]
     },
     {
       "home": "COD",
       "away": "UZB",
       "status": "LIVE",
-      "min": "32'",
-      "hg": 0,
+      "min": "86'",
+      "hg": 2,
       "ag": 1,
       "poss": [
-        58,
-        42
+        62,
+        38
       ],
       "sh": [
-        2,
-        1
+        14,
+        3
       ],
       "sot": [
-        1,
+        3,
         1
       ],
       "goals": [
@@ -569,6 +569,16 @@
           "min": "10'",
           "team": "UZB",
           "scorer": "Eldor Shomurodov"
+        },
+        {
+          "min": "68'",
+          "team": "COD",
+          "scorer": "Yoane Wissa"
+        },
+        {
+          "min": "78'",
+          "team": "COD",
+          "scorer": "Fiston Mayele"
         }
       ]
     }
