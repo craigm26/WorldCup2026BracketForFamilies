@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-28T02:12:52.833449+00:00",
+  "updated": "2026-06-28T03:30:16.443311+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -584,40 +584,79 @@
       "home": "ALG",
       "away": "AUT",
       "status": "LIVE",
-      "min": "11'",
-      "hg": 0,
-      "ag": 0,
+      "min": "67'",
+      "hg": 2,
+      "ag": 2,
       "poss": [
-        53,
-        47
+        57,
+        43
       ],
       "sh": [
-        1,
-        1
+        11,
+        7
       ],
       "sot": [
-        0,
-        0
+        4,
+        2
+      ],
+      "goals": [
+        {
+          "min": "28'",
+          "team": "AUT",
+          "scorer": "Marko Arnautovic"
+        },
+        {
+          "min": "45'",
+          "team": "ALG",
+          "scorer": "Rafik Belghali"
+        },
+        {
+          "min": "55'",
+          "team": "AUT",
+          "scorer": "Marcel Sabitzer"
+        },
+        {
+          "min": "60'",
+          "team": "ALG",
+          "scorer": "Riyad Mahrez"
+        }
       ]
     },
     {
       "home": "JOR",
       "away": "ARG",
       "status": "LIVE",
-      "min": "11'",
-      "hg": 0,
-      "ag": 0,
+      "min": "67'",
+      "hg": 1,
+      "ag": 2,
       "poss": [
-        21,
-        79
+        27,
+        73
       ],
       "sh": [
-        0,
-        0
+        5,
+        8
       ],
       "sot": [
-        0,
-        0
+        1,
+        3
+      ],
+      "goals": [
+        {
+          "min": "19'",
+          "team": "ARG",
+          "scorer": "Giovani Lo Celso"
+        },
+        {
+          "min": "31'",
+          "team": "ARG",
+          "scorer": "Lautaro Mart\u00ednez"
+        },
+        {
+          "min": "55'",
+          "team": "JOR",
+          "scorer": "Mousa Al Tamari"
+        }
       ]
     }
   ]
