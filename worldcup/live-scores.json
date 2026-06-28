@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-28T03:30:16.443311+00:00",
+  "updated": "2026-06-28T05:06:43.060654+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -583,10 +583,9 @@
     {
       "home": "ALG",
       "away": "AUT",
-      "status": "LIVE",
-      "min": "67'",
-      "hg": 2,
-      "ag": 2,
+      "status": "FT",
+      "hg": 3,
+      "ag": 3,
       "poss": [
         57,
         43
@@ -625,10 +624,9 @@
     {
       "home": "JOR",
       "away": "ARG",
-      "status": "LIVE",
-      "min": "67'",
+      "status": "FT",
       "hg": 1,
-      "ag": 2,
+      "ag": 3,
       "poss": [
         27,
         73
