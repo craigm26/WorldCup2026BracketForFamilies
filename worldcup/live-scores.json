@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-28T05:06:43.060654+00:00",
+  "updated": "2026-06-28T19:10:24.433361+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -655,6 +655,26 @@
           "team": "JOR",
           "scorer": "Mousa Al Tamari"
         }
+      ]
+    },
+    {
+      "home": "RSA",
+      "away": "CAN",
+      "status": "LIVE",
+      "min": "10'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        61,
+        39
+      ],
+      "sh": [
+        1,
+        1
+      ],
+      "sot": [
+        1,
+        0
       ]
     }
   ]
