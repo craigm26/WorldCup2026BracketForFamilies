@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-29T18:15:17.251236+00:00",
+  "updated": "2026-06-29T19:03:54.268261+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -680,26 +680,36 @@
       "home": "BRA",
       "away": "JPN",
       "status": "LIVE",
-      "min": "53'",
-      "hg": 0,
+      "min": "90'+11'",
+      "hg": 2,
       "ag": 1,
       "poss": [
-        65,
-        35
+        69,
+        31
       ],
       "sh": [
-        9,
-        4
+        19,
+        5
       ],
       "sot": [
-        3,
-        1
+        7,
+        2
       ],
       "goals": [
         {
           "min": "29'",
           "team": "JPN",
           "scorer": "Kaishu Sano"
+        },
+        {
+          "min": "56'",
+          "team": "BRA",
+          "scorer": "Casemiro"
+        },
+        {
+          "min": "90'+5'",
+          "team": "BRA",
+          "scorer": "Gabriel Martinelli"
         }
       ]
     }
