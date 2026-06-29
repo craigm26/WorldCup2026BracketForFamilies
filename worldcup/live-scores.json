@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-29T19:47:23.330540+00:00",
+  "updated": "2026-06-29T21:10:06.692771+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -710,6 +710,26 @@
           "team": "BRA",
           "scorer": "Gabriel Martinelli"
         }
+      ]
+    },
+    {
+      "home": "GER",
+      "away": "PAR",
+      "status": "LIVE",
+      "min": "40'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        80,
+        20
+      ],
+      "sh": [
+        3,
+        2
+      ],
+      "sot": [
+        0,
+        1
       ]
     }
   ]
