@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-29T23:09:47.622438+00:00",
+  "updated": "2026-06-29T23:37:11.453244+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -715,8 +715,7 @@
     {
       "home": "GER",
       "away": "PAR",
-      "status": "LIVE",
-      "min": "119'",
+      "status": "FT",
       "hg": 1,
       "ag": 1,
       "poss": [
