@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-30T19:29:01.233696+00:00",
+  "updated": "2026-06-30T21:02:50.375851+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -808,6 +808,26 @@
           "team": "NOR",
           "scorer": "Erling Haaland"
         }
+      ]
+    },
+    {
+      "home": "FRA",
+      "away": "SWE",
+      "status": "LIVE",
+      "min": "2'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        75,
+        25
+      ],
+      "sh": [
+        0,
+        0
+      ],
+      "sot": [
+        0,
+        0
       ]
     }
   ]
