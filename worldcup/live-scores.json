@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-30T17:17:56.215877+00:00",
+  "updated": "2026-06-30T18:05:44.591074+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -777,21 +777,28 @@
     {
       "home": "CIV",
       "away": "NOR",
-      "status": "LIVE",
-      "min": "17'",
+      "status": "HT",
+      "min": "HT",
       "hg": 0,
-      "ag": 0,
+      "ag": 1,
       "poss": [
-        48,
-        52
+        44,
+        56
       ],
       "sh": [
-        1,
-        1
+        5,
+        6
       ],
       "sot": [
-        0,
-        0
+        1,
+        2
+      ],
+      "goals": [
+        {
+          "min": "39'",
+          "team": "NOR",
+          "scorer": "Antonio Nusa"
+        }
       ]
     }
   ]
