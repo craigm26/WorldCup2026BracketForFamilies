@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-30T18:05:44.591074+00:00",
+  "updated": "2026-06-30T18:51:00.832549+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -777,27 +777,37 @@
     {
       "home": "CIV",
       "away": "NOR",
-      "status": "HT",
-      "min": "HT",
-      "hg": 0,
-      "ag": 1,
+      "status": "LIVE",
+      "min": "90'",
+      "hg": 1,
+      "ag": 2,
       "poss": [
-        44,
-        56
+        46,
+        54
       ],
       "sh": [
-        5,
-        6
+        12,
+        9
       ],
       "sot": [
-        1,
-        2
+        4,
+        4
       ],
       "goals": [
         {
           "min": "39'",
           "team": "NOR",
           "scorer": "Antonio Nusa"
+        },
+        {
+          "min": "74'",
+          "team": "CIV",
+          "scorer": "Amad Diallo"
+        },
+        {
+          "min": "86'",
+          "team": "NOR",
+          "scorer": "Erling Haaland"
         }
       ]
     }
