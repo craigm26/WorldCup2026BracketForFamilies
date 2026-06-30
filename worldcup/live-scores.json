@@ -1,5 +1,5 @@
 {
-  "updated": "2026-06-30T21:43:12.176841+00:00",
+  "updated": "2026-06-30T22:14:58.097428+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -814,20 +814,32 @@
       "home": "FRA",
       "away": "SWE",
       "status": "LIVE",
-      "min": "41'",
-      "hg": 0,
+      "min": "54'",
+      "hg": 2,
       "ag": 0,
       "poss": [
-        74,
-        26
+        71,
+        29
       ],
       "sh": [
-        11,
-        2
+        17,
+        3
       ],
       "sot": [
-        4,
+        7,
         1
+      ],
+      "goals": [
+        {
+          "min": "45'",
+          "team": "FRA",
+          "scorer": "Kylian Mbapp\u00e9"
+        },
+        {
+          "min": "53'",
+          "team": "FRA",
+          "scorer": "Bradley Barcola"
+        }
       ]
     }
   ]
