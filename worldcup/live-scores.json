@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01T05:26:32.159509+00:00",
+  "updated": "2026-07-01T16:11:18.118494+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -874,6 +874,33 @@
           "min": "31'",
           "team": "MEX",
           "scorer": "Ra\u00fal Jim\u00e9nez"
+        }
+      ]
+    },
+    {
+      "home": "ENG",
+      "away": "COD",
+      "status": "LIVE",
+      "min": "10'",
+      "hg": 0,
+      "ag": 1,
+      "poss": [
+        26,
+        74
+      ],
+      "sh": [
+        0,
+        1
+      ],
+      "sot": [
+        0,
+        1
+      ],
+      "goals": [
+        {
+          "min": "7'",
+          "team": "COD",
+          "scorer": "Brian Cipenga"
         }
       ]
     }
