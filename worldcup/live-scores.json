@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01T21:17:42.055441+00:00",
+  "updated": "2026-07-01T21:54:33.924387+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -912,19 +912,19 @@
       "home": "BEL",
       "away": "SEN",
       "status": "LIVE",
-      "min": "55'",
-      "hg": 0,
+      "min": "90'+2'",
+      "hg": 2,
       "ag": 2,
       "poss": [
-        51,
-        49
+        54,
+        46
       ],
       "sh": [
-        5,
-        11
+        15,
+        12
       ],
       "sot": [
-        2,
+        4,
         4
       ],
       "goals": [
@@ -937,6 +937,16 @@
           "min": "51'",
           "team": "SEN",
           "scorer": "Isma\u00efla Sarr"
+        },
+        {
+          "min": "86'",
+          "team": "BEL",
+          "scorer": "Romelu Lukaku"
+        },
+        {
+          "min": "89'",
+          "team": "BEL",
+          "scorer": "Youri Tielemans"
         }
       ]
     }
