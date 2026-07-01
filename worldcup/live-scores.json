@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01T20:43:42.718957+00:00",
+  "updated": "2026-07-01T21:17:42.055441+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -912,26 +912,31 @@
       "home": "BEL",
       "away": "SEN",
       "status": "LIVE",
-      "min": "42'",
+      "min": "55'",
       "hg": 0,
-      "ag": 1,
+      "ag": 2,
       "poss": [
-        46,
-        54
+        51,
+        49
       ],
       "sh": [
-        2,
-        6
+        5,
+        11
       ],
       "sot": [
-        1,
-        3
+        2,
+        4
       ],
       "goals": [
         {
           "min": "25'",
           "team": "SEN",
           "scorer": "Habib Diarra"
+        },
+        {
+          "min": "51'",
+          "team": "SEN",
+          "scorer": "Isma\u00efla Sarr"
         }
       ]
     }
