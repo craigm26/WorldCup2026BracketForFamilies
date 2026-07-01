@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01T02:27:27.826765+00:00",
+  "updated": "2026-07-01T03:51:29.399405+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -850,26 +850,31 @@
       "home": "MEX",
       "away": "ECU",
       "status": "LIVE",
-      "min": "26'",
-      "hg": 1,
+      "min": "88'",
+      "hg": 2,
       "ag": 0,
       "poss": [
-        59,
-        41
+        44,
+        56
       ],
       "sh": [
-        7,
-        1
+        14,
+        5
       ],
       "sot": [
-        1,
-        0
+        3,
+        1
       ],
       "goals": [
         {
           "min": "22'",
           "team": "MEX",
           "scorer": "Juli\u00e1n Qui\u00f1ones"
+        },
+        {
+          "min": "31'",
+          "team": "MEX",
+          "scorer": "Ra\u00fal Jim\u00e9nez"
         }
       ]
     }
