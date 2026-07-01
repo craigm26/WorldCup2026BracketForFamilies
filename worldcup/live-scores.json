@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01T17:02:25.321125+00:00",
+  "updated": "2026-07-01T17:45:55.852136+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -880,20 +880,20 @@
     {
       "home": "ENG",
       "away": "COD",
-      "status": "HT",
-      "min": "HT",
-      "hg": 0,
+      "status": "LIVE",
+      "min": "81'",
+      "hg": 1,
       "ag": 1,
       "poss": [
-        59,
-        41
+        61,
+        39
       ],
       "sh": [
-        8,
-        3
+        12,
+        5
       ],
       "sot": [
-        4,
+        5,
         1
       ],
       "goals": [
@@ -901,6 +901,11 @@
           "min": "7'",
           "team": "COD",
           "scorer": "Brian Cipenga"
+        },
+        {
+          "min": "75'",
+          "team": "ENG",
+          "scorer": "Harry Kane"
         }
       ]
     }
