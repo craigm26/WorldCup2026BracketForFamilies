@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01T18:29:08.717394+00:00",
+  "updated": "2026-07-01T20:43:42.718957+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -905,6 +905,33 @@
           "min": "75'",
           "team": "ENG",
           "scorer": "Harry Kane"
+        }
+      ]
+    },
+    {
+      "home": "BEL",
+      "away": "SEN",
+      "status": "LIVE",
+      "min": "42'",
+      "hg": 0,
+      "ag": 1,
+      "poss": [
+        46,
+        54
+      ],
+      "sh": [
+        2,
+        6
+      ],
+      "sot": [
+        1,
+        3
+      ],
+      "goals": [
+        {
+          "min": "25'",
+          "team": "SEN",
+          "scorer": "Habib Diarra"
         }
       ]
     }
