@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-02T20:15:18.020439+00:00",
+  "updated": "2026-07-02T20:44:06.975606+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -979,19 +979,19 @@
       "home": "ESP",
       "away": "AUT",
       "status": "LIVE",
-      "min": "51'",
-      "hg": 1,
+      "min": "82'",
+      "hg": 2,
       "ag": 0,
       "poss": [
-        64,
-        36
+        66,
+        34
       ],
       "sh": [
-        13,
-        2
+        20,
+        4
       ],
       "sot": [
-        7,
+        8,
         0
       ],
       "goals": [
@@ -999,6 +999,11 @@
           "min": "36'",
           "team": "ESP",
           "scorer": "Mikel Oyarzabal"
+        },
+        {
+          "min": "66'",
+          "team": "ESP",
+          "scorer": "Pedro Porro"
         }
       ]
     }
