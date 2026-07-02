@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-01T22:59:30.006573+00:00",
+  "updated": "2026-07-02T00:05:43.489694+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -947,6 +947,26 @@
           "team": "BEL",
           "scorer": "Youri Tielemans"
         }
+      ]
+    },
+    {
+      "home": "USA",
+      "away": "BIH",
+      "status": "LIVE",
+      "min": "5'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        81,
+        19
+      ],
+      "sh": [
+        1,
+        0
+      ],
+      "sot": [
+        0,
+        0
       ]
     }
   ]
