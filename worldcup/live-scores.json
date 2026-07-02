@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-02T02:07:36.085181+00:00",
+  "updated": "2026-07-02T19:42:28.830655+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -972,6 +972,33 @@
           "min": "45'",
           "team": "USA",
           "scorer": "Folarin Balogun"
+        }
+      ]
+    },
+    {
+      "home": "ESP",
+      "away": "AUT",
+      "status": "LIVE",
+      "min": "41'",
+      "hg": 1,
+      "ag": 0,
+      "poss": [
+        63,
+        37
+      ],
+      "sh": [
+        8,
+        1
+      ],
+      "sot": [
+        4,
+        0
+      ],
+      "goals": [
+        {
+          "min": "36'",
+          "team": "ESP",
+          "scorer": "Mikel Oyarzabal"
         }
       ]
     }
