@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-03T01:46:12.944056+00:00",
+  "updated": "2026-07-03T04:13:31.974601+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1039,6 +1039,38 @@
           "min": "90'+4'",
           "team": "POR",
           "scorer": "Gon\u00e7alo Ramos"
+        }
+      ]
+    },
+    {
+      "home": "SUI",
+      "away": "ALG",
+      "status": "LIVE",
+      "min": "53'",
+      "hg": 2,
+      "ag": 0,
+      "poss": [
+        42,
+        58
+      ],
+      "sh": [
+        5,
+        6
+      ],
+      "sot": [
+        3,
+        2
+      ],
+      "goals": [
+        {
+          "min": "10'",
+          "team": "SUI",
+          "scorer": "Breel Embolo"
+        },
+        {
+          "min": "46'",
+          "team": "SUI",
+          "scorer": "Dan Ndoye"
         }
       ]
     }
