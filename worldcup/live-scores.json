@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-03T22:27:43.005315+00:00",
+  "updated": "2026-07-03T22:53:52.620053+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1107,21 +1107,28 @@
     {
       "home": "ARG",
       "away": "CPV",
-      "status": "LIVE",
-      "min": "25'",
-      "hg": 0,
+      "status": "HT",
+      "min": "HT",
+      "hg": 1,
       "ag": 0,
       "poss": [
-        64,
-        36
+        66,
+        34
       ],
       "sh": [
-        2,
+        4,
         1
       ],
       "sot": [
-        1,
+        3,
         0
+      ],
+      "goals": [
+        {
+          "min": "29'",
+          "team": "ARG",
+          "scorer": "Lionel Messi"
+        }
       ]
     }
   ]
