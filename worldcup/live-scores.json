@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-03T20:58:38.816571+00:00",
+  "updated": "2026-07-03T21:31:12.225086+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1076,8 +1076,7 @@
     {
       "home": "AUS",
       "away": "EGY",
-      "status": "LIVE",
-      "min": "AET-pens",
+      "status": "FT",
       "hg": 1,
       "ag": 1,
       "poss": [
