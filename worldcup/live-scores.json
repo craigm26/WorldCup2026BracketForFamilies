@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-03T04:13:31.974601+00:00",
+  "updated": "2026-07-03T05:36:29.965282+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1045,8 +1045,7 @@
     {
       "home": "SUI",
       "away": "ALG",
-      "status": "LIVE",
-      "min": "53'",
+      "status": "FT",
       "hg": 2,
       "ag": 0,
       "poss": [
