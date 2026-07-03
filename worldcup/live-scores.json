@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-03T05:36:29.965282+00:00",
+  "updated": "2026-07-03T18:14:37.058939+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1070,6 +1070,33 @@
           "min": "46'",
           "team": "SUI",
           "scorer": "Dan Ndoye"
+        }
+      ]
+    },
+    {
+      "home": "AUS",
+      "away": "EGY",
+      "status": "LIVE",
+      "min": "14'",
+      "hg": 0,
+      "ag": 1,
+      "poss": [
+        30,
+        70
+      ],
+      "sh": [
+        1,
+        2
+      ],
+      "sot": [
+        0,
+        1
+      ],
+      "goals": [
+        {
+          "min": "13'",
+          "team": "EGY",
+          "scorer": "Emam Ashour"
         }
       ]
     }
