@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-03T22:53:52.620053+00:00",
+  "updated": "2026-07-03T23:23:15.230660+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1107,27 +1107,32 @@
     {
       "home": "ARG",
       "away": "CPV",
-      "status": "HT",
-      "min": "HT",
+      "status": "LIVE",
+      "min": "62'",
       "hg": 1,
-      "ag": 0,
+      "ag": 1,
       "poss": [
-        66,
-        34
+        63,
+        37
       ],
       "sh": [
         4,
-        1
+        5
       ],
       "sot": [
         3,
-        0
+        2
       ],
       "goals": [
         {
           "min": "29'",
           "team": "ARG",
           "scorer": "Lionel Messi"
+        },
+        {
+          "min": "59'",
+          "team": "CPV",
+          "scorer": "Deroy Duarte"
         }
       ]
     }
