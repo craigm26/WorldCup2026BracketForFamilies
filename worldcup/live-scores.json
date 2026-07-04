@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-04T17:53:21.123174+00:00",
+  "updated": "2026-07-04T18:20:23.263701+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1169,21 +1169,28 @@
     {
       "home": "CAN",
       "away": "MAR",
-      "status": "HT",
-      "min": "HT",
+      "status": "LIVE",
+      "min": "56'",
       "hg": 0,
-      "ag": 0,
+      "ag": 1,
       "poss": [
-        33,
-        67
+        34,
+        66
       ],
       "sh": [
-        4,
-        1
+        5,
+        2
       ],
       "sot": [
         2,
-        1
+        2
+      ],
+      "goals": [
+        {
+          "min": "50'",
+          "team": "MAR",
+          "scorer": "Azzedine Ounahi"
+        }
       ]
     }
   ]
