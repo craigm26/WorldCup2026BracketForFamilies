@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-04T01:01:40.636043+00:00",
+  "updated": "2026-07-04T01:44:59.974394+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1137,6 +1137,33 @@
           "min": "92'",
           "team": "ARG",
           "scorer": "Lisandro Mart\u00ednez"
+        }
+      ]
+    },
+    {
+      "home": "COL",
+      "away": "GHA",
+      "status": "LIVE",
+      "min": "13'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        82,
+        18
+      ],
+      "sh": [
+        1,
+        1
+      ],
+      "sot": [
+        1,
+        0
+      ],
+      "goals": [
+        {
+          "min": "14'",
+          "team": "COL",
+          "scorer": null
         }
       ]
     }
