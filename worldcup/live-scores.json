@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-03T23:49:24.959807+00:00",
+  "updated": "2026-07-04T00:16:39.321279+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1108,19 +1108,19 @@
       "home": "ARG",
       "away": "CPV",
       "status": "LIVE",
-      "min": "88'",
-      "hg": 1,
+      "min": "99'",
+      "hg": 2,
       "ag": 1,
       "poss": [
-        67,
-        33
+        66,
+        34
       ],
       "sh": [
-        11,
-        6
+        19,
+        8
       ],
       "sot": [
-        5,
+        9,
         2
       ],
       "goals": [
@@ -1133,6 +1133,11 @@
           "min": "59'",
           "team": "CPV",
           "scorer": "Deroy Duarte"
+        },
+        {
+          "min": "92'",
+          "team": "ARG",
+          "scorer": "Lisandro Mart\u00ednez"
         }
       ]
     }
