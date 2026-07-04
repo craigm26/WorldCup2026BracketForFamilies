@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-04T19:17:22.343165+00:00",
+  "updated": "2026-07-04T21:06:43.965820+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1190,6 +1190,26 @@
           "team": "MAR",
           "scorer": "Azzedine Ounahi"
         }
+      ]
+    },
+    {
+      "home": "PAR",
+      "away": "FRA",
+      "status": "LIVE",
+      "min": "2'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        25,
+        75
+      ],
+      "sh": [
+        0,
+        0
+      ],
+      "sot": [
+        0,
+        0
       ]
     }
   ]
