@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-06T01:46:38.024810+00:00",
+  "updated": "2026-07-06T02:50:49.968900+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1241,20 +1241,20 @@
       "home": "MEX",
       "away": "ENG",
       "status": "LIVE",
-      "min": "45'+1'",
-      "hg": 1,
-      "ag": 2,
+      "min": "87'",
+      "hg": 2,
+      "ag": 3,
       "poss": [
-        61,
-        39
+        64,
+        36
       ],
       "sh": [
-        6,
-        3
+        13,
+        5
       ],
       "sot": [
-        2,
-        3
+        4,
+        4
       ],
       "goals": [
         {
@@ -1271,6 +1271,16 @@
           "min": "42'",
           "team": "MEX",
           "scorer": "Juli\u00e1n Qui\u00f1ones"
+        },
+        {
+          "min": "60'",
+          "team": "ENG",
+          "scorer": "Harry Kane"
+        },
+        {
+          "min": "69'",
+          "team": "MEX",
+          "scorer": "Ra\u00fal Jim\u00e9nez"
         }
       ]
     }
