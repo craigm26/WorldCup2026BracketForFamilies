@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-06T01:02:36.495233+00:00",
+  "updated": "2026-07-06T01:46:38.024810+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1241,20 +1241,37 @@
       "home": "MEX",
       "away": "ENG",
       "status": "LIVE",
-      "min": "2'",
-      "hg": 0,
-      "ag": 0,
+      "min": "45'+1'",
+      "hg": 1,
+      "ag": 2,
       "poss": [
-        29,
-        71
+        61,
+        39
       ],
       "sh": [
-        0,
-        0
+        6,
+        3
       ],
       "sot": [
-        0,
-        0
+        2,
+        3
+      ],
+      "goals": [
+        {
+          "min": "36'",
+          "team": "ENG",
+          "scorer": "Jude Bellingham"
+        },
+        {
+          "min": "38'",
+          "team": "ENG",
+          "scorer": "Jude Bellingham"
+        },
+        {
+          "min": "42'",
+          "team": "MEX",
+          "scorer": "Juli\u00e1n Qui\u00f1ones"
+        }
       ]
     }
   ]
