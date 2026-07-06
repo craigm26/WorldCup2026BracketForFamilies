@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-06T02:50:49.968900+00:00",
+  "updated": "2026-07-06T04:23:24.534589+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1240,8 +1240,7 @@
     {
       "home": "MEX",
       "away": "ENG",
-      "status": "LIVE",
-      "min": "87'",
+      "status": "FT",
       "hg": 2,
       "ag": 3,
       "poss": [
