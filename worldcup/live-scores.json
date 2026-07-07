@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-07T17:15:57.768853+00:00",
+  "updated": "2026-07-07T18:03:35.363982+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1354,26 +1354,46 @@
       "home": "ARG",
       "away": "EGY",
       "status": "LIVE",
-      "min": "51'",
-      "hg": 0,
-      "ag": 1,
+      "min": "90'+9'",
+      "hg": 3,
+      "ag": 2,
       "poss": [
-        59,
-        41
+        64,
+        36
       ],
       "sh": [
-        8,
-        2
+        19,
+        5
       ],
       "sot": [
-        4,
-        1
+        7,
+        2
       ],
       "goals": [
         {
           "min": "15'",
           "team": "EGY",
           "scorer": "Yasser Ibrahim"
+        },
+        {
+          "min": "67'",
+          "team": "EGY",
+          "scorer": "Mostafa Zico"
+        },
+        {
+          "min": "79'",
+          "team": "ARG",
+          "scorer": "Cristian Romero"
+        },
+        {
+          "min": "83'",
+          "team": "ARG",
+          "scorer": "Lionel Messi"
+        },
+        {
+          "min": "90'+2'",
+          "team": "ARG",
+          "scorer": "Enzo Fern\u00e1ndez"
         }
       ]
     }
