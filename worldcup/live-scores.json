@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-07T01:03:33.889680+00:00",
+  "updated": "2026-07-07T01:47:47.786283+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1312,21 +1312,21 @@
     {
       "home": "USA",
       "away": "BEL",
-      "status": "HT",
-      "min": "HT",
+      "status": "LIVE",
+      "min": "83'",
       "hg": 1,
-      "ag": 2,
+      "ag": 3,
       "poss": [
-        47,
-        53
+        56,
+        44
       ],
       "sh": [
-        3,
-        11
+        7,
+        13
       ],
       "sot": [
-        1,
-        5
+        2,
+        6
       ],
       "goals": [
         {
@@ -1343,6 +1343,11 @@
           "min": "33'",
           "team": "BEL",
           "scorer": "Charles De Ketelaere"
+        },
+        {
+          "min": "57'",
+          "team": "BEL",
+          "scorer": "Hans Vanaken"
         }
       ]
     }
