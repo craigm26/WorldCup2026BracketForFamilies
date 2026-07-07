@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-07T00:09:22.709290+00:00",
+  "updated": "2026-07-07T01:03:33.889680+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1312,21 +1312,38 @@
     {
       "home": "USA",
       "away": "BEL",
-      "status": "LIVE",
-      "min": "8'",
-      "hg": 0,
-      "ag": 0,
+      "status": "HT",
+      "min": "HT",
+      "hg": 1,
+      "ag": 2,
       "poss": [
-        39,
-        61
+        47,
+        53
       ],
       "sh": [
-        0,
-        5
+        3,
+        11
       ],
       "sot": [
-        0,
-        2
+        1,
+        5
+      ],
+      "goals": [
+        {
+          "min": "9'",
+          "team": "BEL",
+          "scorer": "Charles De Ketelaere"
+        },
+        {
+          "min": "31'",
+          "team": "USA",
+          "scorer": "Malik Tillman"
+        },
+        {
+          "min": "33'",
+          "team": "BEL",
+          "scorer": "Charles De Ketelaere"
+        }
       ]
     }
   ]
