@@ -56,36 +56,54 @@ function FamilyMemberModal({ member, idx, onClose }) {
   );
 }
 
-function StickerSlot({ slot, count, onTap, onMinus, onInfo }) {
+function StickerSlot({ slot, count, onSet, onInfo }) {
   const have = count >= 1, dbl = count >= 2;
   const bg = dbl ? "rgba(244,183,64,.22)" : have ? "rgba(52,199,123,.22)" : "rgba(255,255,255,.05)";
   const border = dbl ? "2px solid #f4b740" : have ? "2px solid #34c77b" : "2px dashed rgba(255,255,255,.22)";
+  // Tapping the BOX only toggles owned on/off (0<->1). It can never silently create a double,
+  // and never wipes a card that already holds extras (count>=2 box-taps are ignored on purpose —
+  // use the − control). Adding/removing extras is always a deliberate tap on the −/＋ buttons.
+  const boxTap = () => { if (count === 0) onSet(slot.n, 1); else if (count === 1) onSet(slot.n, 0); };
+  const step = (e, v) => { e.stopPropagation(); onSet(slot.n, v); };
+  const stepBtn = (label, v, dim) => (
+    <button onClick={(e) => step(e, v)} disabled={dim}
+      style={{ border: "none", cursor: dim ? "default" : "pointer", background: "rgba(255,255,255,.16)",
+        color: "#fff", fontWeight: 800, fontSize: 19, lineHeight: 1, borderRadius: 8, width: 32, height: 30,
+        display: "grid", placeItems: "center", opacity: dim ? .35 : 1, touchAction: "manipulation" }}>{label}</button>
+  );
   return (
-    <div onClick={() => onTap(slot.n)} title={slot.name}
-      style={{ position: "relative", cursor: "pointer", background: bg, border: border, borderRadius: 10,
-        padding: "8px 6px", minHeight: 64, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+    <div onClick={boxTap} title={slot.name}
+      style={{ position: "relative", cursor: count >= 2 ? "default" : "pointer", background: bg, border: border, borderRadius: 10,
+        padding: "8px 6px", minHeight: 86, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: have ? "#fff" : "#9fb0e0" }}>#{slot.n}</span>
         <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
           <span style={{ fontSize: 11 }}>{slot.foil ? "✨" : ""}{slot.confirmed === false ? " ?" : ""}</span>
           <button onClick={(e) => { e.stopPropagation(); onInfo(slot); }} title="Details"
-            style={{ border: "none", background: "transparent", cursor: "pointer", color: "#9fb0e0", fontSize: 12, padding: 0, lineHeight: 1 }}>ⓘ</button>
+            style={{ border: "none", background: "transparent", cursor: "pointer", color: "#9fb0e0", fontSize: 13, padding: 0, lineHeight: 1 }}>ⓘ</button>
         </span>
       </div>
       <div style={{ fontSize: 11.5, color: have ? "#dfe6ff" : "#7e8cc0", lineHeight: 1.15,
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{slot.name}</div>
-      {dbl && (
-        <span onClick={(e) => { e.stopPropagation(); onMinus(slot.n); }}
-          style={{ position: "absolute", top: -8, right: -8, background: "#f4b740", color: "#16235a",
-            borderRadius: 12, fontSize: 11, fontWeight: 800, padding: "1px 7px", border: "2px solid #16235a" }}>
-          ×{count}
-        </span>
-      )}
+      {/* Deliberate extras control — big tap targets so de-duping never mis-hits the box. */}
+      <div style={{ height: 30, display: "flex", alignItems: "center", justifyContent: have ? "space-between" : "center" }}>
+        {have ? (
+          <>
+            {stepBtn("−", count - 1)}
+            <span style={{ fontWeight: 800, fontSize: 13, color: dbl ? "#f4b740" : "#9fdcb6", whiteSpace: "nowrap" }}>
+              {dbl ? "×" + count + " (" + (count - 1) + " spare" + (count - 1 === 1 ? "" : "s") + ")" : "✓ have"}
+            </span>
+            {stepBtn("＋", count + 1)}
+          </>
+        ) : (
+          <span style={{ fontSize: 10.5, color: "#7e8cc0" }}>tap to collect</span>
+        )}
+      </div>
     </div>
   );
 }
 
-function StickerPage({ page, map, onTap, onMinus, onInfo, setSticker, activeId }) {
+function StickerPage({ page, map, onSet, onInfo, setSticker, activeId }) {
   const WC = window.WC, L = window.WCSTKLOGIC, WCSTK = window.WCSTK;
   const fullPage = (WCSTK.pages.find((p) => p.page === page.page)) || page;
   // progress reflects the WHOLE page, not the filtered subset shown below
@@ -108,7 +126,7 @@ function StickerPage({ page, map, onTap, onMinus, onInfo, setSticker, activeId }
       </div>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${page.cols}, 1fr)`, gap: 8 }}>
         {page.slots.map((s) => (
-          <StickerSlot key={s.n} slot={s} count={map[s.n] || 0} onTap={onTap} onMinus={onMinus} onInfo={onInfo} />
+          <StickerSlot key={s.n} slot={s} count={map[s.n] || 0} onSet={onSet} onInfo={onInfo} />
         ))}
       </div>
     </div>
@@ -278,8 +296,8 @@ function MyBookView({ map, setSticker, activeBook, reg, playerId, addBook, renam
   });
   const jumpToTeam = (key, code) => { expandGroup(key); setTimeout(() => { const el = document.getElementById("stk-team-" + code); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); };
 
-  const onTap = (n) => setSticker(activeBook, n, L.cycleCount(map[n]));
-  const onMinus = (n) => setSticker(activeBook, n, Math.max(0, (map[n] || 0) - 1));
+  const onSet = (n, v) => setSticker(activeBook, n, Math.max(0, v | 0));
+  const onAdd = (n) => setSticker(activeBook, n, (map[n] || 0) + 1); // "Add by code" → +1 copy
 
   const matchSlot = (s) => {
     const c = map[s.n] || 0;
@@ -316,7 +334,7 @@ function MyBookView({ map, setSticker, activeBook, reg, playerId, addBook, renam
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search # or name"
           style={{ fontFamily: "inherit", fontSize: 14, borderRadius: 10, border: "none", padding: "7px 12px",
             background: "rgba(255,255,255,.12)", color: "#fff", flex: "1 1 160px" }} />
-        <ScanSwap onAdd={onTap} />
+        <ScanSwap onAdd={onAdd} />
       </div>
       {pages.length ? fullSections.map((sec) => {
         const fp = filteredByKey[sec.key];
@@ -330,7 +348,7 @@ function MyBookView({ map, setSticker, activeBook, reg, playerId, addBook, renam
               onToggle={() => toggleGroup(sec.key)} onFlag={(code) => jumpToTeam(sec.key, code)} />
             {expanded && fp.map((p) => (
               <div key={p.page} id={p.team ? ("stk-team-" + p.team) : undefined}>
-                <StickerPage page={p} map={map} onTap={onTap} onMinus={onMinus} onInfo={setInfo} setSticker={setSticker} activeId={activeBook} />
+                <StickerPage page={p} map={map} onSet={onSet} onInfo={setInfo} setSticker={setSticker} activeId={activeBook} />
               </div>
             ))}
           </React.Fragment>
