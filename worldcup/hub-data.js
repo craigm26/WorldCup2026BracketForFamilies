@@ -548,6 +548,89 @@ window.wcResolveBracket = function (results, live, koResults) {
   return { slots: slots, CHAMP: winnerOf[104] || null, matchTeams: teamOf, winners: winnerOf };
 };
 
+/* ---- Knockout ROUND tracking — the Home tab's post-pool hero used to freeze at
+   "Round of 32 is locked" forever because nothing re-derived which round the
+   tournament is actually in as later rounds finished. Pure logic, no DOM — co-located
+   with wcResolveBracket (not in hub-home.jsx, which is JSX and can't be require()'d by
+   a plain node:test file without a build step) so it's covered by koroundtest.js.
+
+   currentKoRound/justLockedKoRound are deliberately COUNT-based, not slot-resolution-
+   based: wcResolveBracket's third-place wildcard assignment (thirdAssign above) is a
+   greedy approximation of FIFA's actual R32 lookup table and can genuinely mis-pair a
+   couple of wildcard-fed slots once several groups' thirds are in the mix — which would
+   make a strict "does every slot in this round have a winner" check never advance past
+   Round of 32, even once it's long over in reality. Counting how many knockout matches
+   the feed shows as FT sidesteps that entirely: it doesn't care WHICH teams filled a
+   slot, only how many knockout games are done — so a wildcard mis-pairing degrades a
+   couple of matchup TILES (teamKoStatus, and whatever renders individual slots), never
+   the round-milestone headline. */
+window.wcKoRounds = (function () {
+  const KO_ROUNDS = ["R32", "R16", "QF", "SF", "3RD", "FINAL"];
+  const KO_ROUND_LABEL = { R32: "Round of 32", R16: "Round of 16", QF: "Quarter-finals", SF: "Semi-finals", "3RD": "3rd-place play-off", FINAL: "the Final" };
+  const KO_ROUND_SIZE = { R32: 16, R16: 8, QF: 4, SF: 2, "3RD": 1, FINAL: 1 }; // fixed bracket shape, 32 KO fixtures total
+
+  // Per-SLOT detail (used for ✓ checkmarks etc.) — inherits the wildcard-assignment
+  // caveat above; fine for "is THIS specific tile decided", not for round milestones.
+  function koRoundsStatus(resolved) {
+    const WC = window.WC, KO_M = WC.KO_M;
+    const winners = (resolved && resolved.winners) || {};
+    const out = {};
+    KO_ROUNDS.forEach((r) => {
+      const nos = Object.keys(KO_M).map(Number).filter((no) => KO_M[no].round === r).sort((a, b) => a - b);
+      const decided = nos.filter((no) => winners[no]).length;
+      out[r] = { nos: nos, decided: decided, total: nos.length, done: nos.length > 0 && decided === nos.length };
+    });
+    return out;
+  }
+  // How many of the 32 knockout fixtures are FT, independent of slot resolution — total
+  // FT games in the feed minus the (by definition, already-decided-first) group games.
+  function koPlayedCount(liveFeed, groupPlayedFixtures) {
+    if (!liveFeed || !Array.isArray(liveFeed.matches)) return 0;
+    const totalFT = liveFeed.matches.filter((m) => m.status === "FT").length;
+    return Math.max(0, totalFT - (groupPlayedFixtures || 0));
+  }
+  // The round to FOCUS the home page on right now: the first round (in bracket order)
+  // whose fixtures aren't all played yet. Once all 32 are, "FINAL" (the champion banner
+  // takes over from there via CHAMP).
+  function currentKoRound(koPlayed) {
+    let cum = 0;
+    for (let i = 0; i < KO_ROUNDS.length; i++) { cum += KO_ROUND_SIZE[KO_ROUNDS[i]]; if (koPlayed < cum) return KO_ROUNDS[i]; }
+    return "FINAL";
+  }
+  // The round that JUST finished, in bracket order — null before Round of 32 itself
+  // is fully played (shouldn't happen once the groups are done, but stay defensive).
+  function justLockedKoRound(koPlayed) {
+    let cum = 0, last = null;
+    for (let i = 0; i < KO_ROUNDS.length; i++) { cum += KO_ROUND_SIZE[KO_ROUNDS[i]]; if (koPlayed >= cum) last = KO_ROUNDS[i]; else break; }
+    return last;
+  }
+  // Find a team's most-advanced KO slot: matchTeams flows a winner forward into the NEXT
+  // round automatically (resolve('W74') etc.), so the highest match-number a team appears
+  // in (KO_M's numbering is strictly bracket-chronological, R32 → ... → 3RD/FINAL) IS
+  // their current standing — a straight win chain, an ongoing 3rd-place consolation run
+  // after a semi-final loss (L101 resolves to the LOSER), or an outright elimination.
+  function teamKoStatus(code, resolved) {
+    const WC = window.WC, KO_M = WC.KO_M, mt = (resolved && resolved.matchTeams) || {}, winners = (resolved && resolved.winners) || {};
+    let latest = null;
+    Object.keys(KO_M).map(Number).sort((a, b) => a - b).forEach((no) => {
+      const t = mt[no] || {};
+      if (t.top === code || t.bot === code) latest = { no: no, top: t.top, bot: t.bot };
+    });
+    if (!latest) return null; // never resolved into any KO slot — didn't qualify
+    const w = winners[latest.no], mySide = latest.top === code ? "top" : "bottom";
+    return {
+      no: latest.no, round: KO_M[latest.no].round, match: KO_M[latest.no], mySide: mySide,
+      opp: mySide === "top" ? latest.bot : latest.top,
+      oppFeeder: mySide === "top" ? KO_M[latest.no].bottom : KO_M[latest.no].top,
+      status: w === code ? "won" : w ? "lost" : "pending",
+    };
+  }
+
+  return { KO_ROUNDS: KO_ROUNDS, KO_ROUND_LABEL: KO_ROUND_LABEL, KO_ROUND_SIZE: KO_ROUND_SIZE,
+           koRoundsStatus: koRoundsStatus, koPlayedCount: koPlayedCount,
+           currentKoRound: currentKoRound, justLockedKoRound: justLockedKoRound, teamKoStatus: teamKoStatus };
+})();
+
 /* ---- Time-zone helper: educate kids + show kick-offs in any family's zone ----
    Base kick-off times are US Eastern (EDT = UTC-4 during Jun-Jul 2026). We convert
    to the chosen zone with the browser's Intl API and tag each with a day/night icon.

@@ -31,7 +31,74 @@ function TimeZoneSelect({ tz, setTz, compact }) {
   );
 }
 
-function ScheduleTab({ results, tz, setTz }) {
+/* The knockout half of the Schedule tab — used to be just a static round → date-range
+   summary (WC.KO), which is fine as a permanent reference but never showed WHICH teams
+   actually played or what the score was. Once the tournament is deep into the
+   knockouts that's the whole point of checking the schedule, so this renders every
+   real fixture (feeder placeholder until resolved, real team + score once decided,
+   "Pens 4-3" for a shoot-out) grouped by round — reusing the same LIVE-aware resolve
+   the Home hero and Standings Knockout panel use. */
+function KoScheduleCard({ results, liveFeed, tz }) {
+  const WC = window.WC, WCTZ = window.WCTZ, KO_M = WC.KO_M, K = window.wcKoRounds;
+  const liveKey = liveFeed ? (liveFeed.updated || JSON.stringify(liveFeed.matches)) : "";
+  const resolved = React.useMemo(() => window.wcResolveBracket(results || {}, liveFeed, {}), [JSON.stringify(results || {}), liveKey]); // eslint-disable-line
+  const mt = resolved.matchTeams || {}, winners = resolved.winners || {};
+  // Same pairing→score lookup as the Standings Knockout panel (hub-standings.jsx
+  // feedScoreOf) — small enough to keep local rather than thread a shared import
+  // through the zero-build script tags.
+  const feedScore = (top, bot) => {
+    if (!liveFeed || !Array.isArray(liveFeed.matches)) return null;
+    for (const m of liveFeed.matches) {
+      if (m.hg == null || m.ag == null) continue;
+      if (m.home === top && m.away === bot) return { tg: m.hg, bg: m.ag, penWin: m.pen === "home" ? "top" : m.pen === "away" ? "bot" : null, tp: m.hp, bp: m.ap };
+      if (m.home === bot && m.away === top) return { tg: m.ag, bg: m.hg, penWin: m.pen === "home" ? "bot" : m.pen === "away" ? "top" : null, tp: m.ap, bp: m.hp };
+    }
+    return null;
+  };
+  return (
+    <div style={{ background: "rgba(244,183,64,.14)", borderRadius: 16, padding: 14, border: "2px solid rgba(244,183,64,.4)" }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 2 }}>🏆 Knockouts</div>
+      <div style={{ fontSize: 12, color: "#7e8cc0", marginBottom: 8 }}>{WC.KO.map((k) => k.r + " " + k.d).join(" · ")}</div>
+      {K.KO_ROUNDS.map((r) => {
+        const nos = Object.keys(KO_M).map(Number).filter((no) => KO_M[no].round === r).sort((a, b) => a - b);
+        if (!nos.length) return null;
+        return (
+          <div key={r} style={{ marginBottom: 6 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#ffd2a8", margin: "8px 0 2px" }}>{K.KO_ROUND_LABEL[r] || r}</div>
+            {nos.map((no) => {
+              const m = KO_M[no], t = mt[no] || {}, w = winners[no];
+              const topName = t.top ? WC.T[t.top].n : WC.feeder(m.top, false);
+              const botName = t.bot ? WC.T[t.bot].n : WC.feeder(m.bottom, false);
+              const fs = feedScore(t.top, t.bot);
+              const p = WCTZ.parseET(m.et) || [15, 0];
+              const lk = WCTZ.local(m.date, p[0], p[1], tz);
+              return (
+                <div key={no} style={{ padding: "6px 0", borderTop: "1px solid rgba(255,255,255,.08)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {t.top ? <Flag code={WC.T[t.top].c} w={22} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none", opacity: w && w !== t.top ? .5 : 1 }} /> : <span style={{ width: 22, flex: "none" }} />}
+                    <span style={{ fontSize: 13.5, color: t.top ? "#fff" : "#8fa0d0", flex: 1, textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{topName}</span>
+                    <span style={{ color: fs ? "#f4b740" : "#6f86c9", fontWeight: 700, fontSize: fs ? 13.5 : 12, flex: "none", minWidth: 32, textAlign: "center" }}>{fs ? fs.tg + "-" + fs.bg : "v"}</span>
+                    <span style={{ fontSize: 13.5, color: t.bot ? "#fff" : "#8fa0d0", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{botName}</span>
+                    {t.bot ? <Flag code={WC.T[t.bot].c} w={22} style={{ border: "1.5px solid #fff", borderRadius: 3, flex: "none", opacity: w && w !== t.bot ? .5 : 1 }} /> : <span style={{ width: 22, flex: "none" }} />}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2, fontSize: 11.5, color: "#9fb0e0" }}>
+                    <span>{lk.icon} {m.date} {lk.time}</span>
+                    <span style={{ marginLeft: "auto" }}>📍 {m.city}</span>
+                  </div>
+                  {fs && fs.penWin && typeof fs.tp === "number" && typeof fs.bp === "number" && (
+                    <div style={{ fontSize: 11.5, color: "#f4b740", fontWeight: 700, textAlign: "center" }}>Pens {fs.penWin === "top" ? fs.tp + "–" + fs.bp : fs.bp + "–" + fs.tp}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ScheduleTab({ results, liveFeed, tz, setTz }) {
   const WC = window.WC, WCTZ = window.WCTZ;
   results = results || {};
   const all = [];
@@ -86,15 +153,7 @@ function ScheduleTab({ results, tz, setTz }) {
             })}
           </div>
         ))}
-        <div style={{ background: "rgba(244,183,64,.14)", borderRadius: 16, padding: 14, border: "2px solid rgba(244,183,64,.4)" }}>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#f4b740", marginBottom: 8 }}>🏆 Knockouts</div>
-          {WC.KO.map((k, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", borderTop: "1px solid rgba(255,255,255,.08)" }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{k.r}</span>
-              <span style={{ fontSize: 14, color: "#dfe6ff" }}>{k.d}</span>
-            </div>
-          ))}
-        </div>
+        <KoScheduleCard results={results} liveFeed={liveFeed} tz={tz} />
       </div>
       <div style={{ fontSize: 12, color: "#7e8cc0", marginTop: 12, lineHeight: 1.5 }}>⏰ Kick-off times are from the official FIFA schedule (ET), converted to your chosen time zone.</div>
     </div>
@@ -668,7 +727,7 @@ function HubApp() {
         {tab === "help" && <HelpTab target={helpTarget} clearTarget={() => setHelpTarget(null)} />}
         {tab === "bracket" && <BracketTab store={bracketStore} setPick={setPick} results={results} goHelp={goHelp} />}
         {tab === "standings" && <StandingsTab results={results} live={liveActive} status={liveStatus} clock={liveClock} setResult={setResult} koResults={koResults} setKoResult={setKoResult} liveFeed={demo ? null : (applyLive ? live : null)} initialView={viewParam === "proj" ? "proj" : "table"} />}
-        {tab === "schedule" && <ScheduleTab results={results} status={liveStatus} tz={tz} setTz={setTz} />}
+        {tab === "schedule" && <ScheduleTab results={results} status={liveStatus} tz={tz} setTz={setTz} liveFeed={demo ? null : (applyLive ? live : null)} />}
         {tab === "watch" && <WatchTab tz={tz} setTz={setTz} />}
         {tab === "facts" && <FactsTab fav={fav} toggleFav={toggleFav} />}
         {tab === "play" && <PlayTab />}

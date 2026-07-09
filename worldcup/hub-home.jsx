@@ -29,6 +29,13 @@ function playedHashOf(results) {
   return Object.keys(results || {}).filter((k) => { const r = results[k]; return r && r[0] !== "" && r[1] !== "" && r[0] != null && r[1] != null; })
     .sort().map((k) => k + ":" + results[k][0] + "-" + results[k][1]).join("|");
 }
+/* Knockout ROUND tracking (KO_ROUNDS, KO_ROUND_LABEL, koRoundsStatus, koPlayedCount,
+   currentKoRound, justLockedKoRound, teamKoStatus) now live in hub-data.js as
+   window.wcKoRounds — pure logic co-located with wcResolveBracket so it's covered by
+   node:test (koroundtest.js) the same way the rest of the bracket engine is; hub-home.jsx
+   is JSX and can't be require()'d directly in a zero-dependency test. */
+const { KO_ROUND_LABEL, koPlayedCount, currentKoRound, justLockedKoRound, teamKoStatus } = window.wcKoRounds;
+
 /* ProjectionsPanel-style verdict for a team, reused for the favourite-team spotlight. */
 function favVerdict(pt) {
   if (!pt) return null;
@@ -503,47 +510,60 @@ function PlacesAtAGlance({ results, status, setTab }) {
   );
 }
 
-/* ---- Projected Round-of-32: how the group standings set up the knockout matchups
-   (derives purely from group results). Pairings that just changed get a gold ring. ---- */
-function ProjectedR32Mini({ results, changedMatches, setTab, locked }) {
+/* ---- Projected/locked knockout round: how the round FEEDING this one sets up its
+   matchups. Pre-groups this is always a projected Round of 32 (derives purely from
+   group standings, live=null); once the groups are done it tracks whichever round is
+   actually current (round prop, from currentKoRound) using the LIVE-resolved bracket,
+   so it advances itself R32 → R16 → QF → ... instead of staying pinned to R32 forever.
+   Pairings that just changed (R32 only, from the best-3rd race) get a gold ring. */
+function ProjectedR32Mini({ results, liveFeed, round, changedMatches, setTab, locked }) {
   const WC = window.WC, KO_M = WC.KO_M;
-  const resolved = React.useMemo(() => window.wcResolveBracket(results || {}, null, {}), [playedHashOf(results)]); // eslint-disable-line
-  const mt = resolved.matchTeams || {};
+  round = round || "R32";
+  const resolved = React.useMemo(() => window.wcResolveBracket(results || {}, locked ? liveFeed : null, {}),
+    [playedHashOf(results), locked, liveFeed && liveFeed.updated]); // eslint-disable-line
+  const mt = resolved.matchTeams || {}, winners = resolved.winners || {};
   const [showAll, setShowAll] = React.useState(false);
-  const nos = Object.keys(KO_M).map(Number).filter((no) => KO_M[no].round === "R32").sort((a, b) => a - b);
+  const nos = Object.keys(KO_M).map(Number).filter((no) => KO_M[no].round === round).sort((a, b) => a - b);
   const shown = showAll ? nos : nos.slice(0, 6);
-  const sideRow = (feeder, code, won) => {
+  const label = KO_ROUND_LABEL[round] || round;
+  const isR32 = round === "R32";
+  const sideRow = (feeder, code, isWinner, decided) => {
     const known = code && WC.T[code];
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "3px 0" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "3px 0", opacity: decided && !isWinner ? .5 : 1 }}>
         {known ? <Flag code={WC.T[code].c} w={22} style={{ border: "1.5px solid #fff", borderRadius: 2, flex: "none" }} /> : <span style={{ width: 22, flex: "none" }} />}
-        <span style={{ fontSize: 13.5, fontWeight: known ? 700 : 500, color: known ? "#fff" : "#8fa0d0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{known ? WC.T[code].n : WC.feeder(feeder, false)}</span>
+        <span style={{ fontSize: 13.5, fontWeight: known ? 700 : 500, color: known ? "#fff" : "#8fa0d0", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{known ? WC.T[code].n : WC.feeder(feeder, false)}{isWinner ? " ✓" : ""}</span>
       </div>
     );
   };
   return (
     <div style={{ background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 16 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 2 }}>
-        <span style={{ fontSize: 18, fontWeight: 700, color: "#f4b740" }}>🗂️ {locked ? "Round of 32 — it's locked in" : "Projected Round of 32"}</span>
-        <span style={{ fontSize: 13, color: "#9fb0e0" }}>{locked ? "all 32 teams are in" : "if the groups ended right now"}</span>
+        <span style={{ fontSize: 18, fontWeight: 700, color: "#f4b740" }}>🗂️ {locked ? label + " — it's locked in" : "Projected " + label}</span>
+        <span style={{ fontSize: 13, color: "#9fb0e0" }}>{locked ? "every matchup is set" : "if the groups ended right now"}</span>
       </div>
-      <div style={{ fontSize: 12.5, color: "#7e8cc0", marginBottom: 12 }}>{locked ? "Tap any tie to open the bracket. Gold tiles came through the best-3rd race." : "Gold tiles depend on the wide-open best-3rd race · a gold ring means the matchup just changed."}</div>
+      <div style={{ fontSize: 12.5, color: "#7e8cc0", marginBottom: 12 }}>
+        {locked
+          ? "Tap any tie to open the bracket." + (isR32 ? " Gold tiles came through the best-3rd race." : "")
+          : "Gold tiles depend on the wide-open best-3rd race · a gold ring means the matchup just changed."}
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
         {shown.map((no) => {
           const m = KO_M[no], t = mt[no] || {};
-          const thirdFed = /^3[A-L]+$/.test(m.top) || /^3[A-L]+$/.test(m.bottom);
+          const thirdFed = isR32 && (/^3[A-L]+$/.test(m.top) || /^3[A-L]+$/.test(m.bottom));
           const changed = changedMatches && changedMatches[no];
+          const w = winners[no], decided = !!w;
           return (
             <div key={no} onClick={() => setTab && setTab("bracket")} style={{ cursor: "pointer", background: thirdFed ? "rgba(244,183,64,.10)" : "rgba(255,255,255,.05)", border: changed ? "2px solid #f4b740" : "1px solid rgba(255,255,255,.08)", boxShadow: changed ? "0 0 0 3px rgba(244,183,64,.25)" : "none", borderRadius: 12, padding: "9px 12px" }}>
               <div style={{ fontSize: 11.5, color: "#9fb0e0", marginBottom: 2 }}><span style={{ color: "#f4b740", fontWeight: 700 }}>M{m.no}</span> · {m.city}{thirdFed ? " · 🟡 3rd-place tie" : ""}</div>
-              {sideRow(m.top, t.top)}
-              {sideRow(m.bottom, t.bot)}
+              {sideRow(m.top, t.top, decided && w === t.top, decided)}
+              {sideRow(m.bottom, t.bot, decided && w === t.bot, decided)}
             </div>
           );
         })}
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-        {!showAll && <button onClick={() => setShowAll(true)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 12, padding: "8px 14px", fontWeight: 700, fontSize: 13 }}>Show all 16 ties</button>}
+        {!showAll && nos.length > 6 && <button onClick={() => setShowAll(true)} style={{ border: "none", cursor: "pointer", background: "rgba(255,255,255,.1)", color: "#dfe6ff", borderRadius: 12, padding: "8px 14px", fontWeight: 700, fontSize: 13 }}>Show all {nos.length} ties</button>}
         <button onClick={() => setTab && setTab("bracket")} style={{ marginLeft: "auto", border: "none", cursor: "pointer", background: "rgba(244,183,64,.18)", color: "#f4b740", borderRadius: 12, padding: "8px 14px", fontWeight: 700, fontSize: 13 }}>🗂️ Open the full bracket →</button>
       </div>
     </div>
@@ -572,17 +592,10 @@ function PoolStoryPills({ poolStats }) {
 }
 
 function FavRoadToFinal({ code, resolved, tz, proj }) {
-  const WC = window.WC, KO_M = WC.KO_M, WCTZ = window.WCTZ, mt = resolved.matchTeams || {};
+  const WC = window.WC, WCTZ = window.WCTZ;
   if (!WC.T[code]) return null;
-  // Did this team make the 32? Find its R32 slot.
-  let no = null, oppCode = null;
-  Object.keys(KO_M).forEach((k) => {
-    if (KO_M[k].round !== "R32") return;
-    const t = mt[k] || {};
-    if (t.top === code) { no = +k; oppCode = t.bot; }
-    else if (t.bot === code) { no = +k; oppCode = t.top; }
-  });
-  if (no == null) {
+  const ks = teamKoStatus(code, resolved);
+  if (!ks) {
     // didn't qualify — show where they finished, warmly
     const g = Object.keys(WC.GROUPS).find((gg) => WC.GROUPS[gg].indexOf(code) >= 0);
     const srow = g && proj.groups[g] && proj.groups[g].standings.findIndex((x) => x.k === code);
@@ -597,44 +610,69 @@ function FavRoadToFinal({ code, resolved, tz, proj }) {
       </div>
     );
   }
-  const m = KO_M[no];
+  const { round, match: m, opp: oppCode, oppFeeder, status } = ks;
   const opp = oppCode && WC.T[oppCode];
   const stops = ["R32", "R16", "QF", "SF", "Final"];
+  const reachedIdx = stops.indexOf(round === "FINAL" ? "Final" : round); // 3RD has no pill of its own — falls to -1, no stop highlighted
+  const eliminated = status === "lost" && round !== "3RD";
+  const headline = eliminated
+    ? "❌ Out — lost the " + (KO_ROUND_LABEL[round] || round) + (opp ? " to " + WC.T[oppCode].n : "")
+    : round === "3RD"
+      ? (status === "won" ? "🥉 3rd place!" : status === "lost" ? "4th place — so close!" : "Playing for 3rd place")
+      : "⭐ " + WC.T[code].n + "'s road to the final";
+  const showSub = !eliminated && !(round === "3RD" && status !== "pending");
+  const subLead = round === "R32" ? "Starts the knockouts v " : "Up next: v ";
   return (
     <div style={{ padding: "10px 0", borderTop: "1px solid rgba(255,255,255,.08)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        <Flag code={WC.T[code].c} w={32} style={{ border: "2px solid #fff", borderRadius: 4, flex: "none" }} />
+        <Flag code={WC.T[code].c} w={32} style={{ border: "2px solid #fff", borderRadius: 4, flex: "none", opacity: eliminated ? .7 : 1 }} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>⭐ {WC.T[code].n}'s road to the final</div>
-          <div style={{ fontSize: 12.5, color: "#9fb0e0" }}>
-            Starts the knockouts v {opp ? <b style={{ color: "#fff" }}>{WC.T[oppCode].n}</b> : WC.feeder(no === m.no ? (mt[no] && mt[no].top === code ? m.bottom : m.top) : "", false)} · {m.date} {m.et} · 📍 {m.city}
-          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: eliminated ? "#cdd9ff" : "#fff" }}>{headline}</div>
+          {showSub && (
+            <div style={{ fontSize: 12.5, color: "#9fb0e0" }}>
+              {subLead}{opp ? <b style={{ color: "#fff" }}>{WC.T[oppCode].n}</b> : WC.feeder(oppFeeder, false)} · {m.date} {m.et} · 📍 {m.city}
+            </div>
+          )}
         </div>
       </div>
-      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-        {stops.map((s, i) => (
-          <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700 }}>
-            <span style={{ background: i === 0 ? "rgba(244,183,64,.22)" : "rgba(255,255,255,.07)", color: i === 0 ? "#f4b740" : "#9fb0e0", borderRadius: 8, padding: "4px 9px" }}>{s === "Final" ? "🏆 Final" : s}</span>
-            {i < stops.length - 1 && <span style={{ color: "#6f86c9" }}>→</span>}
-          </span>
-        ))}
-      </div>
+      {!eliminated && round !== "3RD" && (
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {stops.map((s, i) => (
+            <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700 }}>
+              <span style={{ background: i <= reachedIdx ? "rgba(244,183,64,.22)" : "rgba(255,255,255,.07)", color: i <= reachedIdx ? "#f4b740" : "#9fb0e0", borderRadius: 8, padding: "4px 9px" }}>{s === "Final" ? "🏆 Final" : s}</span>
+              {i < stops.length - 1 && <span style={{ color: "#6f86c9" }}>→</span>}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function KnockoutsSetHero({ results, fav, proj, next, tz, setTab, poolStats, nowMs }) {
+// Headline copy keyed by the round that JUST finished (justLockedKoRound) — this is
+// what used to be hardcoded to the Round-of-32 moment and never advance. R32 stays the
+// fallback for the brief window between "groups done" and "R32 itself fully decided".
+const KO_MILESTONE = {
+  R32: { kicker: "KNOCKOUTS ARE SET", headline: "Group stage done — all 32 teams are in", sub: "The Round of 32 is locked. The real drama starts now. 🎬" },
+  R16: { kicker: "ROUND OF 32 COMPLETE", headline: "We're down to the round of 16", sub: "The Round of 16 is set." },
+  QF: { kicker: "ROUND OF 16 COMPLETE", headline: "We're down to the final 8", sub: "The Quarter-finals are set." },
+  SF: { kicker: "QUARTER-FINALS COMPLETE", headline: "The final 4 are here", sub: "The Semi-finals are set." },
+  "3RD": { kicker: "SEMI-FINALS COMPLETE", headline: "It's Final week", sub: "The 3rd-place play-off and the Final are next." },
+  FINAL: { kicker: "SEMI-FINALS COMPLETE", headline: "It's Final week", sub: "The Final is next." },
+};
+function KnockoutsSetHero({ results, liveFeed, resolved, koPlayed, fav, proj, next, tz, setTab, poolStats, nowMs }) {
   const WC = window.WC, WCTZ = window.WCTZ;
-  const resolved = React.useMemo(() => window.wcResolveBracket(results || {}, null, {}), [playedHashOf(results)]); // eslint-disable-line
   const favList = (fav || []).filter((c) => WC.T[c]);
   const nextKO = next && next.type === "ko" ? next : next; // first upcoming match is the first KO once groups are done
   const k = nextKO ? WCTZ.local(nextKO.date, nextKO.et.h, nextKO.et.m, tz) : null;
+  const justLocked = justLockedKoRound(koPlayed) || "R32";
+  const milestone = KO_MILESTONE[justLocked] || KO_MILESTONE.R32;
   return (
     <div className="wc-ko-reveal" style={{ background: "linear-gradient(135deg, rgba(244,183,64,.26), rgba(47,111,224,.18))", border: "2px solid #f4b740", borderRadius: 20, padding: "20px 22px" }}>
       <div style={{ textAlign: "center", marginBottom: 14 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1.5, color: "#f4b740" }}>🏆 KNOCKOUTS ARE SET 🏆</div>
-        <div style={{ fontSize: 26, fontWeight: 700, color: "#fff", margin: "6px 0 2px" }}>Group stage done — all 32 teams are in</div>
-        <div style={{ fontSize: 14, color: "#cdd9ff" }}>The Round of 32 is locked. The real drama starts now. 🎬{k ? " First knockout kicks off " + k.weekday + " " + k.time + "." : ""}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1.5, color: "#f4b740" }}>🏆 {milestone.kicker} 🏆</div>
+        <div style={{ fontSize: 26, fontWeight: 700, color: "#fff", margin: "6px 0 2px" }}>{milestone.headline}</div>
+        <div style={{ fontSize: 14, color: "#cdd9ff" }}>{milestone.sub}{k ? " Next up: " + k.weekday + " " + k.time + "." : ""}</div>
       </div>
 
       {favList.length > 0 && (
@@ -740,16 +778,27 @@ function HomeTab({ tz, fav, results, status, clock, stats, liveFeed, players, br
     return { code, g, m, pt, verdict: favVerdict(pt), drama: dramaByTeam[code] };
   }).filter(Boolean);
 
-  const champ = proj.resolved && proj.resolved.CHAMP;
-  // Show the "knockouts are set" reveal once the groups finish — but never shadow the
-  // World-Champions banner (the whole tournament being over wins).
+  // The LIVE-aware resolve — proj.resolved is group-only (wcProjections always passes
+  // live=null, since it's a what-if-the-groups-ended-now engine), so it can never see a
+  // real knockout result. Everything downstream that needs to know who ACTUALLY won a
+  // knockout match (the champion banner, the hero's headline, favourite teams' road to
+  // the final, the locked-round grid) must use this one instead.
+  const liveKeyForResolve = liveFeed ? (liveFeed.updated || JSON.stringify(liveFeed.matches)) : "";
+  const liveResolved = React.useMemo(() => window.wcResolveBracket(results || {}, liveFeed, {}), [pHash, liveKeyForResolve]); // eslint-disable-line
+  const champ = liveResolved.CHAMP;
+  // Count-based (see koPlayedCount's comment) — robust to individual wildcard-slot
+  // mis-pairing, so the round milestone always tracks reality.
+  const koPlayed = koPlayedCount(liveFeed, playedFixtures);
+  // Show the "knockouts" hero for the whole knockout stage — its content advances round
+  // by round on its own — but never shadow the World-Champions banner once it's real.
   const showKoSet = groupComplete && !champ;
 
   return (
     <div style={{ height: "100%", overflow: "auto", display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* 1 · HERO — once the groups are done, the locked-knockouts reveal; else live scores / countdown */}
+      {/* 1 · HERO — once the groups are done, the knockouts reveal (tracks the current
+          round on its own); else live scores / countdown */}
       {showKoSet
-        ? <KnockoutsSetHero results={results} fav={fav} proj={proj} next={next} tz={tz} setTab={setTab} poolStats={poolStats} nowMs={nowMs} />
+        ? <KnockoutsSetHero results={results} liveFeed={liveFeed} resolved={liveResolved} koPlayed={koPlayed} fav={fav} proj={proj} next={next} tz={tz} setTab={setTab} poolStats={poolStats} nowMs={nowMs} />
         : <HeroBand liveMatches={liveMatches} next={next} results={results} status={status} clock={clock} stats={stats} nowMs={nowMs} tz={tz} champ={champ} scoreMode={scoreMode} />}
 
       {/* 2 · DRAMA — what just changed (qualification ripples; retired once the groups are done) */}
@@ -775,10 +824,11 @@ function HomeTab({ tz, fav, results, status, clock, stats, liveFeed, players, br
           Retired once the groups finish — the KnockoutsSetHero owns that story then. */}
       {!groupComplete && playedFixtures >= 24 && <PlacesAtAGlance results={results} status={status} setTab={setTab} />}
 
-      {/* 5 · Round-of-32 matchups — "projected" while the groups run, then the locked grid (all 16
-          ties) once they're done, sitting under the KnockoutsSetHero reveal. */}
+      {/* 5 · Knockout matchups — "projected" Round of 32 while the groups run, then the
+          locked grid for whichever round is CURRENT once they're done (R32 → R16 → QF →
+          ... as each round's winners come in), sitting under the KnockoutsSetHero reveal. */}
       {(groupComplete || playedFixtures >= 24 || Object.keys(snapshot.perTeam).some((k) => snapshot.perTeam[k].clinchedTop2)) &&
-        <ProjectedR32Mini results={results} changedMatches={changedMatches} setTab={setTab} locked={groupComplete} />}
+        <ProjectedR32Mini results={results} liveFeed={liveFeed} round={groupComplete ? currentKoRound(koPlayed) : "R32"} changedMatches={changedMatches} setTab={setTab} locked={groupComplete} />}
 
       {/* 6 · favourite teams */}
       {favRows.length > 0 && (
