@@ -20,8 +20,12 @@ function feedScoreOf(liveFeed, top, bot) {
   if (!liveFeed || !top || !bot || !Array.isArray(liveFeed.matches)) return null;
   for (const m of liveFeed.matches) {
     if (m.hg == null || m.ag == null) continue;
-    if (m.home === top && m.away === bot) return { tg: m.hg, bg: m.ag, status: m.status };
-    if (m.home === bot && m.away === top) return { tg: m.ag, bg: m.hg, status: m.status };
+    // pen/hp/ap (ESPN only): the shoot-out winner + score for a knockout draw — see
+    // update_scores.py's docstring. penWin/tp/bp are all reoriented to top/bot (same
+    // convention as tg/bg), so the panel can show "Pens 4-3" the right way round
+    // regardless of which side the feed happened to list as home.
+    if (m.home === top && m.away === bot) return { tg: m.hg, bg: m.ag, status: m.status, penWin: m.pen === "home" ? "top" : m.pen === "away" ? "bot" : null, tp: m.hp, bp: m.ap };
+    if (m.home === bot && m.away === top) return { tg: m.ag, bg: m.hg, status: m.status, penWin: m.pen === "home" ? "bot" : m.pen === "away" ? "top" : null, tp: m.ap, bp: m.hp };
   }
   return null;
 }
@@ -49,7 +53,7 @@ function KnockoutPanel({ results, koResults, setKoResult, liveFeed }) {
   return (
     <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: "rgba(255,255,255,.06)", borderRadius: 18, padding: 18 }}>
       <div style={{ fontSize: 20, fontWeight: 700, color: "#f4b740", marginBottom: 4 }}>🏆 Knockout games — {liveFeed ? "live scores 🔴" : "type the scores"}</div>
-      <div style={{ fontSize: 13, color: "#9fb0e0", marginBottom: 14 }}>Winners advance to the next round on your 🗂️ Bracket (with “Auto-advance the bracket” on). Penalty shoot-outs: pick the winner by hand on the Bracket.</div>
+      <div style={{ fontSize: 13, color: "#9fb0e0", marginBottom: 14 }}>Winners advance to the next round on your 🗂️ Bracket (with “Auto-advance the bracket” on) — penalty shoot-outs advance automatically too. If a shoot-out ever doesn't resolve on its own, tap the team on the Bracket to pick the winner by hand.</div>
       {ROUNDS.map((rd) => {
         const ms = Object.keys(KO_M).map(Number).filter((no) => KO_M[no].round === rd.r).sort((a, b) => a - b);
         return (
@@ -67,6 +71,11 @@ function KnockoutPanel({ results, koResults, setKoResult, liveFeed }) {
                     <div style={{ fontSize: 11.5, color: "#9fb0e0", marginBottom: 4 }}><span style={{ color: "#f4b740", fontWeight: 700 }}>M{m.no}</span> · {m.date}{m.city ? " · 📍 " + m.city : ""}{fs && fs.status ? " · " + fs.status : ""}</div>
                     <TeamRow no={no} side={0} code={t.top} feeder={m.top} win={w ? w === t.top : undefined} score={topScore} editable={editable} />
                     <TeamRow no={no} side={1} code={t.bot} feeder={m.bottom} win={w ? w === t.bot : undefined} score={botScore} editable={editable} />
+                    {fs && fs.penWin && typeof fs.tp === "number" && typeof fs.bp === "number" && (
+                      <div style={{ fontSize: 12, color: "#f4b740", fontWeight: 700, textAlign: "center", marginTop: 2 }}>
+                        Pens {fs.penWin === "top" ? fs.tp + "–" + fs.bp : fs.bp + "–" + fs.tp}
+                      </div>
+                    )}
                   </div>
                 );
               })}

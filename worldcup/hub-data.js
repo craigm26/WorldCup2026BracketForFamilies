@@ -489,14 +489,23 @@ window.wcResolveBracket = function (results, live, koResults) {
   });
 
   const teamOf = {}, winnerOf = {};
+  // A level knockout scoreline (hg===ag) needs the shoot-out winner, not the goal
+  // count, to resolve — ESPN's feed carries that as m.pen ("home"|"away"); providers
+  // without shoot-out data (TheSportsDB fallback) simply omit it, and the match stays
+  // open exactly as before (never guessed).
+  function penWinner(m, top, bot) {
+    if (m.pen === "home") return m.home === top ? top : bot;
+    if (m.pen === "away") return m.away === top ? top : bot;
+    return null;
+  }
   function winnerFromFeed(top, bot) {
     for (let i = 0; i < matches.length; i++) {
       const m = matches[i];
       if (m.hg == null || m.ag == null) continue;
-      if (m.home === top && m.away === bot) return m.hg > m.ag ? top : m.hg < m.ag ? bot : null;
-      if (m.home === bot && m.away === top) return m.hg > m.ag ? bot : m.hg < m.ag ? top : null;
+      if (m.home === top && m.away === bot) return m.hg > m.ag ? top : m.hg < m.ag ? bot : penWinner(m, top, bot);
+      if (m.home === bot && m.away === top) return m.hg > m.ag ? bot : m.hg < m.ag ? top : penWinner(m, top, bot);
     }
-    return null; // not played yet, or a draw we can't break (penalties) — leave open
+    return null; // not played yet, or a drawn/level match with no shoot-out data — leave open
   }
   function winnerFromManual(no, top, bot) {
     const r = koResults[no];

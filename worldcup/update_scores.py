@@ -16,9 +16,15 @@ PROVIDERS (auto-picked, in order):
 Output schema (all the Hub cares about):
   { "updated": "<ISO time>",
     "matches": [ { "home":"MEX", "away":"RSA", "hg":2, "ag":1, "status":"FT" },
-                 { "home":"BIH", "away":"QAT", "hg":3, "ag":1, "status":"LIVE", "min":"67'" }, ... ] }
+                 { "home":"BIH", "away":"QAT", "hg":3, "ag":1, "status":"LIVE", "min":"67'" },
+                 { "home":"SUI", "away":"COL", "hg":0, "ag":0, "status":"FT",
+                   "pen":"home", "hp":4, "ap":3 }, ... ] }
 home/away are the kit's 3-letter codes (see TEAM map / data.js T{}). "min" (optional) is the
-last known match clock for an in-play game ("67'", "45'+2'") — shown live on the hub.
+last known match clock for an in-play game ("67'", "45'+2'") — shown live on the hub. "pen"
+(optional, ESPN only) is which side won a penalty shoot-out when a knockout match is level
+after 120' — hg/ag stay the regulation+ET goal count (never the shoot-out score), so the Hub's
+bracket auto-advance can resolve a KO draw without anyone hand-entering the winner. "hp"/"ap"
+are the shoot-out scores themselves, for display.
 
 USAGE
   python3 update_scores.py --self-test     # check team-mapping, no network
@@ -216,6 +222,19 @@ def fetch_espn():
                "hg": _sc(home) if status else None,
                "ag": _sc(away) if status else None,
                "status": status}
+        # Knockout draw after 120' — ESPN flags the shoot-out winner per competitor
+        # (a bool "winner", exactly one true/one false) plus each side's "shootoutScore".
+        # Without this, a level scoreline (hg==ag) is indistinguishable from an
+        # unresolved match and the Hub's bracket auto-advance has to stop dead.
+        if status == "FT" and row["hg"] is not None and row["hg"] == row["ag"]:
+            hw, aw = home.get("winner"), away.get("winner")
+            if hw is True and aw is False:
+                row["pen"] = "home"
+            elif aw is True and hw is False:
+                row["pen"] = "away"
+            hp, ap = home.get("shootoutScore"), away.get("shootoutScore")
+            if isinstance(hp, int) and isinstance(ap, int):
+                row["hp"], row["ap"] = hp, ap
         # the last known match minute for an in-play game (e.g. "67'") — shown live in the Hub
         if status in ("LIVE", "HT"):
             mn = sd or (((comp.get("status") or {}).get("displayClock") or "").strip())
@@ -276,6 +295,13 @@ def _merge_pair(a, b):
     ga, gb = a.get("goals") or [], b.get("goals") or []
     if ga or gb:
         out["goals"] = ga if len(ga) >= len(gb) else gb
+    # "pen" (ESPN-only shoot-out winner) must NEVER be dropped by a same-rank tie: a
+    # TheSportsDB fallback run (no shoot-out data) that happens to land on the same FT
+    # rank as an already-resolved ESPN record must not silently un-resolve the bracket.
+    if "pen" not in out and other.get("pen"):
+        out["pen"] = other["pen"]
+        if "hp" in other and "ap" in other:
+            out["hp"], out["ap"] = other["hp"], other["ap"]
     return out
 
 def _rank(item):
@@ -313,6 +339,10 @@ def build(rows):
         for k in STAT_KEYS:   # carry optional in-game stats (poss/sh/sot/goals) through unchanged
             if r.get(k) is not None:
                 item[k] = r[k]
+        if r.get("pen"):   # penalty shoot-out winner + score (ESPN only) — see module docstring
+            item["pen"] = r["pen"]
+            if isinstance(r.get("hp"), int) and isinstance(r.get("ap"), int):
+                item["hp"], item["ap"] = r["hp"], r["ap"]
         key = frozenset((home, away))
         if key not in best or _rank(item) > _rank(best[key]):
             best[key] = item
