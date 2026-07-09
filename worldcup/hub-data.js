@@ -475,9 +475,54 @@ window.wcResolveBracket = function (results, live, koResults) {
   const thirds = Object.keys(WC.GROUPS).map((g) => ({ g: g, k: standings[g][2].k, s: standings[g][2] }));
   thirds.sort((a, b) => b.s.pts - a.s.pts || b.s.gd - a.s.gd || b.s.gf - a.s.gf || WC.T[a.k].r - WC.T[b.k].r);
   const qThirds = thirds.slice(0, 8);
-  // assign the qualifying thirds to the eight "3XXXX" R32 feeders, honoring each
-  // slot's allowed groups where possible (greedy, deterministic by match order).
+  const qThirdGroup = {}; qThirds.forEach((t) => { qThirdGroup[t.k] = t.g; }); // team -> its OWN group letter
   const thirdAssign = {}, usedThird = {};
+
+  // Live-VERIFIED pass first: every "3XXXX" wildcard slot in R32 is paired against a
+  // plain group-position code (1X/2X — never another wildcard), so the moment that
+  // match has actually been PLAYED, the true wildcard occupant is sitting right there
+  // in the live feed — no need to re-derive FIFA's exact assignment procedure (which
+  // the greedy fallback below only approximates and can get wrong: confirmed against a
+  // real feed, it mis-paired 3 of 16 R32 slots once several groups' thirds were live).
+  // Reading it from a played result makes the resolver self-correcting from ground
+  // truth instead of staying wrong for the rest of the tournament.
+  //
+  // A team's own GROUP-STAGE opponents are also in the live feed, and one of them can
+  // coincidentally be a qualifying third from elsewhere's perspective is impossible —
+  // but a qualifying third's OWN groupmates (who never became one of the 8) obviously
+  // aren't candidates either; the real risk is picking up a group-stage match at all,
+  // since `code`'s wildcard groups list ALREADY excludes this match's own group by
+  // design (a team can never draw its own group's third). So the same `allowed` check
+  // the greedy pass uses doubles as the group-stage-match filter here: a candidate
+  // opponent whose group isn't in `allowed` is either this match's own groupmate (a
+  // group-stage game, not R32) or an ineligible third — either way, reject it.
+  if (matches.length) {
+    order.forEach((no) => {
+      const m = KO_M[no];
+      if (m.round !== "R32") return;
+      [[m.top, m.bottom], [m.bottom, m.top]].forEach((pair) => {
+        const knownCode = pair[0], wildCode = pair[1];
+        if (!/^3[A-L]+$/.test(wildCode) || thirdAssign[wildCode]) return;
+        const allowed = wildCode.slice(1).split("");
+        let gm;
+        const known = (gm = knownCode.match(/^1([A-L])$/)) ? standings[gm[1]][0].k
+          : (gm = knownCode.match(/^2([A-L])$/)) ? standings[gm[1]][1].k : null;
+        if (!known) return;
+        const played = matches.find((mm) => {
+          if (mm.hg == null || mm.ag == null) return false; // decided only — never guess from a scheduled fixture
+          if (mm.home !== known && mm.away !== known) return false;
+          const opp = mm.home === known ? mm.away : mm.home;
+          return !usedThird[opp] && allowed.indexOf(qThirdGroup[opp]) >= 0;
+        });
+        if (played) { const opp = played.home === known ? played.away : played.home; thirdAssign[wildCode] = opp; usedThird[opp] = true; }
+      });
+    });
+  }
+  // Greedy fallback: assign the qualifying thirds to whichever "3XXXX" R32 feeders the
+  // live-verified pass above couldn't settle (typically because that match hasn't
+  // kicked off yet — nothing to read from the feed), honoring each slot's allowed
+  // groups where possible (deterministic by match order). This is a PROJECTION until
+  // the real match is played and the pass above locks in the ground truth.
   order.forEach((no) => {
     [KO_M[no].top, KO_M[no].bottom].forEach((code) => {
       if (!/^3[A-L]+$/.test(code) || thirdAssign[code]) return;

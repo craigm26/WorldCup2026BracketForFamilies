@@ -52,3 +52,40 @@ test('a genuine draw stays unresolved when m.pen is absent even for group-stage-
   const resolved = window.wcResolveBracket(results, live, {});
   assert.equal(resolved.winners[73], undefined);
 });
+
+// ---- R32 wildcard-slot resolution must never mistake a team's own GROUP-STAGE
+// opponent for its cross-group wildcard opponent, even when that opponent is
+// genuinely one of the 8 qualifying thirds overall (confirmed live 2026-07-08: a
+// naive "who did this team play" lookup picked up France's own group-I meeting with
+// Senegal instead of their real Round-of-32 opponent, because Senegal legitimately
+// qualifies as a third from ELSEWHERE's perspective — it's just assigned to a
+// DIFFERENT wildcard slot (3AEHIJ, group I allowed there) than France's own (3CDFGH,
+// group I excluded there, since a team can never draw its own group's third). ----
+
+// Group I fully decisive, every other group untouched: FRA 1st (feeds match 77's "1I"),
+// SEN 3rd with real points — the sole team with any points, so it's trivially the #1
+// qualifying third overall despite being ineligible for FRA's own match.
+const groupIResults = {
+  'I-0': [2, 0], // FRA beat SEN (real group-stage meeting — must NOT be read as match 77)
+  'I-1': [0, 2], // NOR beat IRQ
+  'I-2': [3, 0], // FRA beat IRQ
+  'I-3': [2, 0], // NOR beat SEN
+  'I-4': [0, 2], // FRA beat NOR   → FRA 9pts 1st, NOR 6pts 2nd, SEN 3pts 3rd, IRQ 0pts 4th
+  'I-5': [1, 0], // SEN beat IRQ
+};
+test('R32 wildcard resolution excludes a qualifying third that is this match\'s own groupmate', () => {
+  const live = { matches: [
+    { home: 'FRA', away: 'SEN', status: 'FT', hg: 2, ag: 0 },
+    { home: 'IRQ', away: 'NOR', status: 'FT', hg: 0, ag: 2 },
+    { home: 'FRA', away: 'IRQ', status: 'FT', hg: 3, ag: 0 },
+    { home: 'NOR', away: 'SEN', status: 'FT', hg: 2, ag: 0 },
+    { home: 'NOR', away: 'FRA', status: 'FT', hg: 0, ag: 2 },
+    { home: 'SEN', away: 'IRQ', status: 'FT', hg: 1, ag: 0 },
+  ] };
+  const resolved = window.wcResolveBracket(groupIResults, live, {});
+  // match 77 = 1I(FRA) / 3CDFGH — group I is NOT in {C,D,F,G,H}, so SEN (group I) can
+  // never legitimately fill this slot even though it's the only real qualifying third
+  // in this minimal scenario and DID really play FRA (in the group stage).
+  assert.equal(resolved.matchTeams[77].top, 'FRA');
+  assert.notEqual(resolved.matchTeams[77].bot, 'SEN', 'a group-stage opponent must never be read as the R32 wildcard occupant');
+});
