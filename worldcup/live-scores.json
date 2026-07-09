@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-09T20:59:18.157676+00:00",
+  "updated": "2026-07-09T21:37:00.483417+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1430,21 +1430,33 @@
     {
       "home": "FRA",
       "away": "MAR",
-      "status": "HT",
-      "min": "HT",
-      "hg": 0,
+      "status": "LIVE",
+      "min": "71'",
+      "hg": 2,
       "ag": 0,
       "poss": [
-        49,
-        51
+        52,
+        48
       ],
       "sh": [
-        13,
-        1
+        17,
+        2
       ],
       "sot": [
-        3,
+        6,
         0
+      ],
+      "goals": [
+        {
+          "min": "60'",
+          "team": "FRA",
+          "scorer": "Kylian Mbapp\u00e9"
+        },
+        {
+          "min": "66'",
+          "team": "FRA",
+          "scorer": "Ousmane Demb\u00e9l\u00e9"
+        }
       ]
     }
   ]
