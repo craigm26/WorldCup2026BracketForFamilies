@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-10T19:20:28.788251+00:00",
+  "updated": "2026-07-10T19:57:07.534660+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1461,21 +1461,33 @@
     {
       "home": "ESP",
       "away": "BEL",
-      "status": "LIVE",
-      "min": "19'",
-      "hg": 0,
-      "ag": 0,
+      "status": "HT",
+      "min": "HT",
+      "hg": 1,
+      "ag": 1,
       "poss": [
-        65,
-        35
+        62,
+        38
       ],
       "sh": [
-        2,
-        1
+        9,
+        2
       ],
       "sot": [
-        0,
-        0
+        3,
+        1
+      ],
+      "goals": [
+        {
+          "min": "30'",
+          "team": "ESP",
+          "scorer": "Fabi\u00e1n Ruiz"
+        },
+        {
+          "min": "41'",
+          "team": "BEL",
+          "scorer": "Charles De Ketelaere"
+        }
       ]
     }
   ]
