@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-11T21:21:07.323433+00:00",
+  "updated": "2026-07-11T21:42:39.824208+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1493,20 +1493,27 @@
       "home": "NOR",
       "away": "ENG",
       "status": "LIVE",
-      "min": "20'",
-      "hg": 0,
+      "min": "41'",
+      "hg": 1,
       "ag": 0,
       "poss": [
-        33,
-        67
+        34,
+        66
       ],
       "sh": [
-        0,
-        0
+        4,
+        1
       ],
       "sot": [
-        0,
+        3,
         0
+      ],
+      "goals": [
+        {
+          "min": "36'",
+          "team": "NOR",
+          "scorer": "Andreas Schjelderup"
+        }
       ]
     }
   ]
