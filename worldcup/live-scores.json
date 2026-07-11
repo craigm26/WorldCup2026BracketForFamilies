@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-11T22:53:55.225098+00:00",
+  "updated": "2026-07-11T23:18:19.869576+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1493,20 +1493,20 @@
       "home": "NOR",
       "away": "ENG",
       "status": "LIVE",
-      "min": "90'+1'",
+      "min": "100'",
       "hg": 1,
-      "ag": 1,
+      "ag": 2,
       "poss": [
-        42,
-        58
+        44,
+        56
       ],
       "sh": [
         9,
-        6
+        10
       ],
       "sot": [
         4,
-        2
+        5
       ],
       "goals": [
         {
@@ -1516,6 +1516,11 @@
         },
         {
           "min": "45'+2'",
+          "team": "ENG",
+          "scorer": "Jude Bellingham"
+        },
+        {
+          "min": "93'",
           "team": "ENG",
           "scorer": "Jude Bellingham"
         }
