@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-11T21:42:39.824208+00:00",
+  "updated": "2026-07-11T22:07:08.372878+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1492,27 +1492,32 @@
     {
       "home": "NOR",
       "away": "ENG",
-      "status": "LIVE",
-      "min": "41'",
+      "status": "HT",
+      "min": "HT",
       "hg": 1,
-      "ag": 0,
+      "ag": 1,
       "poss": [
-        34,
-        66
+        32,
+        68
       ],
       "sh": [
-        4,
-        1
+        5,
+        4
       ],
       "sot": [
         3,
-        0
+        2
       ],
       "goals": [
         {
           "min": "36'",
           "team": "NOR",
           "scorer": "Andreas Schjelderup"
+        },
+        {
+          "min": "45'+2'",
+          "team": "ENG",
+          "scorer": "Jude Bellingham"
         }
       ]
     }
