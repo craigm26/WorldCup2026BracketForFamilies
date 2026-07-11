@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-10T21:04:33.882688+00:00",
+  "updated": "2026-07-11T21:21:07.323433+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1487,6 +1487,26 @@
           "team": "BEL",
           "scorer": "Charles De Ketelaere"
         }
+      ]
+    },
+    {
+      "home": "NOR",
+      "away": "ENG",
+      "status": "LIVE",
+      "min": "20'",
+      "hg": 0,
+      "ag": 0,
+      "poss": [
+        33,
+        67
+      ],
+      "sh": [
+        0,
+        0
+      ],
+      "sot": [
+        0,
+        0
       ]
     }
   ]
