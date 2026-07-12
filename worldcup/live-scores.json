@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-12T00:05:54.670221+00:00",
+  "updated": "2026-07-12T01:39:36.366305+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1522,6 +1522,33 @@
           "min": "93'",
           "team": "ENG",
           "scorer": "Jude Bellingham"
+        }
+      ]
+    },
+    {
+      "home": "ARG",
+      "away": "SUI",
+      "status": "LIVE",
+      "min": "38'",
+      "hg": 1,
+      "ag": 0,
+      "poss": [
+        44,
+        56
+      ],
+      "sh": [
+        3,
+        3
+      ],
+      "sot": [
+        1,
+        1
+      ],
+      "goals": [
+        {
+          "min": "10'",
+          "team": "ARG",
+          "scorer": "Alexis Mac Allister"
         }
       ]
     }
