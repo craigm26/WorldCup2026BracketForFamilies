@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-12T01:39:36.366305+00:00",
+  "updated": "2026-07-12T02:39:50.824921+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1529,26 +1529,31 @@
       "home": "ARG",
       "away": "SUI",
       "status": "LIVE",
-      "min": "38'",
+      "min": "78'",
       "hg": 1,
-      "ag": 0,
+      "ag": 1,
       "poss": [
-        44,
-        56
+        48,
+        52
       ],
       "sh": [
-        3,
-        3
+        5,
+        9
       ],
       "sot": [
         1,
-        1
+        5
       ],
       "goals": [
         {
           "min": "10'",
           "team": "ARG",
           "scorer": "Alexis Mac Allister"
+        },
+        {
+          "min": "67'",
+          "team": "SUI",
+          "scorer": "Dan Ndoye"
         }
       ]
     }
