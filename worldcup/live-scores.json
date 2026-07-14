@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-14T20:45:49.530785+00:00",
+  "updated": "2026-07-14T21:13:00.521659+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1559,8 +1559,7 @@
     {
       "home": "FRA",
       "away": "ESP",
-      "status": "LIVE",
-      "min": "83'",
+      "status": "FT",
       "hg": 0,
       "ag": 2,
       "poss": [
