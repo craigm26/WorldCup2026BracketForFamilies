@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-18T21:41:37.506974+00:00",
+  "updated": "2026-07-18T22:06:01.735707+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1616,21 +1616,21 @@
     {
       "home": "FRA",
       "away": "ENG",
-      "status": "LIVE",
-      "min": "40'",
+      "status": "HT",
+      "min": "HT",
       "hg": 0,
-      "ag": 3,
+      "ag": 4,
       "poss": [
-        47,
-        53
+        45,
+        55
       ],
       "sh": [
         5,
-        9
+        11
       ],
       "sot": [
         2,
-        6
+        7
       ],
       "goals": [
         {
@@ -1645,6 +1645,11 @@
         },
         {
           "min": "37'",
+          "team": "ENG",
+          "scorer": "Bukayo Saka"
+        },
+        {
+          "min": "45'+1'",
           "team": "ENG",
           "scorer": "Bukayo Saka"
         }
