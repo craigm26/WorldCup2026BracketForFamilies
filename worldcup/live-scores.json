@@ -1,5 +1,5 @@
 {
-  "updated": "2026-07-18T22:06:01.735707+00:00",
+  "updated": "2026-07-18T22:29:08.526090+00:00",
   "matches": [
     {
       "home": "MEX",
@@ -1616,21 +1616,21 @@
     {
       "home": "FRA",
       "away": "ENG",
-      "status": "HT",
-      "min": "HT",
-      "hg": 0,
+      "status": "LIVE",
+      "min": "65'",
+      "hg": 2,
       "ag": 4,
       "poss": [
-        45,
-        55
+        43,
+        57
       ],
       "sh": [
-        5,
-        11
+        10,
+        15
       ],
       "sot": [
-        2,
-        7
+        5,
+        8
       ],
       "goals": [
         {
@@ -1652,6 +1652,16 @@
           "min": "45'+1'",
           "team": "ENG",
           "scorer": "Bukayo Saka"
+        },
+        {
+          "min": "48'",
+          "team": "FRA",
+          "scorer": "Kylian Mbapp\u00e9"
+        },
+        {
+          "min": "54'",
+          "team": "FRA",
+          "scorer": "Bradley Barcola"
         }
       ]
     }
